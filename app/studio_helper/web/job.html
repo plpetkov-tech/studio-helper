@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Job &middot; Studio Helper</title>
+<link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+  <header class="topbar">
+    <h1>Studio Helper</h1>
+    <nav>
+      <a href="/index.html">Home</a>
+      <a href="/registry.html">Registry</a>
+    </nav>
+  </header>
+
+  <main>
+    <div id="error-banner" class="banner error" hidden></div>
+    <div id="notice-banner" class="banner success" hidden></div>
+
+    <div id="job-header">
+      <p class="empty-state">Loading…</p>
+    </div>
+
+    <div class="actions">
+      <button id="open-folder-btn">Open folder</button>
+      <button id="start-revision-btn">Start revision</button>
+    </div>
+
+    <h2>Print</h2>
+    <div class="actions">
+      <button disabled title="Coming once the Illustrator generator ships (milestone M3)">Create Illustrator print file</button>
+      <button disabled title="Coming once the Illustrator preflight ships (milestone M4)">Check print file</button>
+      <button disabled title="Coming once the Illustrator preflight ships (milestone M4)">Check &amp; export print</button>
+    </div>
+
+    <h2>Digital</h2>
+    <div class="actions">
+      <button disabled title="Coming once the Photoshop generator ships (milestone M5)">Create Photoshop file</button>
+      <button disabled title="Coming once the Photoshop exporter ships (milestone M5)">Export from Photoshop</button>
+    </div>
+    <div class="card">
+      <h3>Figma</h3>
+      <ol>
+        <li>Open Figma desktop and this job's file (or a new file).</li>
+        <li>Run the Studio Helper plugin &rarr; "Create frames" and give it job.json.</li>
+        <li>Design inside the frames it creates -- their names already match the export filenames.</li>
+        <li>Use Figma's own Export on those frames; files land in <code>04_export/</code> automatically.</li>
+      </ol>
+      <p class="hint">The plugin ships in milestone M5. For now, copy the path below to have it ready.</p>
+      <button id="copy-job-json-btn">Copy job.json path</button>
+    </div>
+
+    <h2>Deliverables</h2>
+    <div id="deliverables">
+      <p class="empty-state">Loading…</p>
+    </div>
+  </main>
+
+  <script src="/static/api.js"></script>
+  <script src="/static/job.js"></script>
+</body>
+</html>

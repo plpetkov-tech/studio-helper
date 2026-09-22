@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Studio Helper</title>
+<title>Registry &middot; Studio Helper</title>
 <link rel="stylesheet" href="/static/app.css">
 </head>
 <body>
@@ -12,24 +12,27 @@
     <nav>
       <a href="/index.html">Home</a>
       <a href="/registry.html">Registry</a>
-      <a href="#" id="quit-link">Quit</a>
     </nav>
   </header>
 
   <main>
+    <h1>Registry</h1>
+    <p class="subtitle">The formats and defaults every job is built from. Edit registry.yaml, then Validate.</p>
+
     <div id="error-banner" class="banner error" hidden></div>
+    <div id="success-banner" class="banner success" hidden></div>
 
     <div class="actions">
-      <a class="button primary" href="/new-job.html">New job</a>
+      <button id="open-btn">Open registry file</button>
+      <button id="validate-btn">Validate registry</button>
     </div>
 
-    <h2>Recent jobs</h2>
-    <div id="jobs-list">
+    <div id="formats-table">
       <p class="empty-state">Loading…</p>
     </div>
   </main>
 
   <script src="/static/api.js"></script>
-  <script src="/static/home.js"></script>
+  <script src="/static/registry.js"></script>
 </body>
 </html>

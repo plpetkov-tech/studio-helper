@@ -14,6 +14,7 @@ import threading
 import webbrowser
 
 from studio_helper import config, instance, logging_setup, paths
+from studio_helper.api.context import AppContext
 from studio_helper.server import create_server
 
 
@@ -40,9 +41,10 @@ def run() -> int:
 
     instance.clear()
     seed_user_registry()
-    config.Config.load()
+    cfg = config.Config.load()
+    ctx = AppContext(cfg)
 
-    server = create_server()
+    server = create_server(ctx=ctx)
     host, port = server.server_address[:2]
     info = instance.InstanceInfo(port=port, token=server.token, pid=os.getpid())
     instance.write(info)

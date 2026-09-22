@@ -40,6 +40,22 @@ def test_index_served(running_server):
     assert "Studio Helper" in body
 
 
+@pytest.mark.parametrize("page", ["/new-job.html", "/job.html", "/registry.html"])
+def test_other_pages_served(running_server, page):
+    _server, port = running_server
+    with _get(port, page) as resp:
+        assert resp.status == 200
+        body = resp.read().decode("utf-8")
+    assert "<html" in body.lower()
+
+
+def test_static_js_served(running_server):
+    _server, port = running_server
+    with _get(port, "/static/api.js") as resp:
+        assert resp.status == 200
+        assert "javascript" in resp.headers.get("Content-Type", "")
+
+
 def test_no_cors_header_ever(running_server):
     _server, port = running_server
     with _get(port, "/api/health") as resp:

@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>New job &middot; Studio Helper</title>
+<link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+  <header class="topbar">
+    <h1>Studio Helper</h1>
+    <nav>
+      <a href="/index.html">Home</a>
+      <a href="/registry.html">Registry</a>
+    </nav>
+  </header>
+
+  <main class="narrow">
+    <h1>New job</h1>
+    <p class="subtitle">Name it, pick a job type to pre-tick formats, then add or remove any format.</p>
+
+    <div id="error-banner" class="banner error" hidden></div>
+
+    <form id="new-job-form">
+      <label for="name">Job name</label>
+      <input type="text" id="name" name="name" placeholder="e.g. Autumn Sale" autocomplete="off" required>
+
+      <label for="job-type">Job type</label>
+      <select id="job-type">
+        <option value="">Custom (pick formats below)</option>
+      </select>
+
+      <label>Formats</label>
+      <div id="format-checklist" class="checklist">
+        <p class="empty-state">Loading registry…</p>
+      </div>
+
+      <div id="preview" class="preview" hidden></div>
+
+      <div class="actions">
+        <button type="submit" class="primary">Create job</button>
+      </div>
+    </form>
+  </main>
+
+  <script src="/static/api.js"></script>
+  <script src="/static/new-job.js"></script>
+</body>
+</html>

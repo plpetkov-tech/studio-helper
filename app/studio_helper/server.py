@@ -22,10 +22,20 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 from studio_helper import __version__
+from studio_helper.api import dispatch
 
 logger = logging.getLogger("studio_helper.server")
 
 WEB_ROOT = Path(__file__).parent / "web"
+
+# Fixed whitelist, never derived from the request path (SPEC.md §8 path safety).
+PAGES = {
+    "/": "index.html",
+    "/index.html": "index.html",
+    "/new-job.html": "new-job.html",
+    "/job.html": "job.html",
+    "/registry.html": "registry.html",
+}
 
 
 def make_token() -> str:
@@ -97,8 +107,8 @@ class Handler(BaseHTTPRequestHandler):
 
         path = self.path.split("?")[0].split("#")[0]
 
-        if path == "/" or path == "/index.html":
-            self._send_file(WEB_ROOT / "index.html", "text/html; charset=utf-8")
+        if path in PAGES:
+            self._send_file(WEB_ROOT / PAGES[path], "text/html; charset=utf-8")
             return
 
         if path.startswith("/static/"):
@@ -113,7 +123,11 @@ class Handler(BaseHTTPRequestHandler):
             if not self._valid_token():
                 self._send_json(401, {"ok": False, "error": "invalid token"})
                 return
-            self._send_json(404, {"ok": False, "error": "unknown endpoint"})
+            if self.server.ctx is None:
+                self._send_json(500, {"ok": False, "error": "server not configured"})
+                return
+            status, payload = dispatch("GET", path, self.server.ctx, None)
+            self._send_json(status, payload)
             return
 
         self._send_json(404, {"ok": False, "error": "not found"})
@@ -138,16 +152,37 @@ class Handler(BaseHTTPRequestHandler):
             threading.Thread(target=self.server.shutdown, daemon=True).start()
             return
 
-        self._send_json(404, {"ok": False, "error": "unknown endpoint"})
+        if self.server.ctx is None:
+            self._send_json(500, {"ok": False, "error": "server not configured"})
+            return
+
+        try:
+            body = self._read_json_body()
+        except ValueError:
+            self._send_json(400, {"ok": False, "error": "invalid JSON body"})
+            return
+
+        status, payload = dispatch("POST", path, self.server.ctx, body)
+        self._send_json(status, payload)
+
+    def _read_json_body(self) -> dict:
+        length = int(self.headers.get("Content-Length", 0) or 0)
+        if length == 0:
+            return {}
+        raw = self.rfile.read(length)
+        if not raw:
+            return {}
+        return json.loads(raw.decode("utf-8"))
 
 
 class StudioHelperServer(ThreadingHTTPServer):
     daemon_threads = True
 
-    def __init__(self, token: str, port: int = 0):
+    def __init__(self, token: str, port: int = 0, ctx=None):
         super().__init__(("127.0.0.1", port), Handler)
         self.token = token
+        self.ctx = ctx
 
 
-def create_server(token: str | None = None, port: int = 0) -> StudioHelperServer:
-    return StudioHelperServer(token or make_token(), port)
+def create_server(token: str | None = None, port: int = 0, ctx=None) -> StudioHelperServer:
+    return StudioHelperServer(token or make_token(), port, ctx)
