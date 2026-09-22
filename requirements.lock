@@ -36,3 +36,10 @@ referencing==0.37.0 \
 
 rpds-py==2026.6.3 \
     --hash=sha256:2c958bf94822e9290a40aaf2a822d4bc5c88099093e3948ad6c571eca9272e5f
+
+# referencing needs this on Python < 3.13 for typing.TypeVar(default=...)
+# (PEP 696). `pip download --python-version` does not reliably evaluate
+# that marker across a different host interpreter (see
+# packaging/lock_requirements.sh), so it is pinned explicitly here.
+typing-extensions==4.16.0 \
+    --hash=sha256:481caa481374e813c1b176ada14e97f1f67a4539ce9cfeb3f350d78d6370c2e8

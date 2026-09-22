@@ -4,6 +4,16 @@
 # (SPEC.md §5.1, §8). Can be run from Linux or Windows dev machines --
 # it only downloads wheels, it never builds them.
 #
+# CAUTION: `pip download --python-version 312` picks win_amd64/cp312
+# *wheels* correctly, but does not reliably evaluate PEP 508 markers
+# like `python_version < "3.13"` against the *target* Python when the
+# host running this script is on a different Python version -- it can
+# silently drop a dependency a package only needs on older Pythons
+# (this bit us once: referencing's typing_extensions fallback for
+# TypeVar(default=...), which only exists natively in 3.13+). After
+# regenerating, run the packaging smoke test (or the release workflow)
+# and actually exercise `--selftest` before trusting the new lock.
+#
 # Usage: packaging/lock_requirements.sh
 set -euo pipefail
 

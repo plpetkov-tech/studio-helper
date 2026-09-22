@@ -17,3 +17,9 @@ pypdf==6.19.0
 pypdfium2==5.13.0
 pillow==12.3.0
 comtypes==1.4.17; sys_platform == "win32"
+
+# Transitive (via jsonschema -> referencing), pinned explicitly: referencing
+# needs this on Python < 3.13 for typing.TypeVar(default=...) (PEP 696), and
+# `pip download --python-version` does not reliably evaluate that marker
+# across a different host interpreter -- see packaging/lock_requirements.sh.
+typing-extensions==4.16.0
