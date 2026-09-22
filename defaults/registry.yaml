@@ -1,0 +1,57 @@
+# Studio Helper default registry (SPEC.md §6.1).
+#
+# THIS IS A PLACEHOLDER. Values marked TBD must come from the owner
+# (SPEC.md §13 open items) before the print/digital generators can be
+# trusted. The schema and loader that validate this file are built in
+# milestone M1; until then this file is not yet read by the app.
+version: 1
+
+print_defaults:
+  bleed_mm: 3          # TBD - confirm with print department
+  safe_mm: 5            # TBD
+  pdf_preset: StudioHelper_X1a
+  raster_ppi: 300
+  min_image_ppi:
+    warn: 300
+    fail: 200
+  tiff_if_longest_side_mm_over: 1000   # TBD
+  tiff_ppi: 150                         # TBD - at final physical size
+
+formats:
+  - id: flyer-a5
+    name: A5 flyer
+    kind: print
+    size: {w: 148, h: 210, unit: mm}
+    exports: [pdf]
+
+  - id: flyer-a4
+    name: A4 flyer
+    kind: print
+    size: {w: 210, h: 297, unit: mm}
+    exports: [pdf]
+
+  - id: flyer-a6
+    name: A6 flyer
+    kind: print
+    size: {w: 105, h: 148, unit: mm}
+    exports: [pdf]
+
+  - id: ig-post
+    name: Instagram post
+    kind: social
+    size: {w: 1080, h: 1350, unit: px}
+    safe_px: 0
+    exports: [png]
+    allow_alpha: false
+
+  - id: ig-story
+    name: Instagram story
+    kind: social
+    size: {w: 1080, h: 1920, unit: px}
+    safe_px: 0
+    exports: [png]
+    allow_alpha: false
+
+job_types:
+  full-campaign: [flyer-a4, flyer-a5, flyer-a6, "ig-*"]
+  shop-promo: [flyer-a4, "ig-story"]

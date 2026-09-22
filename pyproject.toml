@@ -1,0 +1,14 @@
+[tool.pytest.ini_options]
+pythonpath = ["app"]
+testpaths = ["tests"]
+markers = [
+    "adobe: requires a Windows machine with Illustrator/Photoshop installed (SPEC.md §9); skipped unless STUDIO_HELPER_ADOBE=1.",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+extend-exclude = ["figma-plugin", "adobe"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]

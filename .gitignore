@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+.venv/
+venv/
+
+# Build / packaging output
+runtime/lib/
+dist/
+build/
+*.zip
+SBOM.cdx.json
+SHA256SUMS
+
+# Figma plugin build output (committed nothing built, per SPEC.md §6.6)
+figma-plugin/dist/
+figma-plugin/node_modules/
+node_modules/
+
+# Never distributed: real client artwork used for validator testing
+tests/fixtures/real/*
+!tests/fixtures/real/.gitkeep
+
+# Editor / OS
+.DS_Store
+.vscode/
+*.swp
+
+# App runtime state if ever run from the repo root during dev
+/StudioHelper-appdata/

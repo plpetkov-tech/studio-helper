@@ -1,0 +1,19 @@
+# Runtime dependencies bundled into runtime/lib for the shipped app.
+# Pinned exact versions; requirements.lock carries the --hash entries
+# for `pip install --require-hashes`. Regenerate the lock with
+# packaging/lock_requirements.sh whenever this file changes.
+#
+# Licenses (must stay MIT / BSD / Apache / PSF -- see SPEC.md §2.4):
+#   pyyaml       MIT
+#   jsonschema   MIT
+#   pypdf        BSD-3-Clause
+#   pypdfium2    Apache-2.0 OR BSD-3-Clause
+#   pillow       MIT-CMU (HPND)
+#   comtypes     MIT
+
+pyyaml==6.0.3
+jsonschema==4.26.0
+pypdf==6.19.0
+pypdfium2==5.13.0
+pillow==12.3.0
+comtypes==1.4.17; sys_platform == "win32"

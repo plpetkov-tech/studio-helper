@@ -1,0 +1,75 @@
+STUDIO HELPER
+=============
+
+What this is
+-------------
+A tool that sets up your print and digital files correctly, names
+and organizes everything, and checks your exports before they go to
+print or online. It never touches your actual design - only Illustrator,
+Photoshop, and Figma do that.
+
+
+BEFORE YOU EXTRACT THE ZIP
+---------------------------
+Windows blocks files downloaded from the internet until you tell it
+they're OK. Do this once, before you extract:
+
+  1. Right-click the zip file.
+  2. Choose Properties.
+  3. At the bottom, tick "Unblock", then click OK.
+  4. Now extract the zip (right-click -> Extract All...).
+
+If you forget this step, Studio Helper's own Setup check page will
+remind you.
+
+
+STARTING STUDIO HELPER
+------------------------
+Double-click "Start Studio Helper" inside the extracted folder. Your
+browser will open a page - that page IS Studio Helper. You can leave
+it open while you work.
+
+The first time you start it, it will show a "Setup check" page that
+tells you if Illustrator, Photoshop, and your jobs folder are ready.
+Follow any "fix" hints it shows.
+
+
+ONE-TIME FIGMA SETUP
+----------------------
+If you use Figma for digital work:
+
+  1. Open Figma desktop.
+  2. Go to Plugins -> Development -> Import plugin from manifest...
+  3. Pick the file: figma-plugin\manifest.json (inside this folder).
+
+You only need to do this once.
+
+
+IF ILLUSTRATOR AUTOMATION FAILS
+----------------------------------
+Sometimes Illustrator won't let Studio Helper control it directly
+(a permissions issue, or it's busy). When that happens, use the
+manual path instead - Studio Helper will show you these same steps
+on screen:
+
+  1. In Studio Helper, click "Open scripts folder".
+  2. In Illustrator: File -> Scripts -> Other Script...
+  3. Pick the .jsx file Studio Helper told you to run.
+  4. When it asks, select the job.json file for your job.
+
+Everything still gets checked and named correctly - only the "click
+one button in the browser" part is skipped.
+
+
+UPDATING
+---------
+To update, extract the new zip (anywhere) and start it from there.
+Your jobs, settings and job history are kept safely in your Windows
+user profile and are not affected by updating.
+
+
+QUESTIONS OR SOMETHING LOOKS WRONG
+-------------------------------------
+Use the "Copy diagnostics" button inside Studio Helper (on the Job
+page) and send the file it creates. It contains no client artwork -
+just logs and the job's own settings.
