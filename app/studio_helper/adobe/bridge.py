@@ -18,6 +18,8 @@ logger = logging.getLogger("studio_helper.adobe")
 
 LAUNCH_TIMEOUT_SECONDS = 120
 
+_com_state = threading.local()
+
 
 class AdobeBridgeError(Exception):
     """COM connection or invocation failed; caller shows the manual
@@ -34,6 +36,21 @@ def _comtypes_client():
     return comtypes.client
 
 
+def _ensure_com_initialized() -> None:
+    """COM apartments are per-thread: every thread that makes a COM
+    call needs its own CoInitialize. Found on a real machine, not in
+    testing here -- every Illustrator/Photoshop action failed with
+    "CoInitialize has not been called" (WinError -2147221008),
+    because AppContext.tasks (SPEC.md §6.2) runs each action on a
+    fresh background thread that had never called it."""
+    if getattr(_com_state, "initialized", False):
+        return
+    import comtypes
+
+    comtypes.CoInitialize()
+    _com_state.initialized = True
+
+
 def is_running(progid: str) -> bool:
     """Passive check: is the app already running and controllable?
     Never launches it -- used by the Setup check page, which
@@ -43,6 +60,7 @@ def is_running(progid: str) -> bool:
         return False
     try:
         client = _comtypes_client()
+        _ensure_com_initialized()
     except AdobeBridgeError:
         return False
     try:
@@ -52,33 +70,28 @@ def is_running(progid: str) -> bool:
         return False
 
 
-def connect(progid: str, timeout: float = LAUNCH_TIMEOUT_SECONDS):
-    """Connects to a running instance, or launches one. May block for
-    up to `timeout` seconds if the app needs to cold-start."""
+def connect(progid: str):
+    """Connects to a running instance, or launches one. Runs entirely
+    on the calling thread: COM objects are bound to the apartment
+    that created them, so creating one on a helper thread (as an
+    earlier version of this did, to enforce a timeout) and calling it
+    from another breaks -- at best a marshaling error, at worst the
+    same CoInitialize error this fixes. The caller already runs
+    inside a background Task (SPEC.md §6.2), so a slow Illustrator
+    launch still never blocks the UI; it just makes that one task take
+    longer, which is what the polling UI already expects."""
     client = _comtypes_client()
+    _ensure_com_initialized()
 
     try:
         return client.GetActiveObject(progid)
     except OSError:
         pass  # not running yet -- launch it below
 
-    launch_result: dict = {}
-
-    def _launch() -> None:
-        try:
-            launch_result["app"] = client.CreateObject(progid, dynamic=True)
-        except Exception as exc:  # noqa: BLE001 - reported to the caller, not raised here
-            launch_result["error"] = exc
-
-    thread = threading.Thread(target=_launch, daemon=True)
-    thread.start()
-    thread.join(timeout)
-
-    if thread.is_alive():
-        raise AdobeBridgeError(f"{progid} did not start within {timeout:.0f}s.")
-    if "error" in launch_result:
-        raise AdobeBridgeError(f"Could not start {progid}: {launch_result['error']}")
-    return launch_result["app"]
+    try:
+        return client.CreateObject(progid, dynamic=True)
+    except Exception as exc:  # noqa: BLE001 - reported to the caller, not raised as-is
+        raise AdobeBridgeError(f"Could not start {progid}: {exc}") from exc
 
 
 def run_jsx(app, jsx_path: Path, args: dict) -> dict:

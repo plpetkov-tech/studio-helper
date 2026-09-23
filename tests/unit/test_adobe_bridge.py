@@ -5,6 +5,11 @@ import types
 import pytest
 from studio_helper.adobe import bridge
 
+# Captured before any test can monkeypatch the module attribute, so
+# the dedicated test below can always reach the real implementation
+# regardless of the autouse fixture's patch.
+_REAL_ENSURE_COM_INITIALIZED = bridge._ensure_com_initialized
+
 DEFAULT_OK_RESULT = '{"ok": true, "data": {}, "errors": [], "warnings": []}'
 
 
@@ -20,6 +25,16 @@ class FakeApp:
 
 def _raise_oserror(_progid):
     raise OSError("not running")
+
+
+@pytest.fixture(autouse=True)
+def _no_real_com_init(monkeypatch):
+    # _ensure_com_initialized does its own `import comtypes` (a
+    # Windows-only, sys_platform-gated dependency -- see
+    # requirements.in), so it must never run for real on the
+    # ubuntu-latest CI job or on this dev machine. Tests that care
+    # about its behavior replace this fixture's patch themselves.
+    monkeypatch.setattr(bridge, "_ensure_com_initialized", lambda: None)
 
 
 def test_is_running_false_on_non_windows(monkeypatch):
@@ -55,7 +70,7 @@ def test_connect_launches_when_not_running(monkeypatch):
         CreateObject=lambda progid, dynamic: app,
     )
     monkeypatch.setattr(bridge, "_comtypes_client", lambda: fake_client)
-    assert bridge.connect("Illustrator.Application", timeout=5) is app
+    assert bridge.connect("Illustrator.Application") is app
 
 
 def test_connect_raises_when_launch_fails(monkeypatch):
@@ -67,18 +82,58 @@ def test_connect_raises_when_launch_fails(monkeypatch):
     )
     monkeypatch.setattr(bridge, "_comtypes_client", lambda: fake_client)
     with pytest.raises(bridge.AdobeBridgeError, match="Could not start"):
-        bridge.connect("Illustrator.Application", timeout=5)
+        bridge.connect("Illustrator.Application")
 
 
-def test_connect_raises_on_timeout(monkeypatch):
-    def slow_create(progid, dynamic):
-        threading.Event().wait(5)
+def test_connect_calls_ensure_com_initialized_before_any_com_call(monkeypatch):
+    # The bug this guards against: a background Task thread (SPEC.md
+    # §6.2) calling into COM without CoInitialize, which fails with
+    # "CoInitialize has not been called" (WinError -2147221008) --
+    # found on a real machine, not in this test suite. connect() must
+    # initialize COM on its OWN thread before touching the client.
+    calls = []
+    monkeypatch.setattr(bridge, "_ensure_com_initialized", lambda: calls.append("init"))
+
+    def fake_get_active_object(progid):
+        calls.append("get")
         return FakeApp()
 
-    fake_client = types.SimpleNamespace(GetActiveObject=_raise_oserror, CreateObject=slow_create)
+    fake_client = types.SimpleNamespace(GetActiveObject=fake_get_active_object)
     monkeypatch.setattr(bridge, "_comtypes_client", lambda: fake_client)
-    with pytest.raises(bridge.AdobeBridgeError, match="did not start"):
-        bridge.connect("Illustrator.Application", timeout=0.2)
+    bridge.connect("Illustrator.Application")
+    assert calls == ["init", "get"]
+
+
+def test_connect_does_not_hand_a_com_object_across_threads(monkeypatch):
+    # connect() must do everything -- GetActiveObject/CreateObject --
+    # on the calling thread. An earlier version spawned a helper
+    # thread just to enforce a timeout on CreateObject, which created
+    # the COM object on that helper thread while the caller used it
+    # from a different one (an apartment violation, and part of the
+    # same class of bug as the missing CoInitialize).
+    creating_thread_ids = []
+
+    def fake_create(progid, dynamic):
+        creating_thread_ids.append(threading.get_ident())
+        return FakeApp()
+
+    fake_client = types.SimpleNamespace(GetActiveObject=_raise_oserror, CreateObject=fake_create)
+    monkeypatch.setattr(bridge, "_comtypes_client", lambda: fake_client)
+    bridge.connect("Illustrator.Application")
+    assert creating_thread_ids == [threading.get_ident()]
+
+
+def test_ensure_com_initialized_calls_coinitialize_once_per_thread(monkeypatch):
+    calls = []
+    fake_comtypes = types.SimpleNamespace(CoInitialize=lambda: calls.append("CoInitialize"))
+    monkeypatch.setitem(sys.modules, "comtypes", fake_comtypes)
+    monkeypatch.setattr(bridge, "_ensure_com_initialized", _REAL_ENSURE_COM_INITIALIZED)
+    monkeypatch.setattr(bridge._com_state, "initialized", False, raising=False)
+
+    bridge._ensure_com_initialized()
+    bridge._ensure_com_initialized()  # same thread -- must not call CoInitialize again
+
+    assert calls == ["CoInitialize"]
 
 
 def test_run_jsx_sends_args_and_evalfile_call(tmp_path):
