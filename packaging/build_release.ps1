@@ -95,8 +95,14 @@ if (Test-Path $figmaPkgJson) {
     finally {
         Pop-Location
     }
+    # manifest.json's "main" is "dist/code.js" and "ui" is "ui.html",
+    # both resolved relative to the manifest itself -- ui.html must be
+    # copied explicitly (esbuild only builds code.js), and dist/ must
+    # stay a subfolder, not get flattened into figma-plugin/.
     Copy-Item (Join-Path $figmaSrc "manifest.json") $figmaStage -Force
-    Copy-Item (Join-Path $figmaSrc "dist" "*") $figmaStage -Recurse -Force
+    Copy-Item (Join-Path $figmaSrc "ui.html") $figmaStage -Force
+    New-Item -ItemType Directory -Force -Path (Join-Path $figmaStage "dist") | Out-Null
+    Copy-Item (Join-Path $figmaSrc "dist" "*") (Join-Path $figmaStage "dist") -Recurse -Force
 }
 else {
     Write-Host "No figma-plugin/package.json yet (pre-M5) -- shipping manifest only if present."
