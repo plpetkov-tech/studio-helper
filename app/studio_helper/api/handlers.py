@@ -6,38 +6,20 @@ with a plain message.
 
 from __future__ import annotations
 
-import subprocess
-import sys
 from pathlib import Path
 
+from studio_helper import paths as app_paths
+from studio_helper.adobe import illustrator
 from studio_helper.core import job as job_mod
 from studio_helper.core.registry import Registry, load_registry
 from studio_helper.deliverables import deliverables_table
 
 from .dispatch import route
+from .openers import open_path
 
 
 def _load_registry(ctx) -> Registry:
     return load_registry(ctx.registry_path)
-
-
-def _open_path(path: Path, *, reveal: bool) -> None:
-    """`reveal=True` opens the containing app (Explorer/Finder/file
-    manager) on a folder; `reveal=False` opens a file in the default
-    text editor. Both are best-effort and never raise -- there is
-    nothing useful the UI can do if the OS call itself fails."""
-    try:
-        if sys.platform == "win32":
-            if reveal:
-                subprocess.run(["explorer.exe", str(path)], check=False)
-            else:
-                subprocess.run(["notepad.exe", str(path)], check=False)
-        elif sys.platform == "darwin":
-            subprocess.run(["open"] + ([] if reveal else ["-t"]) + [str(path)], check=False)
-        else:
-            subprocess.run(["xdg-open", str(path)], check=False)
-    except OSError:
-        pass
 
 
 # -- config -----------------------------------------------------------
@@ -75,7 +57,7 @@ def validate_registry(ctx, body):
 
 @route("POST", "/api/registry/open")
 def open_registry(ctx, body):
-    _open_path(ctx.registry_path, reveal=False)
+    open_path(ctx.registry_path, reveal=False)
     return 200, {"ok": True}
 
 
@@ -120,7 +102,32 @@ def start_revision(ctx, body, job_id):
 @route("POST", "/api/jobs/<job_id>/open-folder")
 def open_job_folder(ctx, body, job_id):
     root = job_mod.job_path(ctx.jobs_root, job_id)
-    _open_path(root, reveal=True)
+    open_path(root, reveal=True)
+    return 200, {"ok": True}
+
+
+@route("POST", "/api/jobs/<job_id>/illustrator/new-print-doc")
+def create_illustrator_print_doc(ctx, body, job_id):
+    job = job_mod.load_job(ctx.jobs_root, job_id)
+    working_dir = job_mod.job_path(ctx.jobs_root, job_id) / "03_working"
+
+    def work() -> dict:
+        result = illustrator.create_print_doc(job, working_dir)
+        if result.get("ok"):
+            paths = [d["path"] for d in result.get("data", {}).get("documents", [])]
+            job_mod.record_print_files(ctx.jobs_root, job_id, paths)
+        return result
+
+    task_id = ctx.tasks.start(work)
+    return 200, {"ok": True, "task_id": task_id}
+
+
+@route("POST", "/api/adobe/open-scripts-folder")
+def open_scripts_folder(ctx, body):
+    """The manual fallback path when COM automation fails (SPEC.md
+    §6.3): she runs the JSX herself from File > Scripts > Other
+    Script..., picking job.json when prompted."""
+    open_path(app_paths.bundled_root() / "adobe" / "illustrator", reveal=True)
     return 200, {"ok": True}
 
 

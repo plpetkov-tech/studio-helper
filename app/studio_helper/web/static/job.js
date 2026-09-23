@@ -109,6 +109,66 @@
     });
   });
 
+  var createPrintDocBtn = document.getElementById("create-print-doc-btn");
+  var printDocStatusEl = document.getElementById("print-doc-status");
+
+  function showPrintDocStatus(message) {
+    printDocStatusEl.textContent = message;
+    printDocStatusEl.hidden = false;
+  }
+
+  function showManualFallback(reason) {
+    showPrintDocStatus(
+      (reason ? reason + " " : "") +
+      'Use the manual path instead: click "Open scripts folder" below, then in ' +
+      "Illustrator: File › Scripts › Other Script…, run new_print_doc.jsx, " +
+      "and pick this job's job.json when it asks."
+    );
+    if (!document.getElementById("open-scripts-folder-btn")) {
+      var btn = document.createElement("button");
+      btn.id = "open-scripts-folder-btn";
+      btn.textContent = "Open scripts folder";
+      btn.addEventListener("click", function () {
+        SH.post("/api/adobe/open-scripts-folder");
+      });
+      printDocStatusEl.parentNode.insertBefore(btn, printDocStatusEl.nextSibling);
+    }
+  }
+
+  createPrintDocBtn.addEventListener("click", function () {
+    errorEl.hidden = true;
+    createPrintDocBtn.disabled = true;
+    showPrintDocStatus("Working… Illustrator may take a moment to start.");
+
+    SH.post("/api/jobs/" + encodeURIComponent(jobId) + "/illustrator/new-print-doc")
+      .then(function (res) {
+        if (!res.data.ok) {
+          throw new Error(res.data.error || "Could not start.");
+        }
+        return SH.waitForTask(res.data.task_id);
+      })
+      .then(function (result) {
+        if (!result.ok) {
+          var messages = result.errors.map(function (e) {
+            return e.message + (e.hint ? " " + e.hint : "");
+          }).join(" ");
+          showPrintDocStatus(messages || "Could not create the print document.");
+          return;
+        }
+        var count = (result.data.documents || []).length;
+        showPrintDocStatus(
+          count === 1 ? "Created 1 print document." : "Created " + count + " print documents."
+        );
+        load();
+      })
+      .catch(function (err) {
+        showManualFallback(err.message);
+      })
+      .finally(function () {
+        createPrintDocBtn.disabled = false;
+      });
+  });
+
   document.getElementById("copy-job-json-btn").addEventListener("click", function () {
     SH.get("/api/config").then(function (res) {
       if (!res.data.ok) return;

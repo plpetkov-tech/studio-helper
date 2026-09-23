@@ -55,13 +55,10 @@ jobs:
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: "20"
-      - name: ESLint over adobe/**/*.jsx (ecmaVersion 3)
-        run: |
-          if [ -f adobe/.eslintrc.json ] && compgen -G "adobe/**/*.jsx" > /dev/null; then
-            npx --yes eslint@9 -c adobe/.eslintrc.json 'adobe/**/*.jsx'
-          else
-            echo "No ExtendScript files/lint config yet (pre-M3) -- skipping."
-          fi
+      - name: ESLint over adobe/**/*.jsx and tests/adobe/**/*.jsx (ecmaVersion 3)
+        run: npx --yes eslint@9 -c adobe/eslint.config.js 'adobe/**/*.jsx' 'tests/adobe/**/*.jsx'
+      - name: Execute new_print_doc.jsx's pure geometry/grouping logic
+        run: node tests/adobe/check_jsx_logic.js
 
   figma-plugin:
     name: Figma plugin build + test

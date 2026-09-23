@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Setup check &middot; Studio Helper</title>
+<link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+  <header class="topbar">
+    <h1>Studio Helper</h1>
+    <nav>
+      <a href="/index.html">Home</a>
+      <a href="/registry.html">Registry</a>
+      <a href="/setup-check.html">Setup check</a>
+    </nav>
+  </header>
+
+  <main>
+    <h1>Setup check</h1>
+    <p class="subtitle">Confirms Illustrator automation is ready. Safe to run any time.</p>
+
+    <div id="error-banner" class="banner error" hidden></div>
+
+    <div class="actions">
+      <button id="run-btn" class="primary">Run checks</button>
+    </div>
+
+    <div id="results">
+      <p class="empty-state">Click "Run checks" to see where things stand.</p>
+    </div>
+
+    <h2>Figma</h2>
+    <div class="card">
+      <p>One-time setup, per SPEC.md's README:</p>
+      <ol>
+        <li>Open Figma desktop.</li>
+        <li>Plugins &rarr; Development &rarr; Import plugin from manifest&hellip;</li>
+        <li>Pick <code>figma-plugin\manifest.json</code> inside this folder.</li>
+      </ol>
+      <button id="open-figma-btn">Open figma-plugin folder</button>
+      <p class="hint">The plugin itself ships in a later update (milestone M5).</p>
+    </div>
+  </main>
+
+  <script src="/static/api.js"></script>
+  <script src="/static/setup-check.js"></script>
+</body>
+</html>

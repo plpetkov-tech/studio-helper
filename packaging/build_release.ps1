@@ -116,6 +116,9 @@ function Copy-Clean($src, $dst) {
         Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
     Get-ChildItem -Path $dst -Recurse -File -Include '*.pyc', '.gitkeep' |
         Remove-Item -Force -ErrorAction SilentlyContinue
+    # Dev-only lint tooling, not needed by the shipped app.
+    Get-ChildItem -Path $dst -Recurse -File -Include 'eslint.config.js' |
+        Remove-Item -Force -ErrorAction SilentlyContinue
 }
 
 Copy-Clean (Join-Path $RepoRoot "app") (Join-Path $StageDir "app")

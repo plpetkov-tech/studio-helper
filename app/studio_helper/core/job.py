@@ -144,6 +144,29 @@ def list_jobs(jobs_root: Path) -> list[dict]:
     return jobs
 
 
+def record_print_files(jobs_root: Path, job_id: str, ai_paths: list[str]) -> dict:
+    """Records .ai files created by the Illustrator adapter in
+    job.json's files.print list, as paths relative to the job root
+    (SPEC.md §6.1 job.json example: "03_working/..._print_v01.ai").
+    Python remains the sole writer of job.json (SPEC.md §4)."""
+    root = job_path(jobs_root, job_id)
+    job = load_job(jobs_root, job_id)
+    existing = job["files"].get("print") or []
+
+    for raw_path in ai_paths:
+        p = Path(raw_path)
+        try:
+            rel = p.relative_to(root).as_posix()
+        except ValueError:
+            rel = p.as_posix()
+        if rel not in existing:
+            existing.append(rel)
+
+    job["files"]["print"] = existing
+    _write_job(root, job)
+    return job
+
+
 def bump_version(jobs_root: Path, job_id: str) -> dict:
     """'Start revision': vN -> vN+1. New exports get the new version;
     older files are left in place (SPEC.md §6.1 naming)."""

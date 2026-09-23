@@ -69,6 +69,28 @@ window.StudioHelper = (function () {
     el.hidden = false;
   }
 
+  // Long actions (Adobe COM calls) run as a server-side task; poll
+  // until it's done or errored (SPEC.md §6.2).
+  function waitForTask(taskId, intervalMs) {
+    intervalMs = intervalMs || 500;
+    return new Promise(function (resolve, reject) {
+      function poll() {
+        apiGet("/api/tasks/" + encodeURIComponent(taskId)).then(function (res) {
+          if (!res.data.ok) {
+            reject(new Error(res.data.error || "Could not check on that action."));
+          } else if (res.data.status === "running") {
+            setTimeout(poll, intervalMs);
+          } else if (res.data.status === "error") {
+            reject(new Error(res.data.error || "That action failed."));
+          } else {
+            resolve(res.data.result);
+          }
+        }, reject);
+      }
+      poll();
+    });
+  }
+
   return {
     token: token,
     get: apiGet,
@@ -76,5 +98,6 @@ window.StudioHelper = (function () {
     escapeHtml: escapeHtml,
     fmtDate: fmtDate,
     showError: showError,
+    waitForTask: waitForTask,
   };
 })();

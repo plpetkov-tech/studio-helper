@@ -12,6 +12,7 @@
     <nav>
       <a href="/index.html">Home</a>
       <a href="/registry.html">Registry</a>
+      <a href="/setup-check.html">Setup check</a>
     </nav>
   </header>
 
@@ -30,10 +31,11 @@
 
     <h2>Print</h2>
     <div class="actions">
-      <button disabled title="Coming once the Illustrator generator ships (milestone M3)">Create Illustrator print file</button>
+      <button id="create-print-doc-btn">Create Illustrator print file</button>
       <button disabled title="Coming once the Illustrator preflight ships (milestone M4)">Check print file</button>
       <button disabled title="Coming once the Illustrator preflight ships (milestone M4)">Check &amp; export print</button>
     </div>
+    <p id="print-doc-status" class="hint" hidden></p>
 
     <h2>Digital</h2>
     <div class="actions">

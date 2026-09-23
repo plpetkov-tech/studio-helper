@@ -40,7 +40,9 @@ def test_index_served(running_server):
     assert "Studio Helper" in body
 
 
-@pytest.mark.parametrize("page", ["/new-job.html", "/job.html", "/registry.html"])
+@pytest.mark.parametrize(
+    "page", ["/new-job.html", "/job.html", "/registry.html", "/setup-check.html"]
+)
 def test_other_pages_served(running_server, page):
     _server, port = running_server
     with _get(port, page) as resp:
