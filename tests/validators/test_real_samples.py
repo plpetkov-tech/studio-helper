@@ -9,7 +9,6 @@ from pathlib import Path
 
 import pytest
 import yaml
-
 from studio_helper.validators import validate_file
 
 REAL_DIR = Path(__file__).resolve().parents[1] / "fixtures" / "real"
@@ -39,7 +38,8 @@ def test_real_samples_match_expectations():
         if result.status != spec["status"]:
             messages = "; ".join(f"{c.id}={c.status}" for c in result.checks)
             failures.append(
-                f"{filename}: expected status '{spec['status']}', got '{result.status}' ({messages})"
+                f"{filename}: expected status '{spec['status']}', "
+                f"got '{result.status}' ({messages})"
             )
 
     assert not failures, "\n".join(failures)
