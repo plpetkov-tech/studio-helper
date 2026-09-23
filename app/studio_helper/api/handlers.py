@@ -122,6 +122,61 @@ def create_illustrator_print_doc(ctx, body, job_id):
     return 200, {"ok": True, "task_id": task_id}
 
 
+@route("POST", "/api/jobs/<job_id>/illustrator/check-print")
+def check_illustrator_print(ctx, body, job_id):
+    job = job_mod.load_job(ctx.jobs_root, job_id)
+    ai_paths = _print_ai_paths(ctx, job)
+    if not ai_paths:
+        raise job_mod.JobError(
+            "No Illustrator print file yet -- click \"Create Illustrator print file\" first."
+        )
+
+    def work() -> dict:
+        return {
+            "files": [
+                {"ai_path": str(p), "result": illustrator.preflight(job, p, mode="check")}
+                for p in ai_paths
+            ]
+        }
+
+    task_id = ctx.tasks.start(work)
+    return 200, {"ok": True, "task_id": task_id}
+
+
+@route("POST", "/api/jobs/<job_id>/illustrator/export-print")
+def export_illustrator_print(ctx, body, job_id):
+    body = body or {}
+    force = bool(body.get("force"))
+    only_ai_path = body.get("ai_path")  # scopes an "export anyway" retry to one file
+
+    job = job_mod.load_job(ctx.jobs_root, job_id)
+    ai_paths = _print_ai_paths(ctx, job)
+    if not ai_paths:
+        raise job_mod.JobError(
+            "No Illustrator print file yet -- click \"Create Illustrator print file\" first."
+        )
+    if only_ai_path:
+        ai_paths = [p for p in ai_paths if str(p) == only_ai_path]
+
+    export_dir = job_mod.job_path(ctx.jobs_root, job_id) / "04_export" / "print"
+
+    def work() -> dict:
+        return {
+            "files": [
+                {
+                    "ai_path": str(p),
+                    "result": illustrator.preflight(
+                        job, p, mode="export", export_dir=export_dir, force=force
+                    ),
+                }
+                for p in ai_paths
+            ]
+        }
+
+    task_id = ctx.tasks.start(work)
+    return 200, {"ok": True, "task_id": task_id}
+
+
 @route("POST", "/api/adobe/open-scripts-folder")
 def open_scripts_folder(ctx, body):
     """The manual fallback path when COM automation fails (SPEC.md
@@ -132,6 +187,11 @@ def open_scripts_folder(ctx, body):
 
 
 # -- helpers -----------------------------------------------------------
+
+
+def _print_ai_paths(ctx, job: dict) -> list[Path]:
+    root = job_mod.job_path(ctx.jobs_root, job["id"])
+    return [root / rel for rel in (job["files"].get("print") or [])]
 
 
 def _summarize(job: dict, ctx) -> dict:

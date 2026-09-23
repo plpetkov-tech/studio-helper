@@ -59,6 +59,8 @@ jobs:
         run: npx --yes eslint@9 -c adobe/eslint.config.js 'adobe/**/*.jsx' 'tests/adobe/**/*.jsx'
       - name: Execute new_print_doc.jsx's pure geometry/grouping logic
         run: node tests/adobe/check_jsx_logic.js
+      - name: Execute preflight_export.jsx's pure interval-gap/naming logic
+        run: node tests/adobe/check_preflight_logic.js
 
   figma-plugin:
     name: Figma plugin build + test

@@ -76,6 +76,47 @@ def test_pdf_preset_available_false(monkeypatch):
     assert illustrator.pdf_preset_available("StudioHelper_X1a") is False
 
 
+def test_preflight_check_mode_omits_export_dir(monkeypatch, tmp_path):
+    monkeypatch.setattr(illustrator.bridge, "connect", lambda progid: "APP")
+    captured = {}
+
+    def fake_run_jsx(app, jsx_path, args):
+        captured["jsx_path"] = jsx_path
+        captured["args"] = args
+        return {"ok": True, "data": {"checks": [], "exported": []}}
+
+    monkeypatch.setattr(illustrator.bridge, "run_jsx", fake_run_jsx)
+    ai_path = tmp_path / "job_print_v01.ai"
+    illustrator.preflight({"id": "x"}, ai_path, mode="check")
+
+    assert captured["jsx_path"] == illustrator.PREFLIGHT_EXPORT_JSX
+    assert captured["args"] == {
+        "job": {"id": "x"}, "ai_path": str(ai_path), "mode": "check", "force": False
+    }
+
+
+def test_preflight_export_mode_includes_export_dir_and_force(monkeypatch, tmp_path):
+    monkeypatch.setattr(illustrator.bridge, "connect", lambda progid: "APP")
+    captured = {}
+
+    def fake_run_jsx(app, jsx_path, args):
+        captured["args"] = args
+        return {"ok": True, "data": {"checks": [], "exported": []}}
+
+    monkeypatch.setattr(illustrator.bridge, "run_jsx", fake_run_jsx)
+    ai_path = tmp_path / "job_print_v01.ai"
+    export_dir = tmp_path / "04_export" / "print"
+    illustrator.preflight({"id": "x"}, ai_path, mode="export", export_dir=export_dir, force=True)
+
+    assert captured["args"] == {
+        "job": {"id": "x"},
+        "ai_path": str(ai_path),
+        "mode": "export",
+        "force": True,
+        "export_dir": str(export_dir),
+    }
+
+
 def test_is_running_delegates_to_bridge(monkeypatch):
     monkeypatch.setattr(
         illustrator.bridge, "is_running", lambda progid: progid == illustrator.PROGID

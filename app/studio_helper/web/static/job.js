@@ -169,6 +169,94 @@
       });
   });
 
+  var checkPrintBtn = document.getElementById("check-print-btn");
+  var exportPrintBtn = document.getElementById("export-print-btn");
+  var preflightResultsEl = document.getElementById("preflight-results");
+
+  function renderPreflightFiles(files) {
+    if (!files || files.length === 0) {
+      preflightResultsEl.innerHTML = "";
+      return;
+    }
+    var html = "";
+    files.forEach(function (f) {
+      var result = f.result;
+      var fileName = f.ai_path.split(/[\\/]/).pop();
+      html += '<div class="card"><h3>' + SH.escapeHtml(fileName) + "</h3>";
+      if (result.data && result.data.checks) {
+        html += checksHtml(result.data.checks);
+      }
+      var skipped = (result.warnings || []).some(function (w) {
+        return w.code === "SKIPPED_EXPORT";
+      });
+      if (skipped) {
+        html +=
+          '<button class="export-anyway-btn" data-path="' +
+          SH.escapeHtml(f.ai_path) + '">Export anyway</button>';
+      }
+      if (result.data && result.data.exported && result.data.exported.length > 0) {
+        html += '<p class="hint">Exported ' + result.data.exported.length + " file(s).</p>";
+      }
+      html += "</div>";
+    });
+    preflightResultsEl.innerHTML = html;
+
+    preflightResultsEl.querySelectorAll(".export-anyway-btn").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        runExport({force: true, ai_path: btn.dataset.path});
+      });
+    });
+  }
+
+  function runCheck() {
+    errorEl.hidden = true;
+    checkPrintBtn.disabled = true;
+    showPrintDocStatus("Checking…");
+
+    SH.post("/api/jobs/" + encodeURIComponent(jobId) + "/illustrator/check-print")
+      .then(function (res) {
+        if (!res.data.ok) { throw new Error(res.data.error || "Could not start."); }
+        return SH.waitForTask(res.data.task_id);
+      })
+      .then(function (result) {
+        printDocStatusEl.hidden = true;
+        renderPreflightFiles(result.files);
+      })
+      .catch(function (err) {
+        showManualFallback(err.message);
+      })
+      .finally(function () {
+        checkPrintBtn.disabled = false;
+      });
+  }
+
+  function runExport(opts) {
+    opts = opts || {};
+    errorEl.hidden = true;
+    exportPrintBtn.disabled = true;
+    showPrintDocStatus("Working… checking, then exporting if everything looks good.");
+
+    SH.post("/api/jobs/" + encodeURIComponent(jobId) + "/illustrator/export-print", opts)
+      .then(function (res) {
+        if (!res.data.ok) { throw new Error(res.data.error || "Could not start."); }
+        return SH.waitForTask(res.data.task_id);
+      })
+      .then(function (result) {
+        printDocStatusEl.hidden = true;
+        renderPreflightFiles(result.files);
+        load();
+      })
+      .catch(function (err) {
+        showManualFallback(err.message);
+      })
+      .finally(function () {
+        exportPrintBtn.disabled = false;
+      });
+  }
+
+  checkPrintBtn.addEventListener("click", runCheck);
+  exportPrintBtn.addEventListener("click", function () { runExport({force: false}); });
+
   document.getElementById("copy-job-json-btn").addEventListener("click", function () {
     SH.get("/api/config").then(function (res) {
       if (!res.data.ok) return;

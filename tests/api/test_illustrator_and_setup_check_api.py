@@ -126,6 +126,135 @@ def test_create_print_doc_bridge_failure_surfaces_as_task_error(api, monkeypatch
     assert "did not start" in result["error"]
 
 
+def _create_job_with_fake_print_file(call, tmp_path):
+    _status, created = call(
+        "POST", "/api/jobs", {"name": "Autumn Sale", "format_ids": ["flyer-a5"]}
+    )
+    job_id = created["job"]["id"]
+    ai_rel = f"03_working/{job_id}_print_v01.ai"
+    ai_path = tmp_path / "jobs" / job_id / ai_rel
+    ai_path.parent.mkdir(parents=True, exist_ok=True)
+    ai_path.write_bytes(b"fake ai file")
+
+    # job.json is the only source of truth for files.print -- write it
+    # the same way record_print_files() would, without going through
+    # a real Illustrator call.
+    import json as json_mod
+
+    job_json_path = tmp_path / "jobs" / job_id / "job.json"
+    job_data = json_mod.loads(job_json_path.read_text(encoding="utf-8"))
+    job_data["files"]["print"] = [ai_rel]
+    job_json_path.write_text(json_mod.dumps(job_data), encoding="utf-8")
+
+    return job_id, ai_path
+
+
+def test_check_print_with_no_ai_file_is_400(api):
+    call, _poll = api
+    _status, created = call(
+        "POST", "/api/jobs", {"name": "Autumn Sale", "format_ids": ["flyer-a5"]}
+    )
+    job_id = created["job"]["id"]
+    status, data = call("POST", f"/api/jobs/{job_id}/illustrator/check-print")
+    assert status == 400
+    assert "Create Illustrator print file" in data["error"]
+
+
+def test_check_print_runs_over_recorded_files(api, monkeypatch, tmp_path):
+    call, poll = api
+    job_id, ai_path = _create_job_with_fake_print_file(call, tmp_path)
+
+    captured = {}
+
+    def fake_preflight(job, path, mode, export_dir=None, force=False):
+        captured["mode"] = mode
+        captured["path"] = path
+        checks = [{"id": "color-mode", "status": "ok", "message": "CMYK.", "hint": ""}]
+        return {"ok": True, "data": {"checks": checks, "exported": []}}
+
+    monkeypatch.setattr(handlers.illustrator, "preflight", fake_preflight)
+
+    status, data = call("POST", f"/api/jobs/{job_id}/illustrator/check-print")
+    assert status == 200
+    result = poll(data["task_id"])
+    assert result["status"] == "done"
+    assert captured["mode"] == "check"
+    assert captured["path"] == ai_path
+    files = result["result"]["files"]
+    assert len(files) == 1
+    assert files[0]["result"]["ok"] is True
+
+
+def test_export_print_skips_when_checks_fail_without_force(api, monkeypatch, tmp_path):
+    call, poll = api
+    job_id, _ai_path = _create_job_with_fake_print_file(call, tmp_path)
+
+    def fake_preflight(job, path, mode, export_dir=None, force=False):
+        assert mode == "export"
+        assert force is False
+        return {
+            "ok": True,
+            "data": {
+                "checks": [
+                    {"id": "bleed-coverage", "status": "fail", "message": "bad", "hint": ""}
+                ],
+                "exported": [],
+            },
+            "warnings": [{"code": "SKIPPED_EXPORT", "message": "Export skipped.", "hint": ""}],
+        }
+
+    monkeypatch.setattr(handlers.illustrator, "preflight", fake_preflight)
+
+    status, data = call("POST", f"/api/jobs/{job_id}/illustrator/export-print")
+    result = poll(data["task_id"])
+    file_result = result["result"]["files"][0]["result"]
+    assert file_result["data"]["exported"] == []
+    assert file_result["warnings"][0]["code"] == "SKIPPED_EXPORT"
+
+
+def test_export_print_with_force_true_is_passed_through(api, monkeypatch, tmp_path):
+    call, poll = api
+    job_id, ai_path = _create_job_with_fake_print_file(call, tmp_path)
+
+    captured = {}
+
+    def fake_preflight(job, path, mode, export_dir=None, force=False):
+        captured["force"] = force
+        captured["export_dir"] = export_dir
+        return {"ok": True, "data": {"checks": [], "exported": [{"path": "x.pdf"}]}}
+
+    monkeypatch.setattr(handlers.illustrator, "preflight", fake_preflight)
+
+    status, data = call(
+        "POST", f"/api/jobs/{job_id}/illustrator/export-print", {"force": True}
+    )
+    result = poll(data["task_id"])
+    assert captured["force"] is True
+    assert captured["export_dir"].name == "print"
+    assert result["result"]["files"][0]["result"]["data"]["exported"] == [{"path": "x.pdf"}]
+
+
+def test_export_print_can_target_one_ai_path(api, monkeypatch, tmp_path):
+    call, poll = api
+    job_id, ai_path = _create_job_with_fake_print_file(call, tmp_path)
+
+    calls = []
+
+    def fake_preflight(job, path, mode, export_dir=None, force=False):
+        calls.append(path)
+        return {"ok": True, "data": {"checks": [], "exported": []}}
+
+    monkeypatch.setattr(handlers.illustrator, "preflight", fake_preflight)
+
+    status, data = call(
+        "POST",
+        f"/api/jobs/{job_id}/illustrator/export-print",
+        {"force": True, "ai_path": str(ai_path)},
+    )
+    poll(data["task_id"])
+    assert calls == [ai_path]
+
+
 def test_unknown_task_id_is_404(api):
     call, _poll = api
     status, data = call("GET", "/api/tasks/does-not-exist")

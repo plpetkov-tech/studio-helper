@@ -40,6 +40,10 @@ module.exports = [
         UserInteractionLevel: "readonly",
         IllustratorSaveOptions: "readonly",
         ZOrderMethod: "readonly",
+        ImageColorSpace: "readonly",
+        ExportOptionsTIFF: "readonly",
+        ExportType: "readonly",
+        PDFSaveOptions: "readonly",
         // Provided by lib/json2.js via #include (stripped above, so
         // ESLint needs these declared instead of inferring them).
         JSON: "readonly",
