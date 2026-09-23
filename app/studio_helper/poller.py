@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import logging
 import threading
+import zipfile
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -97,18 +98,29 @@ class Poller:
                     self._file_state[path] = _FileState(size=stat.st_size)
                     continue
                 state.stable_scans += 1
-                should_validate = (
+                should_process = (
                     state.stable_scans >= STABLE_SCANS_REQUIRED
                     and state.validated_mtime != stat.st_mtime
                 )
-                if should_validate:
+                if should_process:
                     state.validated_mtime = stat.st_mtime
 
-            if should_validate:
-                result = validate_file(path, job)
-                with self._lock:
-                    self._results.setdefault(job["id"], {})[str(path)] = result
+            if not should_process:
+                continue
+
+            if path.suffix.lower() == ".zip":
+                # SPEC.md §6.6: the Figma plugin's secondary "Export
+                # all" path zips its output; extract entries matching
+                # this job's deliverables, same file-stability rule as
+                # any other export.
+                self._extract_matching_zip(path, job)
                 changed = True
+                continue
+
+            result = validate_file(path, job)
+            with self._lock:
+                self._results.setdefault(job["id"], {})[str(path)] = result
+            changed = True
 
         with self._lock:
             stale_state = [
@@ -129,3 +141,30 @@ class Poller:
             with self._lock:
                 results_snapshot = dict(self._results.get(job["id"], {}))
             write_report(job_dir, job, results_snapshot)
+
+    def _extract_matching_zip(self, zip_path: Path, job: dict) -> None:
+        expected_stems = {d["expected_stem"] for d in job.get("deliverables", [])}
+        try:
+            with zipfile.ZipFile(zip_path) as zf:
+                extracted_any = False
+                for info in zf.infolist():
+                    if info.is_dir():
+                        continue
+                    # Basename only -- never trust a path from inside
+                    # the zip (zip-slip; SPEC.md §8 path safety).
+                    name = Path(info.filename).name
+                    if not name or Path(name).stem not in expected_stems:
+                        continue
+                    target = zip_path.parent / name
+                    with zf.open(info) as src, open(target, "wb") as dst:
+                        dst.write(src.read())
+                    extracted_any = True
+        except (zipfile.BadZipFile, OSError):
+            logger.exception("Failed to extract %s", zip_path)
+            return
+
+        if extracted_any:
+            try:
+                zip_path.unlink()
+            except OSError:
+                logger.exception("Extracted %s but could not remove it", zip_path)

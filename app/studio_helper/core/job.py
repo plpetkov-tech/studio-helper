@@ -167,6 +167,24 @@ def record_print_files(jobs_root: Path, job_id: str, ai_paths: list[str]) -> dic
     return job
 
 
+def record_digital_file(jobs_root: Path, job_id: str, psd_path: str) -> dict:
+    """Records the .psd file created by the Photoshop adapter in
+    job.json's files.psd (a single path, unlike files.print -- one PSD
+    holds every digital format, per SPEC.md §6.5)."""
+    root = job_path(jobs_root, job_id)
+    job = load_job(jobs_root, job_id)
+
+    p = Path(psd_path)
+    try:
+        rel = p.relative_to(root).as_posix()
+    except ValueError:
+        rel = p.as_posix()
+
+    job["files"]["psd"] = rel
+    _write_job(root, job)
+    return job
+
+
 def bump_version(jobs_root: Path, job_id: str) -> dict:
     """'Start revision': vN -> vN+1. New exports get the new version;
     older files are left in place (SPEC.md §6.1 naming)."""

@@ -40,18 +40,19 @@
 
     <h2>Digital</h2>
     <div class="actions">
-      <button disabled title="Coming once the Photoshop generator ships (milestone M5)">Create Photoshop file</button>
-      <button disabled title="Coming once the Photoshop exporter ships (milestone M5)">Export from Photoshop</button>
+      <button id="create-digital-doc-btn">Create Photoshop file</button>
+      <button id="export-digital-btn">Export from Photoshop</button>
     </div>
+    <p id="digital-doc-status" class="hint" hidden></p>
     <div class="card">
       <h3>Figma</h3>
       <ol>
-        <li>Open Figma desktop and this job's file (or a new file).</li>
+        <li>Open Figma desktop.</li>
+        <li>Plugins &rarr; Development &rarr; Import plugin from manifest&hellip; (one-time; see Setup check).</li>
         <li>Run the Studio Helper plugin &rarr; "Create frames" and give it job.json.</li>
         <li>Design inside the frames it creates -- their names already match the export filenames.</li>
         <li>Use Figma's own Export on those frames; files land in <code>04_export/</code> automatically.</li>
       </ol>
-      <p class="hint">The plugin ships in milestone M5. For now, copy the path below to have it ready.</p>
       <button id="copy-job-json-btn">Copy job.json path</button>
     </div>
 

@@ -9,9 +9,10 @@ from __future__ import annotations
 from pathlib import Path
 
 from studio_helper import paths as app_paths
-from studio_helper.adobe import illustrator
+from studio_helper.adobe import illustrator, photoshop
 from studio_helper.core import job as job_mod
 from studio_helper.core.registry import Registry, load_registry
+from studio_helper.core.scaffold import EXPORT_SUBDIR_BY_KIND
 from studio_helper.deliverables import deliverables_table
 
 from .dispatch import route
@@ -177,6 +178,43 @@ def export_illustrator_print(ctx, body, job_id):
     return 200, {"ok": True, "task_id": task_id}
 
 
+@route("POST", "/api/jobs/<job_id>/photoshop/new-digital-doc")
+def create_photoshop_digital_doc(ctx, body, job_id):
+    job = job_mod.load_job(ctx.jobs_root, job_id)
+    working_dir = job_mod.job_path(ctx.jobs_root, job_id) / "03_working"
+
+    def work() -> dict:
+        result = photoshop.create_digital_doc(job, working_dir)
+        if result.get("ok"):
+            path = result.get("data", {}).get("path")
+            if path:
+                job_mod.record_digital_file(ctx.jobs_root, job_id, path)
+        return result
+
+    task_id = ctx.tasks.start(work)
+    return 200, {"ok": True, "task_id": task_id}
+
+
+@route("POST", "/api/jobs/<job_id>/photoshop/export-digital")
+def export_photoshop_digital(ctx, body, job_id):
+    job = job_mod.load_job(ctx.jobs_root, job_id)
+    psd_rel = job["files"].get("psd")
+    if not psd_rel:
+        raise job_mod.JobError(
+            "No Photoshop file yet -- click \"Create Photoshop file\" first."
+        )
+
+    root = job_mod.job_path(ctx.jobs_root, job_id)
+    psd_path = root / psd_rel
+    export_dirs = _digital_export_dirs(job, root)
+
+    def work() -> dict:
+        return photoshop.export_digital(job, psd_path, export_dirs)
+
+    task_id = ctx.tasks.start(work)
+    return 200, {"ok": True, "task_id": task_id}
+
+
 @route("POST", "/api/adobe/open-scripts-folder")
 def open_scripts_folder(ctx, body):
     """The manual fallback path when COM automation fails (SPEC.md
@@ -186,12 +224,23 @@ def open_scripts_folder(ctx, body):
     return 200, {"ok": True}
 
 
+@route("POST", "/api/adobe/open-photoshop-scripts-folder")
+def open_photoshop_scripts_folder(ctx, body):
+    open_path(app_paths.bundled_root() / "adobe" / "photoshop", reveal=True)
+    return 200, {"ok": True}
+
+
 # -- helpers -----------------------------------------------------------
 
 
 def _print_ai_paths(ctx, job: dict) -> list[Path]:
     root = job_mod.job_path(ctx.jobs_root, job["id"])
     return [root / rel for rel in (job["files"].get("print") or [])]
+
+
+def _digital_export_dirs(job: dict, root: Path) -> dict[str, Path]:
+    kinds = {fmt["kind"] for fmt in job["formats"] if fmt["kind"] != "print"}
+    return {kind: root / "04_export" / EXPORT_SUBDIR_BY_KIND[kind] for kind in kinds}
 
 
 def _summarize(job: dict, ctx) -> dict:

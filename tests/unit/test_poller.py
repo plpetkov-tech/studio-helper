@@ -1,5 +1,6 @@
 import os
 import time
+import zipfile
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -166,3 +167,86 @@ def test_removes_results_for_deleted_files(tmp_path):
     dest.unlink()
     poller.scan_once()
     assert poller.results_for(job["id"]) == {}
+
+
+def test_zip_with_matching_entry_is_extracted_and_removed(tmp_path):
+    jobs_root = tmp_path / "jobs"
+    jobs_root.mkdir()
+    registry = _make_registry(tmp_path)
+    job = _create_job(jobs_root, registry)
+
+    stem = job["deliverables"][0]["expected_stem"]
+    export_dir = jobs_root / job["id"] / "04_export" / "social"
+    export_dir.mkdir(parents=True, exist_ok=True)
+
+    img_bytes_path = tmp_path / "src.png"
+    Image.new("RGB", (20, 20), "red").save(img_bytes_path)
+
+    zip_path = export_dir / "export.zip"
+    with zipfile.ZipFile(zip_path, "w") as zf:
+        zf.write(img_bytes_path, arcname=f"{stem}.png")
+        zf.writestr("unrelated_file.png", b"not a real png")
+
+    poller = Poller(jobs_root)
+    poller.scan_once()
+    poller.scan_once()
+
+    assert not zip_path.exists()
+    assert (export_dir / f"{stem}.png").exists()
+    assert not (export_dir / "unrelated_file.png").exists()
+
+
+def test_zip_extraction_never_uses_entry_subdirectories(tmp_path):
+    # zip-slip guard (SPEC.md §8): only the entry's basename is ever
+    # used as the destination filename.
+    jobs_root = tmp_path / "jobs"
+    jobs_root.mkdir()
+    registry = _make_registry(tmp_path)
+    job = _create_job(jobs_root, registry)
+
+    stem = job["deliverables"][0]["expected_stem"]
+    export_dir = jobs_root / job["id"] / "04_export" / "social"
+    export_dir.mkdir(parents=True, exist_ok=True)
+
+    img_bytes_path = tmp_path / "src.png"
+    Image.new("RGB", (20, 20), "red").save(img_bytes_path)
+
+    zip_path = export_dir / "export.zip"
+    with zipfile.ZipFile(zip_path, "w") as zf:
+        zf.write(img_bytes_path, arcname=f"../../evil/{stem}.png")
+
+    poller = Poller(jobs_root)
+    poller.scan_once()
+    poller.scan_once()
+
+    assert (export_dir / f"{stem}.png").exists()
+    assert not (jobs_root.parent / "evil").exists()
+
+
+def test_zip_extraction_validates_the_extracted_file(tmp_path):
+    jobs_root = tmp_path / "jobs"
+    jobs_root.mkdir()
+    registry = _make_registry(tmp_path)
+    job = _create_job(jobs_root, registry)
+
+    stem = job["deliverables"][0]["expected_stem"]
+    export_dir = jobs_root / job["id"] / "04_export" / "social"
+    export_dir.mkdir(parents=True, exist_ok=True)
+
+    img_bytes_path = tmp_path / "src.png"
+    Image.new("RGB", (20, 20), "red").save(img_bytes_path)
+
+    zip_path = export_dir / "export.zip"
+    with zipfile.ZipFile(zip_path, "w") as zf:
+        zf.write(img_bytes_path, arcname=f"{stem}.png")
+
+    poller = Poller(jobs_root)
+    poller.scan_once()  # zip first seen
+    poller.scan_once()  # zip stable -> extracted (and removed)
+    poller.scan_once()  # extracted file first seen
+    poller.scan_once()  # extracted file stable -> validated
+
+    results = poller.results_for(job["id"])
+    assert len(results) == 1
+    (result,) = results.values()
+    assert result.status == "ok"

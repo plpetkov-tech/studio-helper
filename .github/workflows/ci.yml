@@ -61,6 +61,8 @@ jobs:
         run: node tests/adobe/check_jsx_logic.js
       - name: Execute preflight_export.jsx's pure interval-gap/naming logic
         run: node tests/adobe/check_preflight_logic.js
+      - name: Execute the Photoshop adapters' pure grid-layout/lookup logic
+        run: node tests/adobe/check_photoshop_logic.js
 
   figma-plugin:
     name: Figma plugin build + test
@@ -69,7 +71,10 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: "20"
+          # vitest 5 requires Node >=22.12 (Node 20, used elsewhere in
+          # this workflow, does not satisfy it) -- found by actually
+          # running the toolchain, not assumed.
+          node-version: "24"
       - name: Build and test
         working-directory: figma-plugin
         run: |

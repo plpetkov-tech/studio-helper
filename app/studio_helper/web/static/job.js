@@ -109,32 +109,49 @@
     });
   });
 
-  var createPrintDocBtn = document.getElementById("create-print-doc-btn");
   var printDocStatusEl = document.getElementById("print-doc-status");
+  var digitalDocStatusEl = document.getElementById("digital-doc-status");
 
-  function showPrintDocStatus(message) {
-    printDocStatusEl.textContent = message;
-    printDocStatusEl.hidden = false;
+  function showStatus(el, message) {
+    el.textContent = message;
+    el.hidden = false;
   }
 
-  function showManualFallback(reason) {
-    showPrintDocStatus(
+  // Manual "File > Scripts" fallback when COM automation fails
+  // (SPEC.md §6.3), generalized for both the Illustrator and
+  // Photoshop scripts folders.
+  function showManualFallback(statusEl, reason, appName, scriptName, openEndpoint) {
+    showStatus(
+      statusEl,
       (reason ? reason + " " : "") +
       'Use the manual path instead: click "Open scripts folder" below, then in ' +
-      "Illustrator: File › Scripts › Other Script…, run new_print_doc.jsx, " +
+      appName + ": File › Scripts › Other Script…, run " + scriptName + ", " +
       "and pick this job's job.json when it asks."
     );
-    if (!document.getElementById("open-scripts-folder-btn")) {
+    var btnId = "open-scripts-folder-btn-" + appName;
+    if (!document.getElementById(btnId)) {
       var btn = document.createElement("button");
-      btn.id = "open-scripts-folder-btn";
+      btn.id = btnId;
       btn.textContent = "Open scripts folder";
       btn.addEventListener("click", function () {
-        SH.post("/api/adobe/open-scripts-folder");
+        SH.post(openEndpoint);
       });
-      printDocStatusEl.parentNode.insertBefore(btn, printDocStatusEl.nextSibling);
+      statusEl.parentNode.insertBefore(btn, statusEl.nextSibling);
     }
   }
 
+  function showPrintDocStatus(message) {
+    showStatus(printDocStatusEl, message);
+  }
+
+  function showIllustratorManualFallback(reason) {
+    showManualFallback(
+      printDocStatusEl, reason, "Illustrator", "new_print_doc.jsx",
+      "/api/adobe/open-scripts-folder"
+    );
+  }
+
+  var createPrintDocBtn = document.getElementById("create-print-doc-btn");
   createPrintDocBtn.addEventListener("click", function () {
     errorEl.hidden = true;
     createPrintDocBtn.disabled = true;
@@ -162,7 +179,7 @@
         load();
       })
       .catch(function (err) {
-        showManualFallback(err.message);
+        showIllustratorManualFallback(err.message);
       })
       .finally(function () {
         createPrintDocBtn.disabled = false;
@@ -223,7 +240,7 @@
         renderPreflightFiles(result.files);
       })
       .catch(function (err) {
-        showManualFallback(err.message);
+        showIllustratorManualFallback(err.message);
       })
       .finally(function () {
         checkPrintBtn.disabled = false;
@@ -247,7 +264,7 @@
         load();
       })
       .catch(function (err) {
-        showManualFallback(err.message);
+        showIllustratorManualFallback(err.message);
       })
       .finally(function () {
         exportPrintBtn.disabled = false;
@@ -256,6 +273,80 @@
 
   checkPrintBtn.addEventListener("click", runCheck);
   exportPrintBtn.addEventListener("click", function () { runExport({force: false}); });
+
+  function showDigitalDocStatus(message) {
+    showStatus(digitalDocStatusEl, message);
+  }
+
+  function showPhotoshopManualFallback(reason, scriptName) {
+    showManualFallback(
+      digitalDocStatusEl, reason, "Photoshop", scriptName,
+      "/api/adobe/open-photoshop-scripts-folder"
+    );
+  }
+
+  var createDigitalDocBtn = document.getElementById("create-digital-doc-btn");
+  createDigitalDocBtn.addEventListener("click", function () {
+    errorEl.hidden = true;
+    createDigitalDocBtn.disabled = true;
+    showDigitalDocStatus("Working… Photoshop may take a moment to start.");
+
+    SH.post("/api/jobs/" + encodeURIComponent(jobId) + "/photoshop/new-digital-doc")
+      .then(function (res) {
+        if (!res.data.ok) { throw new Error(res.data.error || "Could not start."); }
+        return SH.waitForTask(res.data.task_id);
+      })
+      .then(function (result) {
+        if (!result.ok) {
+          var messages = result.errors.map(function (e) {
+            return e.message + (e.hint ? " " + e.hint : "");
+          }).join(" ");
+          showDigitalDocStatus(messages || "Could not create the digital document.");
+          return;
+        }
+        showDigitalDocStatus("Created the Photoshop file.");
+        load();
+      })
+      .catch(function (err) {
+        showPhotoshopManualFallback(err.message, "new_digital_doc.jsx");
+      })
+      .finally(function () {
+        createDigitalDocBtn.disabled = false;
+      });
+  });
+
+  var exportDigitalBtn = document.getElementById("export-digital-btn");
+  exportDigitalBtn.addEventListener("click", function () {
+    errorEl.hidden = true;
+    exportDigitalBtn.disabled = true;
+    showDigitalDocStatus("Working…");
+
+    SH.post("/api/jobs/" + encodeURIComponent(jobId) + "/photoshop/export-digital")
+      .then(function (res) {
+        if (!res.data.ok) { throw new Error(res.data.error || "Could not start."); }
+        return SH.waitForTask(res.data.task_id);
+      })
+      .then(function (result) {
+        if (!result.ok) {
+          var messages = (result.errors || []).map(function (e) {
+            return e.message + (e.hint ? " " + e.hint : "");
+          }).join(" ");
+          showDigitalDocStatus(messages || "Could not export from Photoshop.");
+          return;
+        }
+        var count = (result.data.exported || []).length;
+        showDigitalDocStatus(
+          count === 1 ? "Exported 1 file." : "Exported " + count + " file(s)."
+        );
+        load();
+      })
+      .catch(function (err) {
+        showPhotoshopManualFallback(err.message, "export_digital.jsx");
+      })
+      .finally(function () {
+        exportDigitalBtn.disabled = false;
+      });
+  });
 
   document.getElementById("copy-job-json-btn").addEventListener("click", function () {
     SH.get("/api/config").then(function (res) {

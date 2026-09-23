@@ -191,3 +191,28 @@ def test_bump_version_keeps_job_id_stable(jobs_root, registry):
     job = job_mod.create_job(jobs_root, registry, "Autumn Sale", ["flyer-a5"], now=FIXED_NOW)
     bumped = job_mod.bump_version(jobs_root, job["id"])
     assert bumped["id"] == job["id"]
+
+
+def test_record_digital_file_stores_relative_path(jobs_root, registry):
+    job = job_mod.create_job(jobs_root, registry, "Autumn Sale", ["flyer-a5"], now=FIXED_NOW)
+    root = jobs_root / job["id"]
+    psd_path = root / "03_working" / f"{job['id']}_digital_v01.psd"
+    updated = job_mod.record_digital_file(jobs_root, job["id"], str(psd_path))
+    assert updated["files"]["psd"] == f"03_working/{job['id']}_digital_v01.psd"
+
+
+def test_record_digital_file_persists(jobs_root, registry):
+    job = job_mod.create_job(jobs_root, registry, "Autumn Sale", ["flyer-a5"], now=FIXED_NOW)
+    root = jobs_root / job["id"]
+    psd_path = root / "03_working" / f"{job['id']}_digital_v01.psd"
+    job_mod.record_digital_file(jobs_root, job["id"], str(psd_path))
+    reloaded = job_mod.load_job(jobs_root, job["id"])
+    assert reloaded["files"]["psd"] == f"03_working/{job['id']}_digital_v01.psd"
+
+
+def test_record_digital_file_overwrites_previous_value(jobs_root, registry):
+    job = job_mod.create_job(jobs_root, registry, "Autumn Sale", ["flyer-a5"], now=FIXED_NOW)
+    root = jobs_root / job["id"]
+    job_mod.record_digital_file(jobs_root, job["id"], str(root / "a.psd"))
+    updated = job_mod.record_digital_file(jobs_root, job["id"], str(root / "b.psd"))
+    assert updated["files"]["psd"] == "b.psd"

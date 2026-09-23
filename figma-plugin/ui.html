@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  body {
+    font-family: -apple-system, "Segoe UI", sans-serif;
+    font-size: 12px;
+    padding: 12px;
+    margin: 0;
+    color: #222;
+  }
+  h2 { font-size: 13px; margin: 0 0 10px; }
+  .drop-zone {
+    border: 2px dashed #cfcfcf;
+    border-radius: 8px;
+    padding: 18px 12px;
+    text-align: center;
+    color: #888;
+    margin-bottom: 12px;
+    cursor: pointer;
+  }
+  .drop-zone.drag-over { border-color: #18a0fb; color: #18a0fb; }
+  button {
+    width: 100%;
+    padding: 8px;
+    margin-bottom: 8px;
+    border-radius: 6px;
+    border: 1px solid #cfcfcf;
+    background: white;
+    cursor: pointer;
+    font-size: 12px;
+  }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+  button.primary { background: #18a0fb; color: white; border-color: #18a0fb; }
+  #status { font-size: 11px; color: #555; white-space: pre-wrap; margin-top: 8px; }
+  #job-name { font-weight: 600; margin-bottom: 10px; min-height: 14px; }
+</style>
+</head>
+<body>
+  <h2>Studio Helper</h2>
+  <div id="drop-zone" class="drop-zone">Drop job.json here, or click to choose</div>
+  <input type="file" id="file-input" accept="application/json" style="display:none">
+  <div id="job-name"></div>
+  <button id="create-frames-btn" class="primary" disabled>Create frames</button>
+  <button id="bump-version-btn">Bump version</button>
+  <div id="status"></div>
+  <script>
+    (function () {
+      "use strict";
+
+      var jobJson = null;
+      var dropZone = document.getElementById("drop-zone");
+      var fileInput = document.getElementById("file-input");
+      var jobNameEl = document.getElementById("job-name");
+      var statusEl = document.getElementById("status");
+      var createBtn = document.getElementById("create-frames-btn");
+      var bumpBtn = document.getElementById("bump-version-btn");
+
+      function handleFile(file) {
+        var reader = new FileReader();
+        reader.onload = function () {
+          try {
+            var job = JSON.parse(reader.result);
+            jobJson = reader.result;
+            jobNameEl.textContent = job.name + " (" + job.id + ")";
+            createBtn.disabled = false;
+            statusEl.textContent = "";
+          } catch (e) {
+            statusEl.textContent = "That doesn't look like a valid job.json: " + e.message;
+          }
+        };
+        reader.readAsText(file);
+      }
+
+      dropZone.addEventListener("click", function () {
+        fileInput.click();
+      });
+      fileInput.addEventListener("change", function (e) {
+        if (e.target.files[0]) { handleFile(e.target.files[0]); }
+      });
+      dropZone.addEventListener("dragover", function (e) {
+        e.preventDefault();
+        dropZone.classList.add("drag-over");
+      });
+      dropZone.addEventListener("dragleave", function () {
+        dropZone.classList.remove("drag-over");
+      });
+      dropZone.addEventListener("drop", function (e) {
+        e.preventDefault();
+        dropZone.classList.remove("drag-over");
+        if (e.dataTransfer.files[0]) { handleFile(e.dataTransfer.files[0]); }
+      });
+
+      createBtn.addEventListener("click", function () {
+        statusEl.textContent = "Working…";
+        parent.postMessage({pluginMessage: {type: "create-frames", jobJson: jobJson}}, "*");
+      });
+
+      // Bump version doesn't need a job.json loaded -- it works on
+      // whatever frames already exist on the current page.
+      bumpBtn.addEventListener("click", function () {
+        statusEl.textContent = "Working…";
+        parent.postMessage({pluginMessage: {type: "bump-version"}}, "*");
+      });
+
+      onmessage = function (event) {
+        var msg = event.data.pluginMessage;
+        if (!msg) { return; }
+        if (msg.type === "result") {
+          statusEl.textContent = (msg.ok ? "" : "Error: ") + msg.message;
+        }
+      };
+    })();
+  </script>
+</body>
+</html>

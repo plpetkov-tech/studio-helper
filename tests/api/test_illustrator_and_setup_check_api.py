@@ -285,6 +285,14 @@ def test_open_scripts_folder_does_not_error(api, monkeypatch):
     assert data["ok"] is True
 
 
+def test_open_photoshop_scripts_folder_does_not_error(api, monkeypatch):
+    monkeypatch.setattr(handlers, "open_path", lambda path, reveal: None)
+    call, _poll = api
+    status, data = call("POST", "/api/adobe/open-photoshop-scripts-folder")
+    assert status == 200
+    assert data["ok"] is True
+
+
 def test_setup_check_open_figma_folder_does_not_error(api, monkeypatch):
     # Must not actually launch a real file manager from a test --
     # caught for real here: xdg-open hung in this sandbox the first

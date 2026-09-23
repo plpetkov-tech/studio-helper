@@ -1,0 +1,17 @@
+{
+  "name": "studio-helper-figma-plugin",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Studio Helper Figma plugin (SPEC.md §6.6): creates correctly named frames from a job.json.",
+  "scripts": {
+    "build": "esbuild src/code.ts --bundle --outfile=dist/code.js --target=es2017",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@figma/plugin-typings": "1.138.0",
+    "esbuild": "0.28.2",
+    "typescript": "7.0.2",
+    "vitest": "5.0.1"
+  }
+}
