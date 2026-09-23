@@ -12,6 +12,7 @@ from pathlib import Path
 
 from studio_helper.core import job as job_mod
 from studio_helper.core.registry import Registry, load_registry
+from studio_helper.deliverables import deliverables_table
 
 from .dispatch import route
 
@@ -84,7 +85,7 @@ def open_registry(ctx, body):
 @route("GET", "/api/jobs")
 def list_jobs(ctx, body):
     jobs = job_mod.list_jobs(ctx.jobs_root)
-    return 200, {"ok": True, "jobs": [_summarize(j, ctx.jobs_root) for j in jobs]}
+    return 200, {"ok": True, "jobs": [_summarize(j, ctx) for j in jobs]}
 
 
 @route("POST", "/api/jobs")
@@ -107,7 +108,7 @@ def create_job(ctx, body):
 @route("GET", "/api/jobs/<job_id>")
 def get_job(ctx, body, job_id):
     job = job_mod.load_job(ctx.jobs_root, job_id)
-    return 200, {"ok": True, "job": job, "deliverables": _deliverable_status(job, ctx.jobs_root)}
+    return 200, {"ok": True, "job": job, "deliverables": _deliverable_status(job, ctx)}
 
 
 @route("POST", "/api/jobs/<job_id>/revision")
@@ -126,9 +127,9 @@ def open_job_folder(ctx, body, job_id):
 # -- helpers -----------------------------------------------------------
 
 
-def _summarize(job: dict, jobs_root: Path) -> dict:
-    status = _deliverable_status(job, jobs_root)
-    done = sum(1 for d in status if d["status"] == "found")
+def _summarize(job: dict, ctx) -> dict:
+    status = _deliverable_status(job, ctx)
+    done = sum(1 for d in status if d["status"] in ("ok", "warn", "found"))
     return {
         "id": job["id"],
         "name": job["name"],
@@ -139,18 +140,34 @@ def _summarize(job: dict, jobs_root: Path) -> dict:
     }
 
 
-def _deliverable_status(job: dict, jobs_root: Path) -> list[dict]:
-    # A simple filename-stem match against 04_export/, good enough for
-    # the Home/Job progress display until the real validators land
-    # (SPEC.md M2) and start reporting pass/warn/fail per file.
+def _deliverable_status(job: dict, ctx) -> list[dict]:
+    if ctx.poller is not None:
+        return deliverables_table(job, ctx.poller.results_for(job["id"]))
+    return _naive_deliverable_status(job, ctx.jobs_root)
+
+
+def _naive_deliverable_status(job: dict, jobs_root: Path) -> list[dict]:
+    # Fallback for a context with no poller wired up: just "is a file
+    # with this name there", with none of the real pass/warn/fail
+    # checks. Kept simple and separate from deliverables_table()'s
+    # "ok"/"warn"/"fail"/"missing" vocabulary so the two are never
+    # confused for each other in a response.
     export_root = jobs_root / job["id"] / "04_export"
-    stems_present: set[str] = set()
+    path_by_stem: dict[str, Path] = {}
     if export_root.exists():
         for p in export_root.rglob("*"):
             if p.is_file():
-                stems_present.add(p.stem)
+                path_by_stem[p.stem] = p
 
-    return [
-        {**d, "status": "found" if d["expected_stem"] in stems_present else "missing"}
-        for d in job["deliverables"]
-    ]
+    rows = []
+    for d in job["deliverables"]:
+        found = path_by_stem.get(d["expected_stem"])
+        rows.append(
+            {
+                **d,
+                "status": "found" if found else "missing",
+                "found_file": found.name if found else None,
+                "checks": [],
+            }
+        )
+    return rows

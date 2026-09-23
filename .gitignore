@@ -22,7 +22,7 @@ node_modules/
 
 # Never distributed: real client artwork used for validator testing
 tests/fixtures/real/*
-!tests/fixtures/real/.gitkeep
+!tests/fixtures/real/README.md
 
 # Editor / OS
 .DS_Store

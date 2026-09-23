@@ -12,9 +12,11 @@ import shutil
 import sys
 import threading
 import webbrowser
+from pathlib import Path
 
 from studio_helper import config, instance, logging_setup, paths
 from studio_helper.api.context import AppContext
+from studio_helper.poller import Poller
 from studio_helper.server import create_server
 
 
@@ -42,7 +44,8 @@ def run() -> int:
     instance.clear()
     seed_user_registry()
     cfg = config.Config.load()
-    ctx = AppContext(cfg)
+    poller = Poller(Path(cfg.jobs_root))
+    ctx = AppContext(cfg, poller=poller)
 
     server = create_server(ctx=ctx)
     host, port = server.server_address[:2]
@@ -50,6 +53,7 @@ def run() -> int:
     instance.write(info)
     logger.info("Serving on http://127.0.0.1:%s", port)
 
+    poller.start()
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
 
@@ -60,6 +64,7 @@ def run() -> int:
     except KeyboardInterrupt:
         server.shutdown()
     finally:
+        poller.stop()
         instance.clear()
         server.server_close()
 

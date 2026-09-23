@@ -11,8 +11,10 @@ from __future__ import annotations
 
 import json
 import sys
+import tempfile
 import threading
 import urllib.request
+from pathlib import Path
 
 from studio_helper.server import create_server
 
@@ -24,6 +26,67 @@ def _check_imports() -> list[str]:
             __import__(mod)
         except ImportError as exc:
             problems.append(f"{mod}: {exc}")
+    return problems
+
+
+def _check_registry() -> list[str]:
+    from studio_helper import paths
+    from studio_helper.core.registry import RegistryError, load_registry
+
+    try:
+        load_registry(paths.bundled_registry_path())
+    except RegistryError as exc:
+        return [f"default registry: {exc}"]
+    return []
+
+
+def _check_validators() -> list[str]:
+    """Runs each validator on a tiny fixture built from only the
+    bundled runtime deps (pypdf + Pillow -- reportlab is dev-only and
+    is never shipped), proving the validator code paths actually
+    import and execute in the packaged app."""
+    problems: list[str] = []
+    try:
+        import pypdf
+        from PIL import Image
+
+        from studio_helper.validators import pdf as pdf_validator
+        from studio_helper.validators import raster
+
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+
+            png_path = tmp_path / "mini.png"
+            Image.new("RGB", (10, 10), "red").save(png_path)
+            png_fmt = {
+                "id": "x", "kind": "social", "size": {"w": 10, "h": 10, "unit": "px"},
+                "allow_alpha": False,
+            }
+            png_checks = raster.validate(
+                png_path,
+                png_fmt,
+                {"format_id": "x", "type": "png", "panel": None, "expected_stem": "mini"},
+            )
+            if not png_checks:
+                problems.append("raster validator returned no checks")
+
+            pdf_path = tmp_path / "mini.pdf"
+            writer = pypdf.PdfWriter()
+            writer.add_blank_page(width=72, height=72)
+            with open(pdf_path, "wb") as f:
+                writer.write(f)
+            pdf_checks = pdf_validator.validate(
+                pdf_path,
+                {
+                    "id": "y", "kind": "print", "size": {"w": 25.4, "h": 25.4, "unit": "mm"},
+                    "bleed_mm": 0, "min_image_ppi": {}, "scale": 1,
+                },
+                {"format_id": "y", "type": "pdf", "panel": None, "expected_stem": "mini"},
+            )
+            if not pdf_checks:
+                problems.append("pdf validator returned no checks")
+    except Exception as exc:  # noqa: BLE001 - selftest reports, never raises
+        problems.append(f"validator check failed: {exc}")
     return problems
 
 
@@ -53,6 +116,8 @@ def _check_server() -> list[str]:
 def run() -> int:
     problems: list[str] = []
     problems += _check_imports()
+    problems += _check_registry()
+    problems += _check_validators()
     problems += _check_server()
 
     if problems:
