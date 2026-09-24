@@ -131,6 +131,19 @@ Copy-Clean (Join-Path $RepoRoot "app") (Join-Path $StageDir "app")
 Copy-Clean (Join-Path $RepoRoot "adobe") (Join-Path $StageDir "adobe")
 Copy-Clean (Join-Path $RepoRoot "defaults") (Join-Path $StageDir "defaults")
 
+# The checked-in __version__ is a dev-time placeholder; the tag is the
+# real source of truth for a release (release.yml derives $Version
+# from it). Stamping it here, not by hand in the repo, is what keeps
+# /api/health and the self-updater's "am I current" check honest --
+# a hand-bumped constant had already drifted (stuck at 0.1.0 through
+# v0.2.0-v0.2.4) before this existed (SPEC.md §15 decisions).
+$initPath = Join-Path $StageDir "app\studio_helper\__init__.py"
+$stamped = (Get-Content -Raw $initPath) -replace '__version__ = "[^"]*"', "__version__ = `"$Version`""
+if ($stamped -notmatch [regex]::Escape("__version__ = `"$Version`"")) {
+    throw "Failed to stamp version $Version into $initPath -- refusing to build."
+}
+Set-Content -Path $initPath -Value $stamped -NoNewline
+
 if (Test-Path (Join-Path $RepoRoot "LICENSES")) {
     Copy-Clean (Join-Path $RepoRoot "LICENSES") (Join-Path $StageDir "LICENSES")
 }

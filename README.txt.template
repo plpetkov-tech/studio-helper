@@ -63,9 +63,15 @@ one button in the browser" part is skipped.
 
 UPDATING
 ---------
-To update, extract the new zip (anywhere) and start it from there.
-Your jobs, settings and job history are kept safely in your Windows
-user profile and are not affected by updating.
+Easiest: on the Home page, click "Check for updates", then "Download
+& install" if one is available. Studio Helper downloads the new
+version from GitHub, verifies it, and restarts itself into it - no
+browser, no manual zip/unzip. This is the only thing in Studio Helper
+that ever goes out to the internet, and only when you click it.
+
+Manual alternative: extract the new zip (anywhere) and start it from
+there. Your jobs, settings and job history are kept safely in your
+Windows user profile and are not affected by updating either way.
 
 
 QUESTIONS OR SOMETHING LOOKS WRONG

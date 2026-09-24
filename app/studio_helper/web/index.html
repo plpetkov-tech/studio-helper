@@ -28,9 +28,28 @@
     <div id="jobs-list">
       <p class="empty-state">Loading…</p>
     </div>
+
+    <h2>Updates</h2>
+    <div class="card">
+      <div id="update-idle">
+        <p>Current version: <strong id="current-version">&hellip;</strong></p>
+        <div class="actions">
+          <button id="check-update-btn">Check for updates</button>
+        </div>
+      </div>
+      <div id="update-available" hidden>
+        <p><span class="badge warn">Update</span> Version <strong id="latest-version"></strong> is available.</p>
+        <div id="update-notes" class="preview" hidden></div>
+        <div class="actions">
+          <button id="install-update-btn" class="primary">Download &amp; install</button>
+        </div>
+      </div>
+      <p id="update-status" class="hint" hidden></p>
+    </div>
   </main>
 
   <script src="/static/api.js"></script>
   <script src="/static/home.js"></script>
+  <script src="/static/updates.js"></script>
 </body>
 </html>
