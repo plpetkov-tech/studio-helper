@@ -248,3 +248,20 @@ def test_schedule_relaunch_launches_detached_powershell(monkeypatch, tmp_path):
     assert "Bypass" in args
     assert str(tmp_path / "StudioHelper-v9.9.9") in args
     assert captured["kwargs"]["close_fds"] is True
+
+
+def test_relaunch_script_renames_old_install_instead_of_deleting_it():
+    """A release that fails to start must still leave a working copy
+    behind (SPEC.md §15, 2026-09-24) -- the old install is renamed to
+    "<OldDir>.previous", never deleted outright. Only a *stale*
+    ".previous" from the update before last is removed."""
+    script = updater._RELAUNCH_PS1
+
+    assert "Rename-Item" in script
+    assert '$previousDir = "$OldDir.previous"' in script
+    # The only Remove-Item targeting a whole folder tree must be scoped
+    # to $previousDir (the stale backup), never bare $OldDir.
+    for line in script.splitlines():
+        if "Remove-Item" in line and "-Recurse" in line:
+            assert "$previousDir" in line
+            assert "$OldDir" not in line

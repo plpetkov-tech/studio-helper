@@ -195,6 +195,15 @@ def download_and_stage(info: UpdateInfo) -> Path:
 # Invoked with -ExecutionPolicy Bypass so it runs regardless of the
 # machine's persistent script-execution policy, without changing that
 # policy (SPEC.md §2.2: user-level only, no lasting system changes).
+#
+# The old install is renamed to "<OldDir>.previous", never deleted
+# outright, so a release that fails to start still leaves a working
+# copy right next to it to fall back to by hand (SPEC.md §15,
+# 2026-09-24) -- there is no automated health check of the new
+# version here, so this is the safety net for when one would have
+# caught something. At most one rollback copy is kept: a
+# ".previous" left over from the update before last is removed
+# first, right before this update's old install takes its place.
 _RELAUNCH_PS1 = """
 param(
     [Parameter(Mandatory=$true)][int]$OldPid,
@@ -203,9 +212,16 @@ param(
 )
 try { Wait-Process -Id $OldPid -Timeout 30 -ErrorAction SilentlyContinue } catch {}
 Start-Sleep -Seconds 1
-if (Test-Path -LiteralPath $OldDir) {
-    Remove-Item -LiteralPath $OldDir -Recurse -Force -ErrorAction SilentlyContinue
+
+$previousDir = "$OldDir.previous"
+if (Test-Path -LiteralPath $previousDir) {
+    Remove-Item -LiteralPath $previousDir -Recurse -Force -ErrorAction SilentlyContinue
 }
+if (Test-Path -LiteralPath $OldDir) {
+    $previousName = Split-Path -Leaf $previousDir
+    Rename-Item -LiteralPath $OldDir -NewName $previousName -ErrorAction SilentlyContinue
+}
+
 Start-Process -FilePath (Join-Path $NewDir "Start Studio Helper.bat") -WorkingDirectory $NewDir
 Start-Sleep -Seconds 2
 Remove-Item -LiteralPath $PSCommandPath -Force -ErrorAction SilentlyContinue
