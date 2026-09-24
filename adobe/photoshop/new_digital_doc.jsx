@@ -155,10 +155,47 @@ function main(args) {
         });
     }
 
-    doc.saveAs(outFile, new PhotoshopSaveOptions());
+    saveDigitalDoc(doc, outFile);
 
     result.data = {path: outFile.fsName, artboards: artboardsData};
     return result;
+}
+
+// Confirmed working on a real machine (2026-09-23): document creation
+// and makeArtboard() both succeed. Only this save step has failed so
+// far, with Photoshop's own "parameters for command 'Save' are not
+// currently valid" -- a known but vaguely-documented ExtendScript
+// error. Two defensible hardenings below (re-fetching the active
+// document rather than trusting the `doc` reference after several
+// executeAction calls, and setting save options explicitly rather than
+// relying on undocumented defaults), plus a rich diagnostic dump if it
+// still fails, so a repeat failure gives an exact cause instead of
+// this same generic message.
+function saveDigitalDoc(doc, outFile) {
+    var opts = new PhotoshopSaveOptions();
+    opts.layers = true;
+    opts.embedColorProfile = true;
+    opts.alphaChannels = true;
+    opts.annotations = true;
+    opts.spotColors = true;
+
+    try {
+        // Action Manager calls (makeArtboard) sometimes leave the
+        // original `doc` reference stale relative to what Photoshop
+        // now considers the active document -- app.activeDocument is
+        // the authoritative current reference.
+        app.activeDocument.saveAs(outFile, opts, false, Extension.LOWERCASE);
+    } catch (e) {
+        var diag = {
+            error: String(e),
+            resolvedPath: outFile.fsName,
+            parentExists: outFile.parent.exists,
+            docName: app.activeDocument.name,
+            layerCount: app.activeDocument.layers.length,
+            isSameDocRef: app.activeDocument === doc
+        };
+        throw new Error("Could not save the Photoshop file: " + JSON.stringify(diag));
+    }
 }
 
 SH.run(main, "Select job.json for the new digital document");

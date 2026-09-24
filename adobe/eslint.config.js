@@ -57,6 +57,7 @@ module.exports = [
         ActionDescriptor: "readonly",
         ActionReference: "readonly",
         executeAction: "readonly",
+        Extension: "readonly",
         // Provided by lib/json2.js via #include (stripped above, so
         // ESLint needs these declared instead of inferring them).
         JSON: "readonly",
