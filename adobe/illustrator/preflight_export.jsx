@@ -289,6 +289,15 @@ function checkHiddenLayers(doc) {
     return {id: "hidden-layers", status: "ok", message: "No hidden layers with content."};
 }
 
+function readDocumentBleed(doc) {
+    try {
+        var r = doc.documentBleedOffsetRect;
+        return r && r.length === 4 ? r : null;
+    } catch (e) {
+        return null;
+    }
+}
+
 function checkArtboards(doc, job) {
     var checks = [];
     var matchedFormats = {};
@@ -339,9 +348,14 @@ function checkArtboards(doc, job) {
         }
 
         expectedBleedMm = docBleedMm(fmt);
-        docBleed = doc.documentBleedOffsetRect; // [top, left, bottom, right] pt
-        actualBleedMm = SH.ptToMm(docBleed[0]);
-        if (Math.abs(actualBleedMm - expectedBleedMm) > SIZE_TOLERANCE_MM) {
+        docBleed = readDocumentBleed(doc); // [top, left, bottom, right] pt, or null
+        actualBleedMm = docBleed ? SH.ptToMm(docBleed[0]) : null;
+        if (actualBleedMm === null) {
+            // Illustrator doesn't expose an open document's bleed to
+            // scripts (only DocumentPreset has it -- confirmed on a real
+            // machine, 2026-09-26). Nothing to compare; the export sets
+            // the bleed on every PDF/TIFF explicitly, so output is right.
+        } else if (Math.abs(actualBleedMm - expectedBleedMm) > SIZE_TOLERANCE_MM) {
             checks.push({id: "bleed-size", status: "fail",
                 message: "Document bleed is " + actualBleedMm.toFixed(1) + "mm; expected " +
                     expectedBleedMm.toFixed(1) + "mm for '" + ab.name + "'.",
@@ -456,10 +470,9 @@ function exportOnePdf(doc, artboardIndex, fmt, deliverable, exportDir, preset) {
     if (preset) { opts.pDFPreset = preset; }
     opts.artboardRange = String(artboardIndex + 1);
     // Set explicitly too, as a guard against the preset (SPEC.md §6.4).
-    opts.bleedTop = bleedPt;
-    opts.bleedBottom = bleedPt;
-    opts.bleedLeft = bleedPt;
-    opts.bleedRight = bleedPt;
+    // [top, left, bottom, right] in points; bleedTop/... aren't real options.
+    opts.bleedLink = false;
+    opts.bleedOffsetRect = [bleedPt, bleedPt, bleedPt, bleedPt];
 
     // Gotcha (SPEC.md §6.4): saveAs turns the open document into this
     // PDF. Callers must not touch `doc` again afterwards.

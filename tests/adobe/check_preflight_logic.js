@@ -143,6 +143,42 @@ function run() {
     assert.strictEqual(ctx.isArtboardEmpty([item([-10, 110, 110, -10])], rect), false); // full bleed bg
   });
 
+  check("checkArtboards works when Illustrator doesn't expose the document bleed", () => {
+    const pt = (mm) => ctx.SH.mmToPt(mm);
+    const doc = {
+      // no documentBleedOffsetRect: a real open Illustrator document
+      artboards: [{name: "flyer-a5", artboardRect: [0, pt(210), pt(148), 0]}],
+      layers: [{name: "Background", visible: true, pageItems: [
+        {visibleBounds: [-pt(3), pt(213), pt(151), -pt(3)]},
+      ]}],
+    };
+    const job = {
+      formats: [{id: "flyer-a5", kind: "print", size: {w: 148, h: 210}, bleed_mm: 3}],
+      deliverables: [{format_id: "flyer-a5", panel: null, type: "pdf", expected_stem: "x"}],
+    };
+    const checks = Array.from(ctx.checkArtboards(doc, job));
+    const byId = {};
+    checks.forEach((c) => { byId[c.id] = c.status; });
+    assert.strictEqual(byId["artboard-size"], "ok");
+    assert.strictEqual(byId["bleed-coverage"], "ok");
+    assert.strictEqual(byId["bleed-size"], undefined); // skipped, not crashed
+  });
+
+  check("checkArtboards still compares the bleed when it can be read", () => {
+    const pt = (mm) => ctx.SH.mmToPt(mm);
+    const doc = {
+      documentBleedOffsetRect: [pt(5), pt(5), pt(5), pt(5)],
+      artboards: [{name: "flyer-a5", artboardRect: [0, pt(210), pt(148), 0]}],
+      layers: [{name: "Background", visible: true, pageItems: [{visibleBounds: [-pt(5), pt(215), pt(153), -pt(5)]}]}],
+    };
+    const job = {
+      formats: [{id: "flyer-a5", kind: "print", size: {w: 148, h: 210}, bleed_mm: 3}],
+      deliverables: [{format_id: "flyer-a5", panel: null, type: "pdf", expected_stem: "x"}],
+    };
+    const bleed = Array.from(ctx.checkArtboards(doc, job)).filter((c) => c.id === "bleed-size")[0];
+    assert.strictEqual(bleed.status, "fail");
+  });
+
   check("findFormat / printDeliverablesFor / formatSizeFor round-trip a job", () => {
     const job = {
       formats: [

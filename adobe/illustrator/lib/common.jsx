@@ -26,6 +26,21 @@ SH.rect = function (left, top, right, bottom) {
 
 // The result envelope every script returns (SPEC.md §6.3):
 // {"ok": bool, "data": {...}, "errors": [...], "warnings": [...]}
+// "TypeError: ... (preflight_export.jsx, line 342)" -- the file and
+// line make a photo of the message enough to find the problem.
+SH.describeError = function (e) {
+    var text = String(e);
+    try {
+        if (e && e.line) {
+            var file = e.fileName ? String(e.fileName).replace(/^.*[\\\/]/, "") : "";
+            text += " (" + (file ? file + ", " : "") + "line " + e.line + ")";
+        }
+    } catch (ignored) {
+        // keep the plain message
+    }
+    return text;
+};
+
 SH.makeResult = function () {
     return {ok: true, data: {}, errors: [], warnings: []};
 };
@@ -79,7 +94,7 @@ SH._runWrapped = function (fn, args) {
         result = fn(args);
     } catch (e) {
         result = SH.makeResult();
-        SH.addError(result, "EXCEPTION", String(e), "");
+        SH.addError(result, "EXCEPTION", SH.describeError(e), "");
     } finally {
         app.userInteractionLevel = previousInteractionLevel;
     }
