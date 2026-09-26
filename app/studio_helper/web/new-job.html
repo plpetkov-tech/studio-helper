@@ -3,49 +3,42 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>New job &middot; Studio Helper</title>
+<title>New job · Studio Helper</title>
 <link rel="stylesheet" href="/static/app.css">
 </head>
-<body>
-  <header class="topbar">
-    <a class="brand" href="/index.html"><span class="brand-mark"></span><h1>Studio Helper</h1></a>
-    <nav>
-      <a href="/index.html">Home</a>
-      <a href="/registry.html">Registry</a>
-      <a href="/guide.html">Guide</a>
-      <a href="/setup-check.html">Setup check</a>
-    </nav>
-  </header>
-
-  <main class="narrow">
-    <h1>New job</h1>
-    <p class="subtitle">Name it, pick a job type to pre-tick formats, then add or remove any format.</p>
-
-    <div id="error-banner" class="banner error" hidden></div>
-
-    <form id="new-job-form">
-      <label for="name">Job name</label>
-      <input type="text" id="name" name="name" placeholder="e.g. Autumn Sale" autocomplete="off" required>
-
-      <label for="job-type">Job type</label>
-      <select id="job-type">
-        <option value="">Custom (pick formats below)</option>
-      </select>
-
-      <label>Formats</label>
-      <div id="format-checklist" class="checklist">
-        <p class="empty-state">Loading registry…</p>
+<body data-page="jobs">
+  <main>
+    <a class="crumb" href="/index.html">‹ Jobs</a>
+    <div class="head">
+      <div><h1>New job</h1><p>Name it, pick what you’re making, and change the bleed if the print shop asked for something different.</p></div>
+    </div>
+    <div id="error-banner" class="banner error page-banner" hidden></div>
+    <div class="nj">
+      <div class="stack">
+        <div class="field">
+          <label for="nj-name">Job name</label>
+          <input class="input" id="nj-name" placeholder="e.g. Paradise Center — spring" autocomplete="off">
+          <span class="note">Folder: <span class="mono" id="folder-preview">Studio Jobs\…</span></span>
+        </div>
+        <div class="field">
+          <span class="lbl">Start from</span>
+          <div class="presets" id="presets"></div>
+        </div>
+        <div class="card picker">
+          <div class="picker-head">
+            <input class="search" id="fmt-search" type="search" placeholder="Search formats: mall, citylight, story…" aria-label="Search formats">
+            <span class="note" id="fmt-count"></span>
+          </div>
+          <div id="groups"><p class="empty">Loading formats…</p></div>
+          <div class="custom-row" id="custom-list"></div>
+          <div id="custom-slot"></div>
+        </div>
       </div>
-
-      <div id="preview" class="preview" hidden></div>
-
-      <div class="actions">
-        <button type="submit" class="primary">Create job</button>
-      </div>
-    </form>
+      <aside class="card summary" aria-live="polite" id="summary"></aside>
+    </div>
   </main>
-
   <script src="/static/api.js"></script>
+  <script src="/static/shell.js"></script>
   <script src="/static/new-job.js"></script>
 </body>
 </html>

@@ -41,4 +41,32 @@ def deliverables_table(job: dict, results: dict[str, FileResult]) -> list[dict]:
             )
         else:
             rows.append({**deliverable, "status": "missing", "found_file": None, "checks": []})
-    return rows
+    return collapse_alternatives(rows)
+
+
+DIGITAL_TYPES = ("png", "jpg", "mp4")
+
+
+def collapse_alternatives(rows: list[dict]) -> list[dict]:
+    """A digital format listing several exports ([jpg, png], [jpg, mp4])
+    accepts any one of them -- Photoshop writes just one. Show one row
+    per artboard: the delivered file(s) if any arrived, else the first
+    listed type, carrying the others as `alternatives`."""
+    groups: dict[tuple, list[dict]] = {}
+    for row in rows:
+        if row["type"] in DIGITAL_TYPES:
+            groups.setdefault((row["format_id"], row.get("panel")), []).append(row)
+
+    out = []
+    for row in rows:
+        group = groups.get((row["format_id"], row.get("panel")))
+        if row["type"] not in DIGITAL_TYPES or group is None or len(group) == 1:
+            out.append(row)
+            continue
+        found = [r for r in group if r["status"] != "missing"]
+        if found:
+            if row["status"] != "missing":
+                out.append(row)
+        elif row is group[0]:
+            out.append({**row, "alternatives": [r["type"] for r in group[1:]]})
+    return out

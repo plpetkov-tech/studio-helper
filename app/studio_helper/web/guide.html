@@ -3,151 +3,115 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Guide &middot; Studio Helper</title>
+<title>Guide · Studio Helper</title>
 <link rel="stylesheet" href="/static/app.css">
 </head>
-<body>
-  <header class="topbar">
-    <a class="brand" href="/index.html"><span class="brand-mark"></span><h1>Studio Helper</h1></a>
-    <nav>
-      <a href="/index.html">Home</a>
-      <a href="/registry.html">Registry</a>
-      <a href="/guide.html" class="current">Guide</a>
-      <a href="/setup-check.html">Setup check</a>
-    </nav>
-  </header>
-
-  <main class="narrow guide">
-    <h1>Guide</h1>
-    <p class="subtitle">From an idea to checked, correctly named export files: the whole flow, in order.</p>
-
-    <nav class="card guide-toc">
-      <ol>
-        <li><a href="#how">How it works</a></li>
-        <li><a href="#registry">Formats live in the registry</a></li>
-        <li><a href="#job">Create a job</a></li>
-        <li><a href="#print">Print: Illustrator</a></li>
-        <li><a href="#digital">Digital: Photoshop</a></li>
-        <li><a href="#figma">Digital: Figma</a></li>
-        <li><a href="#status">Checking deliverables</a></li>
-        <li><a href="#revision">Revisions, deleting, updates</a></li>
-        <li><a href="#trouble">When something goes wrong</a></li>
-      </ol>
-    </nav>
-
-    <h2 id="how">1. How it works</h2>
-    <p>Studio Helper never designs anything. It does the setup and checking around your design work:</p>
-    <ul>
-      <li><strong>Before:</strong> it creates the job folder and Illustrator/Photoshop/Figma files with every
-        artboard already at the right size, bleed and safe-zone guides included.</li>
-      <li><strong>During:</strong> you design as usual, in your own files.</li>
-      <li><strong>After:</strong> it checks the print file, exports it, and watches the export folder. Every
-        file that lands there is checked against the format it's meant to be (size, colour mode,
-        resolution, bleed) and shown as ✓ or ✗ on the job page.</li>
-    </ul>
-    <p class="hint">It never overwrites or deletes your .ai / .psd files.</p>
-
-    <h2 id="registry">2. Formats live in the registry</h2>
-    <p>Every format (a flyer, a mall screen, a vinyl poster) is one entry in the
-      <a href="/registry.html">Registry</a>: its size, unit (mm or px), what it's exported as, and optional
-      bleed, safe zone and scale.</p>
-    <ol>
-      <li>Registry → <strong>Open registry file</strong>. Always edit this file, not the one inside the app folder.</li>
-      <li>Add or change a format, save.</li>
-      <li><strong>Validate registry</strong>. If something is wrong it tells you the line.</li>
-    </ol>
-    <p><strong>Job types</strong> at the bottom of the file are presets that pre-tick a group of formats,
-      e.g. <code>mall-print</code> ticks every <code>mall-print-*</code> format.</p>
-    <p><strong>Scale:</strong> Illustrator can't draw anything over 5.7 m. Formats over 5.5 m are drawn at 1:10
-      automatically; set <code>scale: 0.1</code> yourself when the supplier asks for 1:10. Artboards at 1:10 are
-      named <code>…@1:10</code>.</p>
-    <p class="hint">A job keeps the format sizes it was created with. Changing the registry affects new jobs only.</p>
-
-    <h2 id="job">3. Create a job</h2>
-    <ol>
-      <li>Home → <strong>New job</strong>.</li>
-      <li>Name it (Cyrillic is fine; it's transliterated for file names).</li>
-      <li>Pick a job type, or tick formats by hand. The preview shows every file you'll deliver.</li>
-      <li><strong>Create job</strong>. This makes a folder in <code>Documents\Studio Jobs</code>:</li>
-    </ol>
-    <pre>2026-09-26_autumn-sale/
-  01_brief/      ← put the brief here
-  02_assets/     ← logos, photos
-  03_working/    ← your .ai / .psd (created for you)
-  04_export/
-    print/  led/  web/  social/   ← finished files go here</pre>
-    <p>Every deliverable gets an exact expected file name, like
-      <code>2026-09-26_autumn-sale_flyer-a5_148x210mm_v01.pdf</code>. Files with that name in the right
-      <code>04_export</code> folder are picked up automatically.</p>
-
-    <h2 id="print">4. Print: Illustrator</h2>
-    <ol>
-      <li>On the job page: <strong>Create Illustrator print file</strong>. Illustrator opens a CMYK file in
-        <code>03_working</code> with one artboard per format (per panel for multi-panel formats), bleed set,
-        and safe zones as locked guides on the <em>Guides</em> layer. Big jobs are split into
-        <code>_part1</code>, <code>_part2</code>… files so each fits Illustrator's canvas; formats with
-        a different bleed get their own file.</li>
-      <li>Design on the <em>Content</em> layer. Don't rename the artboards: the name is how each one is
-        matched to its format.</li>
-      <li>Save, then <strong>Check print file</strong>. It checks without exporting: artboard sizes, bleed
-        filled, CMYK, no RGB images, spot colours, hidden layers with content, missing artboards.</li>
-      <li><strong>Check &amp; export print</strong>. If everything passes it writes the PDF (or TIFF for very
-        large formats, when the registry allows both) into <code>04_export/print</code> with the right
-        name. If a check fails you get the reasons and an <strong>Export anyway</strong> button.</li>
-    </ol>
-
-    <h2 id="digital">5. Digital: Photoshop</h2>
-    <ol>
-      <li><strong>Create Photoshop file</strong>. It makes an RGB / sRGB / 72 ppi .psd in
-        <code>03_working</code> with one artboard per screen/social format, at the exact pixel size.</li>
-      <li>Design inside each artboard. Keep the artboard names.</li>
-      <li>Save, then <strong>Export from Photoshop</strong>. Each artboard is exported (PNG or JPG, as
-        the registry says) to the right <code>04_export</code> folder, flattened and converted to sRGB.
-        Your .psd isn't changed.</li>
-    </ol>
-    <p class="hint">Video (mp4) isn't exported by Photoshop. Render it yourself with the expected name
-      shown on the job page and drop it into <code>04_export/led</code>.</p>
-
-    <h2 id="figma">6. Digital: Figma (optional)</h2>
-    <ol>
-      <li>One-time: import the Studio Helper plugin (see <a href="/setup-check.html">Setup check</a>).</li>
-      <li>On the job page, <strong>Copy job.json path</strong>. In Figma, run the plugin → <em>Create frames</em>
-        and give it that job.json.</li>
-      <li>Design in the frames; their names already match the export file names.</li>
-      <li>Export with Figma's own Export into the job's <code>04_export</code> folder.</li>
-    </ol>
-
-    <h2 id="status">7. Checking deliverables</h2>
-    <p>The table on the job page lists every expected file and updates by itself every few seconds:</p>
-    <ul>
-      <li><span class="badge missing">✗ missing</span> nothing with that name yet</li>
-      <li><span class="badge found">✓ ok</span> found and passes every check</li>
-      <li><span class="badge warn">⚠ warning</span> usable, but look at it (e.g. an image under the ideal ppi)</li>
-      <li><span class="badge fail">✗ fail</span> wrong size, colour mode, resolution…</li>
-    </ul>
-    <p>Click a row to see the individual checks and what to fix. When everything shows ✓, the job is done.</p>
-
-    <h2 id="revision">8. Revisions, deleting, updates</h2>
-    <ul>
-      <li><strong>Start revision</strong> when the client asks for changes: the version goes v01 → v02, so
-        new exports get new names and the old ones stay untouched for reference.</li>
-      <li><strong>Delete job</strong> moves the whole folder to <code>Studio Jobs\_Deleted Jobs</code>.
-        Nothing is erased; move it back to restore it.</li>
-      <li>Home → <strong>Check for updates</strong> → <strong>Download &amp; install</strong>. The app restarts
-        itself; the previous version is kept once as a backup and older ones are cleaned up.</li>
-    </ul>
-
-    <h2 id="trouble">9. When something goes wrong</h2>
-    <ul>
-      <li><strong>A button says Illustrator/Photoshop couldn't be reached:</strong> run
-        <a href="/setup-check.html">Setup check</a>. The job page also offers a manual way: an
-        <strong>Open scripts folder</strong> button, then <em>File › Scripts › Other Script…</em> in the app.</li>
-      <li><strong>"A file already exists":</strong> the app won't overwrite your work. Open the existing file,
-        or use Start revision for a fresh one.</li>
-      <li><strong>A new format doesn't appear:</strong> Registry → Validate, then create a new job (old jobs
-        keep their formats).</li>
-      <li><strong>Anything else:</strong> take a photo of the message; it says exactly what failed.</li>
-    </ul>
+<body data-page="guide">
+  <main>
+    <div class="head"><div><h1>Guide</h1><p>From the brief to files the print shop can use, in order.</p></div></div>
+    <div class="guide">
+      <nav class="toc" aria-label="Guide sections">
+        <a href="#how">1. How it works</a>
+        <a href="#job">2. Start a job</a>
+        <a href="#setup">3. Set up the files</a>
+        <a href="#design">4. Design</a>
+        <a href="#export">5. Check &amp; export</a>
+        <a href="#deliver">6. Delivered</a>
+        <a href="#formats">7. Formats</a>
+        <a href="#more">8. Revisions, deleting, updates</a>
+        <a href="#trouble">9. When something goes wrong</a>
+      </nav>
+      <div>
+        <section class="card gsec" id="how">
+          <h2>How it works</h2>
+          <p>Studio Helper never designs anything. It does the setup and the checking around your design work.</p>
+          <ul>
+            <li><strong>Before:</strong> it creates the job folder and the Illustrator / Photoshop / Figma files, with every artboard at the right size and bleed and safe-zone guides in place.</li>
+            <li><strong>During:</strong> you design as usual, in your own files.</li>
+            <li><strong>After:</strong> it checks and exports the print files, then watches the export folder and marks every file ✓ or ✕.</li>
+          </ul>
+          <p class="note">It never overwrites or deletes your .ai / .psd files.</p>
+        </section>
+        <section class="card gsec" id="job">
+          <h2>Start a job</h2>
+          <ol>
+            <li><strong>Jobs → New job</strong>, give it a name. Cyrillic is fine; file names are transliterated.</li>
+            <li>Pick a preset like <strong>Mall print</strong>, or tick formats by hand. Search helps with long lists.</li>
+            <li>If the print shop gave you a different bleed, change it right on the ticked format. It only affects this job.</li>
+            <li>A size nobody has used before? <strong>+ Custom size</strong>. Tick “save to Formats” if it’ll come back.</li>
+            <li>Check the file names on the right, then <strong>Create job</strong>.</li>
+          </ol>
+          <pre>2026-09-26_paradise-spring/
+  01_brief/     brief and print-shop specs
+  02_assets/    logos, photos
+  03_working/   your .ai and .psd (created for you)
+  04_export/    finished files land here</pre>
+        </section>
+        <section class="card gsec" id="setup">
+          <h2>Set up the files</h2>
+          <p>Step 1 on the job page creates the working files in <code>03_working</code>:</p>
+          <ul>
+            <li><strong>Illustrator:</strong> CMYK, one artboard per print format, bleed set, safe zones as locked guides. Very large formats are drawn at 1:10 and named <code>…@1:10</code>. Big jobs are split into <code>_part1</code>, <code>_part2</code> files so each fits Illustrator’s canvas.</li>
+            <li><strong>Photoshop:</strong> RGB / sRGB, one artboard per screen or social format at the exact pixel size.</li>
+            <li><strong>Figma:</strong> copy the job.json path and run the Studio Helper plugin → Create frames.</li>
+          </ul>
+        </section>
+        <section class="card gsec" id="design">
+          <h2>Design</h2>
+          <p>Work in your files as usual. The one rule: <strong>don’t rename the artboards</strong>. Their names are how each one is matched to its format and file name.</p>
+          <p class="note">Print shop notes (pockets, how far text must stay from the edge) are on each file in the job. Click a file to see them.</p>
+        </section>
+        <section class="card gsec" id="export">
+          <h2>Check &amp; export</h2>
+          <ul>
+            <li><strong>Check &amp; export print</strong> checks every artboard: size, bleed filled, CMYK, image resolution, fonts, empty artboards. If everything passes, it writes the TIFF / PDF into <code>04_export/print</code> with the right name. Mall print goes out as TIFF, small print as PDF.</li>
+            <li>If something fails, the panel says exactly what and where. Fix it, or use <strong>Export anyway</strong>.</li>
+            <li><strong>Export Photoshop</strong> exports every artboard as PNG / JPG, flattened and in sRGB. Your .psd isn’t changed.</li>
+            <li>Figma and video (mp4): export them yourself into <code>04_export</code>, with the file name shown on the job page.</li>
+          </ul>
+        </section>
+        <section class="card gsec" id="deliver">
+          <h2>Delivered</h2>
+          <p>The file list on the job page updates by itself every few seconds:</p>
+          <ul>
+            <li><span class="chip missing">missing</span> nothing with that name yet</li>
+            <li><span class="chip ok">✓ ok</span> passes every check</li>
+            <li><span class="chip warn">! check</span> usable, worth a look</li>
+            <li><span class="chip fail">✕ fail</span> wrong size, colour mode, resolution…</li>
+          </ul>
+          <p>When everything is ✓, send the <code>04_export</code> folder to the print shop.</p>
+        </section>
+        <section class="card gsec" id="formats">
+          <h2>Formats</h2>
+          <p>Every size you’ve delivered before lives in <strong>Formats</strong>: its size, bleed, what it’s delivered as, and the print shop’s notes.</p>
+          <ul>
+            <li><strong>+ Add format</strong> saves a new one. So does ticking “save to Formats” on a custom size.</li>
+            <li><strong>Edit file</strong> opens the formats file for bigger changes; <strong>Check file</strong> tells you if something in it is wrong, and on which line.</li>
+            <li>Changes apply to new jobs. A job keeps the sizes it was created with.</li>
+          </ul>
+        </section>
+        <section class="card gsec" id="more">
+          <h2>Revisions, deleting, updates</h2>
+          <ul>
+            <li><strong>Start revision:</strong> the version goes v01 → v02, so new exports get new names and the old ones stay for reference.</li>
+            <li><strong>More → Delete job</strong> moves the folder to <code>Studio Jobs\_Deleted Jobs</code>. Nothing is erased.</li>
+            <li><strong>? → Check for updates</strong> installs the new version and restarts. One backup of the old version is kept; older ones are cleaned up.</li>
+          </ul>
+        </section>
+        <section class="card gsec" id="trouble">
+          <h2>When something goes wrong</h2>
+          <ul>
+            <li><strong>Illustrator / Photoshop didn’t respond:</strong> the panel offers to run the script by hand. If it keeps happening, run <a href="/setup-check.html">Setup check</a>.</li>
+            <li><strong>“A file already exists”:</strong> the app won’t overwrite your work. Open it, or Start revision.</li>
+            <li><strong>A format looks wrong in an old job:</strong> fix it in Formats, then start a new job.</li>
+            <li><strong>Anything else:</strong> take a photo of the message. It says exactly what failed.</li>
+          </ul>
+        </section>
+      </div>
+    </div>
   </main>
+  <script src="/static/api.js"></script>
+  <script src="/static/shell.js"></script>
+  <script>window.SHUI.topbar("guide");</script>
 </body>
 </html>

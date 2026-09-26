@@ -10,10 +10,11 @@ from pathlib import Path
 
 from studio_helper import paths as app_paths
 from studio_helper.adobe import illustrator, photoshop
+from studio_helper.core import custom_formats
 from studio_helper.core import job as job_mod
 from studio_helper.core.registry import Registry, load_registry
 from studio_helper.core.scaffold import EXPORT_SUBDIR_BY_KIND
-from studio_helper.deliverables import deliverables_table
+from studio_helper.deliverables import collapse_alternatives, deliverables_table
 
 from .dispatch import route
 from .openers import open_path
@@ -46,8 +47,25 @@ def get_registry(ctx, body):
         "version": registry.version,
         "print_defaults": registry.print_defaults,
         "formats": list(registry.formats.values()),
+        "groups": registry.groups,
         "job_types": registry.job_types,
     }
+
+
+@route("POST", "/api/registry/formats")
+def add_format(ctx, body):
+    """"+ Add format" on the Formats page: saves straight to registry.yaml."""
+    registry = _load_registry(ctx)
+    fmt = _build_custom(body or {}, registry)
+    registry = custom_formats.save_format(ctx.registry_path, fmt)
+    return 200, {"ok": True, "format": registry.formats[fmt["id"]]}
+
+
+def _build_custom(spec: dict, registry: Registry, taken: set[str] | None = None) -> dict:
+    try:
+        return custom_formats.build_format(spec, set(registry.formats) | (taken or set()))
+    except custom_formats.CustomFormatError as exc:
+        raise job_mod.JobError(str(exc)) from exc
 
 
 @route("POST", "/api/registry/validate")
@@ -83,8 +101,31 @@ def create_job(ctx, body):
         if not job_type:
             raise job_mod.JobError("Choose a job type or select formats.")
         format_ids = registry.resolve_job_type(job_type)
+    format_ids = list(format_ids)
+    if not str(name).strip():
+        raise job_mod.JobError("Job name cannot be empty.")
 
-    job = job_mod.create_job(ctx.jobs_root, registry, name, format_ids)
+    # "Custom size" entries: validate them all before saving any, so a
+    # typo in the second one doesn't leave the first half-saved.
+    specs = body.get("custom_formats") or []
+    built, taken = [], set()
+    for spec in specs:
+        fmt = _build_custom(spec, registry, taken)
+        taken.add(fmt["id"])
+        built.append((spec, fmt))
+    one_off = []
+    for spec, fmt in built:
+        if spec.get("save"):
+            registry = custom_formats.save_format(ctx.registry_path, fmt)
+            format_ids.append(fmt["id"])
+        else:
+            one_off.append(custom_formats.resolve_custom(fmt, registry))
+
+    job = job_mod.create_job(
+        ctx.jobs_root, registry, name, format_ids,
+        bleed_overrides=body.get("bleed_overrides") or {},
+        custom_formats=one_off,
+    )
     return 200, {"ok": True, "job": job}
 
 
@@ -252,6 +293,9 @@ def _digital_export_dirs(job: dict, root: Path) -> dict[str, Path]:
 def _summarize(job: dict, ctx) -> dict:
     status = _deliverable_status(job, ctx)
     done = sum(1 for d in status if d["status"] in ("ok", "warn", "found"))
+    counts = {"ok": 0, "warn": 0, "fail": 0, "missing": 0}
+    for d in status:
+        counts["ok" if d["status"] == "found" else d["status"]] += 1
     return {
         "id": job["id"],
         "name": job["name"],
@@ -259,7 +303,16 @@ def _summarize(job: dict, ctx) -> dict:
         "version": job["version"],
         "deliverables_done": done,
         "deliverables_total": len(status),
+        "counts": counts,
+        # just enough for the little proportional shapes in the job list
+        "shapes": [_shape(f) for f in job["formats"][:8]],
     }
+
+
+def _shape(fmt: dict) -> dict:
+    size = fmt["panels"][0] if fmt.get("panels") else fmt["size"]
+    unit = fmt.get("unit") or fmt["size"]["unit"]
+    return {"w": size["w"], "h": size["h"], "unit": unit, "kind": fmt["kind"]}
 
 
 def _deliverable_status(job: dict, ctx) -> list[dict]:
@@ -292,4 +345,4 @@ def _naive_deliverable_status(job: dict, jobs_root: Path) -> list[dict]:
                 "checks": [],
             }
         )
-    return rows
+    return collapse_alternatives(rows)

@@ -264,3 +264,32 @@ def test_print_deliverable_type_follows_exports_then_physical_size(exports, size
     }
     deliverables = job_mod._deliverables_for("2026-09-26", "s", fmt, 1)
     assert [d["type"] for d in deliverables] == expected
+
+
+def test_create_job_bleed_override_and_custom_format(jobs_root, registry):
+    from studio_helper.core import custom_formats as cf
+
+    custom = cf.resolve_custom(
+        cf.build_format({"name": "Column wrap", "kind": "print", "w": 2400, "h": 1200,
+                         "bleed_mm": 20, "export": "tiff"}, set(registry.formats)),
+        registry,
+    )
+    job = job_mod.create_job(
+        jobs_root, registry, "Mixed", ["flyer-a5", "ig-post"], now=FIXED_NOW,
+        bleed_overrides={"flyer-a5": 0, "ig-post": 5}, custom_formats=[custom],
+    )
+    fmts = {f["id"]: f for f in job["formats"]}
+    assert fmts["flyer-a5"]["bleed_mm"] == 0  # the print shop said no bleed
+    assert "bleed_mm" not in fmts["ig-post"]  # ignored for digital formats
+    assert fmts["column-wrap"]["bleed_mm"] == 20
+    assert fmts["column-wrap"]["pdf_preset"] == "StudioHelper_X1a"  # defaults applied
+    assert [d["type"] for d in job["deliverables"] if d["format_id"] == "column-wrap"] \
+        == ["tiff"]
+    # the registry itself is untouched
+    assert registry.formats["flyer-a5"]["bleed_mm"] == 3
+
+
+def test_create_job_rejects_negative_bleed(jobs_root, registry):
+    with pytest.raises(job_mod.JobError, match="negative"):
+        job_mod.create_job(jobs_root, registry, "X", ["flyer-a5"], now=FIXED_NOW,
+                           bleed_overrides={"flyer-a5": -1})

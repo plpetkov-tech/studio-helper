@@ -176,3 +176,56 @@ def test_deliverable_status_reflects_export_dir(api, tmp_path):
     status, data = api("GET", f"/api/jobs/{job['id']}")
     assert status == 200
     assert data["deliverables"][0]["status"] == "found"
+
+
+def test_registry_lists_groups(api):
+    status, data = api("GET", "/api/registry")
+    assert data["groups"] == ["Print", "Social"]
+    assert data["formats"][0]["notes"] == ""
+
+
+def test_create_job_with_custom_sizes_saving_one(api, tmp_path):
+    body = {
+        "name": "Spring", "format_ids": ["flyer-a5"], "bleed_overrides": {"flyer-a5": 0},
+        "custom_formats": [
+            {"name": "Column wrap", "kind": "print", "w": 2400, "h": 1200, "export": "tiff",
+             "save": True},
+            {"name": "One off", "kind": "social", "w": 1200, "h": 628, "export": "jpg"},
+        ],
+    }
+    status, data = api("POST", "/api/jobs", body)
+    assert status == 200, data
+    ids = [f["id"] for f in data["job"]["formats"]]
+    assert ids == ["flyer-a5", "column-wrap", "one-off"]
+    assert data["job"]["formats"][0]["bleed_mm"] == 0
+
+    registry_text = (tmp_path / "registry.yaml").read_text(encoding="utf-8")
+    assert "column-wrap" in registry_text
+    assert "one-off" not in registry_text
+
+    _status, listing = api("GET", "/api/jobs")
+    job = listing["jobs"][0]
+    assert job["counts"] == {"ok": 0, "warn": 0, "fail": 0, "missing": 3}
+    assert job["shapes"][0] == {"w": 148, "h": 210, "unit": "mm", "kind": "print"}
+
+
+def test_create_job_bad_custom_size_saves_nothing(api, tmp_path):
+    before = (tmp_path / "registry.yaml").read_text(encoding="utf-8")
+    body = {"name": "Spring", "format_ids": [], "custom_formats": [
+        {"name": "Good", "kind": "print", "w": 100, "h": 100, "export": "pdf", "save": True},
+        {"name": "Bad", "kind": "print", "w": 0, "h": 100, "export": "pdf", "save": True},
+    ]}
+    status, data = api("POST", "/api/jobs", body)
+    assert data["ok"] is False and "w must be more than 0" in data["error"]
+    assert (tmp_path / "registry.yaml").read_text(encoding="utf-8") == before
+    assert api("GET", "/api/jobs")[1]["jobs"] == []
+
+
+def test_add_format_endpoint(api):
+    status, data = api("POST", "/api/registry/formats", {
+        "name": "Business card", "kind": "print", "w": 90, "h": 50, "export": "pdf",
+        "group": "Small print", "notes": "Rounded corners 3 mm"})
+    assert status == 200, data
+    assert data["format"]["id"] == "business-card"
+    _s, reg = api("GET", "/api/registry")
+    assert "Small print" in reg["groups"]

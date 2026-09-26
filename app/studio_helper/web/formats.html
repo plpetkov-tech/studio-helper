@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Formats · Studio Helper</title>
+<link rel="stylesheet" href="/static/app.css">
+</head>
+<body data-page="formats">
+  <main>
+    <div class="head">
+      <div><h1>Formats</h1><p>Every size you deliver, with what the print shop asked for.</p></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn" id="validate-btn">Check file</button>
+        <button class="btn" id="open-btn">Edit file</button>
+        <button class="btn primary" id="add-btn">+ Add format</button>
+      </div>
+    </div>
+    <div id="error-banner" class="banner error page-banner" hidden></div>
+    <div id="notice-banner" class="banner ok page-banner" hidden></div>
+    <div class="card ftable" id="formats"><p class="empty">Loading…</p></div>
+  </main>
+  <script src="/static/api.js"></script>
+  <script src="/static/shell.js"></script>
+  <script src="/static/formats.js"></script>
+</body>
+</html>

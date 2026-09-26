@@ -81,6 +81,38 @@ def _unexpected_keys(message: str) -> list[str]:
     return re.findall(r"'([^']+)'", message)
 
 
+def default_group(fmt: dict) -> str:
+    """Group for a format that doesn't name one, so older registry
+    files still list sensibly in the app."""
+    kind = fmt.get("kind")
+    if kind == "print":
+        return "Mall print" if fmt.get("id", "").startswith("mall-") else "Print"
+    return {"screen": "Screens", "social": "Social", "web": "Web"}.get(kind, "Other")
+
+
+def resolve_format(fmt: dict, print_defaults: dict) -> dict:
+    """A registry format with every default filled in (SPEC.md §6.1)."""
+    resolved = dict(fmt)
+    if resolved.get("kind") == "print":
+        for f in PRINT_DEFAULT_FIELDS:
+            if f not in resolved and f in print_defaults:
+                resolved[f] = print_defaults[f]
+    resolved.setdefault("scale", 1)
+    resolved.setdefault("allow_alpha", False)
+    resolved.setdefault("group", default_group(resolved))
+    resolved.setdefault("notes", "")
+    return resolved
+
+
+def validate_format(fmt: dict) -> None:
+    """Raises RegistryError if one format entry wouldn't pass the schema."""
+    schema = _load_schema()
+    validator = jsonschema.validators.validator_for(schema)(schema)
+    errors = list(validator.iter_errors({"version": 1, "formats": [fmt]}))
+    if errors:
+        raise RegistryError(best_match(errors).message, None)
+
+
 def load_registry(path: Path) -> Registry:
     if not path.exists():
         raise RegistryError("Registry file not found.", path)
@@ -144,15 +176,7 @@ class Registry:
             fid = fmt["id"]
             if fid in formats:
                 raise RegistryError(f"Duplicate format id '{fid}'.", path)
-
-            resolved = dict(fmt)
-            if resolved.get("kind") == "print":
-                for f in PRINT_DEFAULT_FIELDS:
-                    if f not in resolved and f in print_defaults:
-                        resolved[f] = print_defaults[f]
-            resolved.setdefault("scale", 1)
-            resolved.setdefault("allow_alpha", False)
-            formats[fid] = resolved
+            formats[fid] = resolve_format(fmt, print_defaults)
 
         return cls(
             version=data["version"],
@@ -161,6 +185,15 @@ class Registry:
             job_types=data.get("job_types", {}),
             source_path=path,
         )
+
+    @property
+    def groups(self) -> list[str]:
+        """Format groups in the order they first appear in the file."""
+        seen: list[str] = []
+        for fmt in self.formats.values():
+            if fmt["group"] not in seen:
+                seen.append(fmt["group"])
+        return seen
 
     def resolve_job_type(self, name: str) -> list[str]:
         patterns = self.job_types.get(name)

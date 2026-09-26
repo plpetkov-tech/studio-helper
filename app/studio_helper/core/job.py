@@ -102,10 +102,16 @@ def create_job(
     name: str,
     format_ids: list[str],
     now: datetime | None = None,
+    bleed_overrides: dict[str, float] | None = None,
+    custom_formats: list[dict] | None = None,
 ) -> dict:
+    """`bleed_overrides` maps a format id to the bleed (mm) the print
+    shop asked for on this job. `custom_formats` are already-resolved
+    one-off formats (core.custom_formats) that aren't in the registry."""
+    custom_formats = custom_formats or []
     if not name or not name.strip():
         raise JobError("Job name cannot be empty.")
-    if not format_ids:
+    if not format_ids and not custom_formats:
         raise JobError("Select at least one format.")
 
     unknown = [fid for fid in format_ids if fid not in registry.formats]
@@ -134,7 +140,19 @@ def create_job(
     version = 1
     # Fully resolved copies (incl. defaults) so the job stays stable
     # even if registry.yaml changes later (SPEC.md §6.1 job.json).
-    formats_resolved = [_auto_scale(dict(registry.formats[fid])) for fid in format_ids]
+    formats_resolved = [dict(registry.formats[fid]) for fid in format_ids]
+    formats_resolved += [dict(f) for f in custom_formats]
+    for fmt in formats_resolved:
+        override = (bleed_overrides or {}).get(fmt["id"])
+        if override is not None and fmt["kind"] == "print":
+            try:
+                bleed = float(override)
+            except (TypeError, ValueError) as exc:
+                raise JobError(f"Bleed for '{fmt['name']}' must be a number.") from exc
+            if bleed < 0:
+                raise JobError(f"Bleed for '{fmt['name']}' can't be negative.")
+            fmt["bleed_mm"] = int(bleed) if bleed == int(bleed) else bleed
+    formats_resolved = [_auto_scale(f) for f in formats_resolved]
     deliverables = []
     for fmt in formats_resolved:
         deliverables.extend(_deliverables_for(date_str, slug, fmt, version))

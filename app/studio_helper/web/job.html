@@ -3,68 +3,19 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Job &middot; Studio Helper</title>
+<title>Job · Studio Helper</title>
 <link rel="stylesheet" href="/static/app.css">
 </head>
-<body>
-  <header class="topbar">
-    <a class="brand" href="/index.html"><span class="brand-mark"></span><h1>Studio Helper</h1></a>
-    <nav>
-      <a href="/index.html">Home</a>
-      <a href="/registry.html">Registry</a>
-      <a href="/guide.html">Guide</a>
-      <a href="/setup-check.html">Setup check</a>
-    </nav>
-  </header>
-
+<body data-page="jobs">
   <main>
-    <div id="error-banner" class="banner error" hidden></div>
-    <div id="notice-banner" class="banner success" hidden></div>
-
-    <div id="job-header">
-      <p class="empty-state">Loading…</p>
-    </div>
-
-    <div class="actions">
-      <button id="open-folder-btn">Open folder</button>
-      <button id="start-revision-btn">Start revision</button>
-      <button id="delete-job-btn" class="danger">Delete job</button>
-    </div>
-
-    <h2>Print</h2>
-    <div class="actions">
-      <button id="create-print-doc-btn">Create Illustrator print file</button>
-      <button id="check-print-btn">Check print file</button>
-      <button id="export-print-btn">Check &amp; export print</button>
-    </div>
-    <p id="print-doc-status" class="hint" hidden></p>
-    <div id="preflight-results"></div>
-
-    <h2>Digital</h2>
-    <div class="actions">
-      <button id="create-digital-doc-btn">Create Photoshop file</button>
-      <button id="export-digital-btn">Export from Photoshop</button>
-    </div>
-    <p id="digital-doc-status" class="hint" hidden></p>
-    <div class="card">
-      <h3>Figma</h3>
-      <ol>
-        <li>Open Figma desktop.</li>
-        <li>Plugins &rarr; Development &rarr; Import plugin from manifest&hellip; (one-time; see Setup check).</li>
-        <li>Run the Studio Helper plugin &rarr; "Create frames" and give it job.json.</li>
-        <li>Design inside the frames it creates -- their names already match the export filenames.</li>
-        <li>Use Figma's own Export on those frames; files land in <code>04_export/</code> automatically.</li>
-      </ol>
-      <button id="copy-job-json-btn">Copy job.json path</button>
-    </div>
-
-    <h2>Deliverables</h2>
-    <div id="deliverables">
-      <p class="empty-state">Loading…</p>
-    </div>
+    <a class="crumb" href="/index.html">‹ Jobs</a>
+    <div id="error-banner" class="banner error page-banner" hidden></div>
+    <div id="job-head" class="job-head"><p class="muted">Loading…</p></div>
+    <div id="steps" class="steps"></div>
+    <div class="card" id="deliverables"></div>
   </main>
-
   <script src="/static/api.js"></script>
+  <script src="/static/shell.js"></script>
   <script src="/static/job.js"></script>
 </body>
 </html>

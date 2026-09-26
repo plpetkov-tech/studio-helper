@@ -28,13 +28,19 @@ logger = logging.getLogger("studio_helper.server")
 
 WEB_ROOT = Path(__file__).parent / "web"
 
+# Windows reads these from the registry, where they can be missing or
+# wrong (.js as text/plain gets blocked under nosniff) -- pin them.
+for _type, _ext in (("text/css", ".css"), ("text/javascript", ".js"), ("font/woff2", ".woff2")):
+    mimetypes.add_type(_type, _ext)
+
 # Fixed whitelist, never derived from the request path (SPEC.md §8 path safety).
 PAGES = {
     "/": "index.html",
     "/index.html": "index.html",
     "/new-job.html": "new-job.html",
     "/job.html": "job.html",
-    "/registry.html": "registry.html",
+    "/formats.html": "formats.html",
+    "/registry.html": "formats.html",  # old bookmark
     "/setup-check.html": "setup-check.html",
     "/guide.html": "guide.html",
 }

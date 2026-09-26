@@ -40,9 +40,11 @@ def test_index_served(running_server):
     assert "Studio Helper" in body
 
 
-@pytest.mark.parametrize(
-    "page", ["/new-job.html", "/job.html", "/registry.html", "/setup-check.html", "/guide.html"]
-)
+PAGES = ["/new-job.html", "/job.html", "/registry.html", "/formats.html", "/setup-check.html",
+         "/guide.html"]
+
+
+@pytest.mark.parametrize("page", PAGES)
 def test_other_pages_served(running_server, page):
     _server, port = running_server
     with _get(port, page) as resp:
@@ -113,3 +115,33 @@ def test_static_path_traversal_rejected(running_server):
 def test_binds_loopback_only(running_server):
     server, _port = running_server
     assert server.server_address[0] == "127.0.0.1"
+
+
+@pytest.mark.parametrize("page", ["/", *PAGES])
+def test_every_referenced_static_file_is_served(running_server, page):
+    """A page pointing at a missing script or stylesheet fails silently
+    in the browser -- catch it here instead."""
+    import re
+
+    _server, port = running_server
+    with _get(port, page) as resp:
+        body = resp.read().decode("utf-8")
+    refs = re.findall(r'(?:src|href)="(/static/[^"]+)"', body)
+    assert refs
+    for ref in refs:
+        with _get(port, ref) as r:
+            assert r.status == 200, ref
+
+
+def test_bundled_fonts_are_served_as_fonts(running_server):
+    import re
+
+    _server, port = running_server
+    with _get(port, "/static/fonts/fonts.css") as resp:
+        css = resp.read().decode("utf-8")
+    files = re.findall(r"url\(([^)]+)\)", css)
+    assert len(files) == 4
+    for name in files:
+        with _get(port, "/static/fonts/" + name) as r:
+            assert r.headers.get("Content-Type") == "font/woff2"
+            assert r.read(4) == b"wOF2"

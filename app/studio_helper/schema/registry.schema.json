@@ -76,6 +76,15 @@
           "description": "kebab-case, unique"
         },
         "name": { "type": "string", "minLength": 1 },
+        "group": {
+          "type": "string",
+          "minLength": 1,
+          "description": "heading this format is listed under in the app, e.g. 'Mall print'"
+        },
+        "notes": {
+          "type": "string",
+          "description": "print shop requirements shown next to the format (pockets, text distance...)"
+        },
         "kind": { "type": "string", "enum": ["print", "screen", "web", "social"] },
         "size": { "$ref": "#/$defs/size" },
         "panels": {

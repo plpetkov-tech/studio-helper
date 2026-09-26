@@ -3,48 +3,29 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Setup check &middot; Studio Helper</title>
+<title>Setup check · Studio Helper</title>
 <link rel="stylesheet" href="/static/app.css">
 </head>
-<body>
-  <header class="topbar">
-    <a class="brand" href="/index.html"><span class="brand-mark"></span><h1>Studio Helper</h1></a>
-    <nav>
-      <a href="/index.html">Home</a>
-      <a href="/registry.html">Registry</a>
-      <a href="/guide.html">Guide</a>
-      <a href="/setup-check.html" class="current">Setup check</a>
-    </nav>
-  </header>
-
+<body data-page="setup">
   <main>
-    <h1>Setup check</h1>
-    <p class="subtitle">Confirms Illustrator automation is ready. Safe to run any time.</p>
-
-    <div id="error-banner" class="banner error" hidden></div>
-
-    <div class="actions">
-      <button id="run-btn" class="primary">Run checks</button>
+    <div class="head">
+      <div><h1>Setup check</h1><p>Makes sure Studio Helper can talk to your Adobe apps. Safe to run any time.</p></div>
+      <button class="btn primary" id="run-btn">Run checks</button>
     </div>
-
-    <div id="results">
-      <p class="empty-state">Click "Run checks" to see where things stand.</p>
-    </div>
-
-    <h2>Figma</h2>
-    <div class="card">
-      <p>One-time setup, per SPEC.md's README:</p>
+    <div id="error-banner" class="banner error page-banner" hidden></div>
+    <div class="card checklist" id="results"><p class="empty">Click “Run checks” to see where things stand. It can take a minute if Illustrator has to start.</p></div>
+    <section class="card gsec" style="margin-top:16px">
+      <h2>Figma plugin (once per computer)</h2>
       <ol>
         <li>Open Figma desktop.</li>
-        <li>Plugins &rarr; Development &rarr; Import plugin from manifest&hellip;</li>
-        <li>Pick <code>figma-plugin\manifest.json</code> inside this folder.</li>
+        <li>Plugins → Development → <strong>Import plugin from manifest…</strong></li>
+        <li>Pick <code>manifest.json</code> in the folder the button below opens.</li>
       </ol>
-      <button id="open-figma-btn">Open figma-plugin folder</button>
-      <p class="hint">One-time setup per computer -- Figma remembers it after that.</p>
-    </div>
+      <div><button class="btn" id="open-figma-btn">Open figma-plugin folder</button></div>
+    </section>
   </main>
-
   <script src="/static/api.js"></script>
+  <script src="/static/shell.js"></script>
   <script src="/static/setup-check.js"></script>
 </body>
 </html>
