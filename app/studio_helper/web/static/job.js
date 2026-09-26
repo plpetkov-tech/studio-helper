@@ -334,7 +334,9 @@
         return;
       }
       var n = (result.data.exported || []).length;
-      status.export = {cls: "ok", text: "Exported " + n + " file" + (n === 1 ? "" : "s") + " from Photoshop."};
+      var warnings = (result.warnings || []).map(function (w) { return w.message; });
+      status.export = {cls: warnings.length ? "fail" : "ok",
+        text: "Exported " + n + " file" + (n === 1 ? "" : "s") + " from Photoshop." + (warnings.length ? " " + warnings.join(" ") : "")};
     }).catch(function (err) {
       status.export = {cls: "fail", text: "Photoshop didn’t respond."};
       manualFallback(err.message, "Photoshop", "export_digital.jsx", "/api/adobe/open-photoshop-scripts-folder");

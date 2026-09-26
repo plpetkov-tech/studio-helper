@@ -25,6 +25,7 @@ function loadPureFunctions() {
   const sandboxSH = {
     mmToPt: function (mm) { return mm * PT_PER_MM; },
     ptToMm: function (pt) { return pt / PT_PER_MM; },
+    bleedPt: function (mm) { return mm > 0 ? Math.ceil(mm * PT_PER_MM - 1e-6) : 0; },
   };
 
   const context = {SH: sandboxSH, console: console};

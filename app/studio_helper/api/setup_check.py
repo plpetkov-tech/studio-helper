@@ -20,7 +20,8 @@ from studio_helper.core.registry import RegistryError, load_registry
 from .dispatch import route
 from .openers import open_path
 
-PDF_PRESET_NAME = "StudioHelper_X1a"
+# what preflight_export.jsx falls back to when the named preset is missing
+FALLBACK_PDF_PRESET = "[PDF/X-1a:2001]"
 
 
 def _ok(check_id: str, message: str) -> dict:
@@ -54,7 +55,15 @@ def _check_jobs_folder(ctx) -> dict:
         )
 
 
-def _check_illustrator_and_preset() -> tuple[dict, dict]:
+def _wanted_preset(ctx) -> str:
+    try:
+        wanted = load_registry(ctx.registry_path).print_defaults.get("pdf_preset")
+    except RegistryError:
+        wanted = None
+    return wanted or FALLBACK_PDF_PRESET
+
+
+def _check_illustrator_and_preset(ctx) -> tuple[dict, dict]:
     try:
         result = illustrator.inspect()
     except bridge.AdobeBridgeError as exc:
@@ -73,14 +82,23 @@ def _check_illustrator_and_preset() -> tuple[dict, dict]:
 
     illustrator_check = _ok("illustrator", "Illustrator is reachable.")
     presets = (result.get("data") or {}).get("pdf_presets", [])
-    if PDF_PRESET_NAME in presets:
-        preset_check = _ok("pdf_preset", f"'{PDF_PRESET_NAME}' preset is installed.")
+    wanted = _wanted_preset(ctx)
+    if wanted in presets:
+        preset_check = _ok("pdf_preset", f"PDFs are saved with Illustrator's '{wanted}' preset.")
+    elif FALLBACK_PDF_PRESET in presets:
+        preset_check = _fail(
+            "pdf_preset",
+            f"'{wanted}' isn't installed in Illustrator, so PDFs use "
+            f"'{FALLBACK_PDF_PRESET}' instead.",
+            f"That's fine for most print shops. To stop this message, set pdf_preset to "
+            f"\"{FALLBACK_PDF_PRESET}\" in the formats file, or import the print shop's "
+            f".joboptions in Illustrator (Edit > Adobe PDF Presets > Import).",
+        )
     else:
         preset_check = _fail(
             "pdf_preset",
-            f"'{PDF_PRESET_NAME}' preset was not found in Illustrator.",
-            "This ships once the print department's exact PDF/X-1a settings are "
-            "confirmed (see SPEC.md §13 open items).",
+            f"Neither '{wanted}' nor '{FALLBACK_PDF_PRESET}' is in Illustrator.",
+            "PDFs are saved with Illustrator's default settings. Check Edit > Adobe PDF Presets.",
         )
     return illustrator_check, preset_check
 
@@ -104,7 +122,7 @@ def _check_mark_of_the_web() -> dict:
 
 
 def run_all_checks(ctx) -> dict:
-    illustrator_check, preset_check = _check_illustrator_and_preset()
+    illustrator_check, preset_check = _check_illustrator_and_preset(ctx)
     checks = [
         _check_registry(ctx),
         _check_jobs_folder(ctx),

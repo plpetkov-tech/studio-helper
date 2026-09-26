@@ -245,7 +245,7 @@ function createDocumentForSheet(sheet, bleedMm, filePath) {
         }};
     }
 
-    var bleedPt = SH.mmToPt(bleedMm);
+    var bleedPt = SH.bleedPt(bleedMm);
     var spacingPt = SH.mmToPt(spacingMmFor(bleedMm));
     var first = sheet[0].blocks[0].entries[0];
 

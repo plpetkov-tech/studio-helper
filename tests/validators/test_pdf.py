@@ -1,5 +1,6 @@
+import pytest
 from conftest import status_of
-from studio_helper.validators import pdf
+from studio_helper.validators import match, pdf
 
 
 def test_good_pdf_all_ok(fixtures_dir, print_fmt, pdf_deliverable):
@@ -12,10 +13,11 @@ def test_good_pdf_all_ok(fixtures_dir, print_fmt, pdf_deliverable):
     }
 
 
-def test_bleed_short_fails_only_left_and_bottom(fixtures_dir, print_fmt, pdf_deliverable):
+def test_bleed_short_warns_only_left_and_bottom(fixtures_dir, print_fmt, pdf_deliverable):
+    # a warning, not a fail: an edge meant to stay white paper is legitimate
     checks = pdf.validate(fixtures_dir / "bleed_short_left_bottom.pdf", print_fmt, pdf_deliverable)
     bleed_check = next(c for c in checks if c.id == "bleed-coverage")
-    assert bleed_check.status == "fail"
+    assert bleed_check.status == "warn"
     assert "left" in bleed_check.message
     assert "bottom" in bleed_check.message
     assert "top" not in bleed_check.message
@@ -93,3 +95,24 @@ def test_scaled_format_expects_scaled_trim_and_bleed(fixtures_dir, print_fmt, pd
     checks = pdf.validate(fixtures_dir / "good_a5.pdf", scaled, pdf_deliverable)
     assert status_of(checks, "trimbox") == "ok"
     assert status_of(checks, "bleedbox") == "ok"
+
+
+class _Box:
+    def __init__(self, w_pt, h_pt):
+        self.width, self.height = w_pt, h_pt
+
+
+@pytest.mark.parametrize(
+    ("bleed_pt", "status"),
+    [
+        (8, "fail"),  # what Illustrator made of 3mm (8.5pt) before: 2.8mm, short
+        (9, "ok"),  # 3mm rounded up to whole points: 3.18mm
+        (3 * 72 / 25.4, "ok"),  # exactly 3mm
+        (11, "fail"),  # 3.9mm: more than the round-up allows
+    ],
+)
+def test_bleedbox_accepts_exact_or_whole_point_bleed(bleed_pt, status):
+    pt = 72 / 25.4
+    box = _Box(210 * pt + 2 * bleed_pt, 297 * pt + 2 * bleed_pt)
+    lo, hi = match.doc_bleed_range_mm({"bleed_mm": 3, "scale": 1})
+    assert pdf._check_bleedbox(box, None, 210, 297, lo, hi).status == status

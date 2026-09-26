@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import math
 from pathlib import Path
 
 TYPE_EXTENSIONS = {
@@ -30,6 +31,21 @@ def find_format(job: dict, format_id: str) -> dict | None:
         if fmt["id"] == format_id:
             return fmt
     return None
+
+
+PT_PER_MM = 72 / 25.4
+
+
+def doc_bleed_range_mm(fmt: dict) -> tuple[float, float]:
+    """The bleed (mm, in the exported file's own scale) a correct export
+    can have: exactly what the format asks for, up to that rounded up to
+    whole points -- Illustrator stores bleed in whole points, so the
+    scripts ask for the next point up (lib/common.jsx SH.bleedPt)."""
+    exact = (fmt.get("bleed_mm", 0) or 0) * (fmt.get("scale", 1) or 1)
+    if exact <= 0:
+        return 0.0, 0.0
+    rounded = math.ceil(exact * PT_PER_MM - 1e-6) / PT_PER_MM
+    return exact, rounded
 
 
 def deliverable_size(fmt: dict, deliverable: dict) -> tuple[float, float]:

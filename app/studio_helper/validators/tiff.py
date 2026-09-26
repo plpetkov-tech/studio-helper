@@ -35,7 +35,8 @@ def _check_mode(img: Image.Image) -> Check:
 
 def _check_dimensions(img: Image.Image, fmt: dict, deliverable: dict) -> Check:
     w_mm, h_mm = match.deliverable_size(fmt, deliverable)
-    bleed_mm = fmt.get("bleed_mm", 0) or 0
+    scale = fmt.get("scale", 1) or 1
+    bleed_lo, bleed_hi = match.doc_bleed_range_mm(fmt)
     tiff_ppi = fmt.get("tiff_ppi")
 
     if not tiff_ppi:
@@ -44,11 +45,20 @@ def _check_dimensions(img: Image.Image, fmt: dict, deliverable: dict) -> Check:
     # The .ai is drawn at `scale` (bleed included) and exported at
     # tiff_ppi / scale, so the pixels are (size + bleed) at tiff_ppi --
     # the same as a 1:1 file would be.
-    expected_w = round((w_mm + 2 * bleed_mm) / MM_PER_IN * tiff_ppi)
-    expected_h = round((h_mm + 2 * bleed_mm) / MM_PER_IN * tiff_ppi)
+    # bleed_lo/hi are in the file's scale; the file is exported at
+    # tiff_ppi / scale. Accept the exact bleed up to its whole-point
+    # round-up (match.doc_bleed_range_mm).
+    def px(size_mm: float, bleed_doc_mm: float) -> int:
+        return round((size_mm * scale + 2 * bleed_doc_mm) / MM_PER_IN * tiff_ppi / scale)
+
+    expected_w, expected_h = px(w_mm, bleed_lo), px(h_mm, bleed_lo)
+    max_w, max_h = px(w_mm, bleed_hi), px(h_mm, bleed_hi)
     actual_w, actual_h = img.size
 
-    if abs(actual_w - expected_w) > PIXEL_TOLERANCE or abs(actual_h - expected_h) > PIXEL_TOLERANCE:
+    def off(actual: int, low: int, high: int) -> bool:
+        return actual < low - PIXEL_TOLERANCE or actual > high + PIXEL_TOLERANCE
+
+    if off(actual_w, expected_w, max_w) or off(actual_h, expected_h, max_h):
         return Check(
             "dimensions",
             "fail",

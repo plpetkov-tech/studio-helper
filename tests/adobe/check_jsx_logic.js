@@ -29,6 +29,7 @@ function loadPureFunctions() {
     MM_PER_PT: 1 / PT_PER_MM,
     mmToPt: function (mm) { return mm * PT_PER_MM; },
     ptToMm: function (pt) { return pt / PT_PER_MM; },
+    bleedPt: function (mm) { return mm > 0 ? Math.ceil(mm * PT_PER_MM - 1e-6) : 0; },
     rect: function (l, t, r, b) { return [l, t, r, b]; },
     makeResult: function () { return {ok: true, data: {}, errors: [], warnings: []}; },
     addError: function (result, code, message, hint) {

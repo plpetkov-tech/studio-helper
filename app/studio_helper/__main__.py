@@ -27,6 +27,7 @@ PREVIOUS_DEFAULT_REGISTRY_HASHES = frozenset({
     "b6eb82677aabd97cfa21d04dcdf9c0798ad6c01e27091a3319f68d4f9cfa8113",  # M0 placeholder
     "ed5579a6600b7b82819d68108db045f9235be9d42f26af00129d284744043ecb",  # v0.3.2 mall formats
     "4fa2719948aba76320cd3b0571c1cfabca09fee2030f5aabf0f2129f4ff05c5a",  # v0.3.6 IDEA Comm formats
+    "608fd2cad608d3060201e7d9d89b212d61d6d88f323eda28902e7d65ed3f87f7",  # v0.4.0 groups, notes
 })
 
 

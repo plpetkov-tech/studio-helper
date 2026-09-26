@@ -382,11 +382,11 @@ function checkArtboards(doc, job) {
             if (failingEdges.length > 0) {
                 names = [];
                 for (e = 0; e < failingEdges.length; e++) { names.push(failingEdges[e].edge); }
-                checks.push({id: "bleed-coverage", status: "fail",
-                    message: "'" + ab.name + "': background doesn't reach the bleed on the " +
+                checks.push({id: "bleed-coverage", status: "warn",
+                    message: "'" + ab.name + "': nothing reaches the bleed on the " +
                         names.join(", ") + " edge(s).",
-                    hint: "Extend the background past the artboard edge on the " +
-                        names.join(", ") + " side(s)."});
+                    hint: "Fine if that edge is meant to stay white paper. Otherwise extend the " +
+                        "background past the artboard edge."});
             } else {
                 checks.push({id: "bleed-coverage", status: "ok",
                     message: "'" + ab.name + "': bleed coverage OK."});
@@ -416,7 +416,7 @@ function checkArtboards(doc, job) {
 function exportOneTiff(doc, artboardIndex, fmt, deliverable, exportDir) {
     var ab = doc.artboards[artboardIndex];
     var originalRect = ab.artboardRect.slice();
-    var bleedPt = SH.mmToPt(docBleedMm(fmt));
+    var bleedPt = SH.bleedPt(docBleedMm(fmt));
     var scale = fmt.scale || 1;
     var outFile = new File(joinPath(exportDir, deliverable.expected_stem + ".tif"));
 
@@ -464,7 +464,7 @@ function choosePdfPreset(wanted, presets) {
 
 function exportOnePdf(doc, artboardIndex, fmt, deliverable, exportDir, preset) {
     var outFile = new File(joinPath(exportDir, deliverable.expected_stem + ".pdf"));
-    var bleedPt = SH.mmToPt(docBleedMm(fmt));
+    var bleedPt = SH.bleedPt(docBleedMm(fmt));
 
     var opts = new PDFSaveOptions();
     if (preset) { opts.pDFPreset = preset; }

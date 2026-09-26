@@ -14,6 +14,13 @@ SH.mmToPt = function (mm) {
     return mm * SH.PT_PER_MM;
 };
 
+// Bleed as Illustrator actually stores it: whole points, so round UP
+// -- 3mm is 8.5pt, which Illustrator cut to 8pt (2.8mm) on a real
+// machine (2026-09-26). 9pt = 3.18mm is never short of what was asked.
+SH.bleedPt = function (mm) {
+    return mm > 0 ? Math.ceil(SH.mmToPt(mm) - 1e-6) : 0;
+};
+
 SH.ptToMm = function (pt) {
     return pt * SH.MM_PER_PT;
 };

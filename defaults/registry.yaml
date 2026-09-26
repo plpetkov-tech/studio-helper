@@ -7,7 +7,10 @@ version: 1
 print_defaults:
   bleed_mm: 3
   safe_mm: 5
-  pdf_preset: StudioHelper_X1a
+  # Illustrator's built-in PDF/X-1a, which print shops accept. If a print
+  # shop ever sends its own .joboptions, import it in Illustrator
+  # (Edit > Adobe PDF Presets > Import) and put its name here.
+  pdf_preset: "[PDF/X-1a:2001]"
   raster_ppi: 300
   min_image_ppi:
     warn: 300

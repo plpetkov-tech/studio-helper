@@ -99,10 +99,23 @@ function exportOneArtboard(sourceDoc, artboardName, fmt, deliverable, exportRoot
         dup.activeLayer = targetLayer;
         var ab = SH.activeArtboardRect();
         if (ab) {
+            // Refuse rather than write a wrong-size file: an artboard that
+            // isn't the format's size would export at its own size (a
+            // 1212x1692 "Instagram post", real machine, 2026-09-26).
+            var abW = Math.round(ab.right - ab.left), abH = Math.round(ab.bottom - ab.top);
+            if (Math.abs(abW - fmt.size.w) > 1 || Math.abs(abH - fmt.size.h) > 1) {
+                throw new Error("the artboard is " + abW + "x" + abH + "px in the PSD, but the format is " +
+                    fmt.size.w + "x" + fmt.size.h + "px. Set its size with the Artboard tool, save, and export again.");
+            }
             dup.crop([ab.left, ab.top, ab.right, ab.bottom]);
         } else {
             var bounds = targetLayer.bounds; // [left, top, right, bottom] px
             dup.crop([bounds[0], bounds[1], bounds[2], bounds[3]]);
+        }
+        var outW = Math.round(Number(dup.width)), outH = Math.round(Number(dup.height));
+        if (Math.abs(outW - fmt.size.w) > 1 || Math.abs(outH - fmt.size.h) > 1) {
+            throw new Error("it came out " + outW + "x" + outH + "px instead of " + fmt.size.w + "x" +
+                fmt.size.h + "px. Check the artboard's size with the Artboard tool.");
         }
 
         if (fmt.allow_alpha) {
@@ -173,7 +186,7 @@ function main(args) {
                 if (exported) { written.push(exported); }
             } catch (e) {
                 SH.addWarning(result, "EXPORT_FAILED",
-                    "Could not export '" + layer.name + "': " + String(e), "");
+                    "Didn't export '" + layer.name + "': " + String(e.message || e), "");
             }
         }
     } finally {

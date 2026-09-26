@@ -51,35 +51,53 @@ def test_check_jobs_folder_fails_when_path_blocked(tmp_path):
     assert result["ok"] is False
 
 
-def test_check_illustrator_and_preset_when_unreachable(monkeypatch):
+def _presets(monkeypatch, names):
+    monkeypatch.setattr(
+        setup_check.illustrator, "inspect", lambda ai_path=None: {"data": {"pdf_presets": names}}
+    )
+
+
+def test_check_illustrator_and_preset_when_unreachable(monkeypatch, tmp_path):
     def fake_inspect(ai_path=None):
         raise AdobeBridgeError("Illustrator automation is only available on Windows.")
 
     monkeypatch.setattr(setup_check.illustrator, "inspect", fake_inspect)
-    illustrator_check, preset_check = setup_check._check_illustrator_and_preset()
+    illustrator_check, preset_check = setup_check._check_illustrator_and_preset(_ctx(tmp_path))
     assert illustrator_check["ok"] is False
     assert preset_check["ok"] is False
 
 
-def test_check_illustrator_and_preset_when_preset_missing(monkeypatch):
-    monkeypatch.setattr(
-        setup_check.illustrator, "inspect", lambda ai_path=None: {"data": {"pdf_presets": []}}
-    )
-    illustrator_check, preset_check = setup_check._check_illustrator_and_preset()
-    assert illustrator_check["ok"] is True
-    assert preset_check["ok"] is False
-    assert "SPEC.md" in preset_check["hint"]
-
-
-def test_check_illustrator_and_preset_when_preset_found(monkeypatch):
-    monkeypatch.setattr(
-        setup_check.illustrator,
-        "inspect",
-        lambda ai_path=None: {"data": {"pdf_presets": [setup_check.PDF_PRESET_NAME]}},
-    )
-    illustrator_check, preset_check = setup_check._check_illustrator_and_preset()
+def test_preset_defaults_to_builtin_pdfx_when_registry_names_none(monkeypatch, tmp_path):
+    _presets(monkeypatch, ["[High Quality Print]", "[PDF/X-1a:2001]"])
+    illustrator_check, preset_check = setup_check._check_illustrator_and_preset(_ctx(tmp_path))
     assert illustrator_check["ok"] is True
     assert preset_check["ok"] is True
+    assert "[PDF/X-1a:2001]" in preset_check["message"]
+
+
+def test_named_preset_missing_explains_the_fallback(monkeypatch, tmp_path):
+    ctx = _ctx(tmp_path)
+    ctx.registry_path.write_text(
+        REGISTRY_YAML.replace(
+            "formats:", "print_defaults:\n  pdf_preset: StudioHelper_X1a\nformats:"
+        ),
+        encoding="utf-8",
+    )
+    _presets(monkeypatch, ["[PDF/X-1a:2001]"])
+    _ill, preset_check = setup_check._check_illustrator_and_preset(ctx)
+    assert preset_check["ok"] is False
+    assert "use '[PDF/X-1a:2001]' instead" in preset_check["message"]
+    assert "SPEC.md" not in preset_check["hint"]
+
+
+def test_named_preset_found(monkeypatch, tmp_path):
+    ctx = _ctx(tmp_path)
+    ctx.registry_path.write_text(
+        REGISTRY_YAML.replace("formats:", "print_defaults:\n  pdf_preset: Print Shop X\nformats:"),
+        encoding="utf-8",
+    )
+    _presets(monkeypatch, ["Print Shop X"])
+    assert setup_check._check_illustrator_and_preset(ctx)[1]["ok"] is True
 
 
 def test_mark_of_the_web_not_applicable_on_non_windows(monkeypatch):

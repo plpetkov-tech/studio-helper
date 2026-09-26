@@ -46,13 +46,13 @@ def validate(path: Path, fmt: dict, deliverable: dict) -> list[Check]:
     scale = fmt.get("scale", 1) or 1
     w_mm, h_mm = match.deliverable_size(fmt, deliverable)
     w_mm, h_mm = w_mm * scale, h_mm * scale
-    bleed_mm = (fmt.get("bleed_mm", 0) or 0) * scale
+    bleed_mm, bleed_max_mm = match.doc_bleed_range_mm(fmt)
 
     trim_box = _raw_box(page, "/TrimBox")
     checks.append(_check_trimbox(trim_box, w_mm, h_mm))
 
     bleed_box = _raw_box(page, "/BleedBox")
-    checks.append(_check_bleedbox(bleed_box, trim_box, w_mm, h_mm, bleed_mm))
+    checks.append(_check_bleedbox(bleed_box, trim_box, w_mm, h_mm, bleed_mm, bleed_max_mm))
 
     checks.append(_check_pdfx(reader))
     checks.extend(_check_fonts(page))
@@ -112,7 +112,11 @@ def _check_trimbox(trim_box, w_mm: float, h_mm: float) -> Check:
     return Check("trimbox", "ok", "TrimBox matches the expected size.")
 
 
-def _check_bleedbox(bleed_box, trim_box, w_mm: float, h_mm: float, bleed_mm: float) -> Check:
+def _check_bleedbox(
+    bleed_box, trim_box, w_mm: float, h_mm: float, bleed_mm: float,
+    bleed_max_mm: float | None = None,
+) -> Check:
+    bleed_max_mm = max(bleed_mm, bleed_max_mm or 0)
     if bleed_mm <= 0:
         return Check("bleedbox", "ok", "This format has no bleed requirement.")
     if bleed_box is None:
@@ -126,8 +130,13 @@ def _check_bleedbox(bleed_box, trim_box, w_mm: float, h_mm: float, bleed_mm: flo
     expected_h = h_mm + 2 * bleed_mm
     actual_w = _mm(float(bleed_box.width))
     actual_h = _mm(float(bleed_box.height))
-    w_off = abs(actual_w - expected_w) > BOX_TOLERANCE_MM
-    h_off = abs(actual_h - expected_h) > BOX_TOLERANCE_MM
+
+    # anything from the exact bleed up to its whole-point round-up is right
+    def off(actual: float, size: float) -> bool:
+        low, high = size + 2 * bleed_mm, size + 2 * bleed_max_mm
+        return actual < low - BOX_TOLERANCE_MM or actual > high + BOX_TOLERANCE_MM
+
+    w_off, h_off = off(actual_w, w_mm), off(actual_h, h_mm)
     if w_off or h_off:
         return Check(
             "bleedbox",
@@ -430,9 +439,11 @@ def _check_bleed_coverage(path: Path, page, trim_box, bleed_box) -> Check:
             failing_edges.append(edge)
 
     edges = ", ".join(failing_edges) if failing_edges else "bleed"
+    # a warning, not a fail: an edge meant to stay white paper is fine
     return Check(
         "bleed-coverage",
-        "fail",
-        f"The background doesn't reach the bleed on the {edges} edge(s).",
-        f"Extend the background past the artboard edge on the {edges} side(s).",
+        "warn",
+        f"Nothing reaches the bleed on the {edges} edge(s).",
+        "Fine if that edge is meant to stay white paper. Otherwise extend the background "
+        "past the artboard edge.",
     )
