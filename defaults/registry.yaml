@@ -1,21 +1,18 @@
 # Studio Helper default registry (SPEC.md §6.1).
-#
-# THIS IS A PLACEHOLDER. Values marked TBD must come from the owner
-# (SPEC.md §13 open items) before the print/digital generators can be
-# trusted. The schema and loader that validate this file are built in
-# milestone M1; until then this file is not yet read by the app.
+# Mall formats are sourced from "Молове 2026.xlsx" (Q2/Q4 position sheets)
+# and viber_image_2026-09-18_17-19-37-302.png.
 version: 1
 
 print_defaults:
-  bleed_mm: 3          # TBD - confirm with print department
-  safe_mm: 5            # TBD
+  bleed_mm: 3
+  safe_mm: 5
   pdf_preset: StudioHelper_X1a
   raster_ppi: 300
   min_image_ppi:
     warn: 300
     fail: 200
-  tiff_if_longest_side_mm_over: 1000   # TBD
-  tiff_ppi: 150                         # TBD - at final physical size
+  tiff_if_longest_side_mm_over: 1000
+  tiff_ppi: 150
 
 formats:
   - id: flyer-a5
@@ -36,6 +33,175 @@ formats:
     size: {w: 105, h: 148, unit: mm}
     exports: [pdf]
 
+  - id: mall-print-paradise-snap-frame
+    name: Paradise Center snap frame / lightbox (4200 x 2000 mm)
+    kind: print
+    size: {w: 4200, h: 2000, unit: mm}
+    exports: [pdf]
+
+  - id: mall-print-serdika-big-sky-mural
+    name: Serdika Center big sky mural / large flag (2000 x 6000 mm)
+    kind: print
+    size: {w: 2000, h: 6000, unit: mm}
+    exports: [pdf]
+
+  # The workbook lists 3 floor stickers with a combined area of 3 m².
+  # Best-effort working assumption: three equal square stickers, 1 m² each.
+  - id: mall-print-serdika-floor-sticker-estimated
+    name: Serdika Center floor sticker - estimated per piece (1000 x 1000 mm)
+    kind: print
+    size: {w: 1000, h: 1000, unit: mm}
+    exports: [pdf]
+
+  - id: mall-print-plovdiv-entrance-door
+    name: Plovdiv Mall entrance door (1090 x 2300 mm, artwork at 1:10)
+    kind: print
+    size: {w: 1090, h: 2300, unit: mm}
+    scale: 0.1
+    exports: [pdf, tiff]
+
+  - id: mall-print-stara-zagora-sliding-door
+    name: Stara Zagora Mall sliding door (850 x 2000 mm)
+    kind: print
+    size: {w: 850, h: 2000, unit: mm}
+    exports: [pdf]
+
+  - id: mall-print-stara-zagora-textile-wall
+    name: Stara Zagora Mall textile wall (4000 x 2300 mm)
+    kind: print
+    size: {w: 4000, h: 2300, unit: mm}
+    exports: [pdf]
+
+  - id: mall-print-burgas-galleria-glass-1900
+    name: Burgas Galleria glass railing panel (1900 x 1300 mm)
+    kind: print
+    size: {w: 1900, h: 1300, unit: mm}
+    exports: [pdf]
+
+  - id: mall-print-burgas-galleria-glass-1700
+    name: Burgas Galleria glass railing panel (1700 x 1300 mm)
+    kind: print
+    size: {w: 1700, h: 1300, unit: mm}
+    exports: [pdf]
+
+  - id: mall-print-burgas-galleria-elevator-door
+    name: Burgas Galleria elevator door (450 x 2050 mm)
+    kind: print
+    size: {w: 450, h: 2050, unit: mm}
+    exports: [pdf]
+
+  - id: mall-print-burgas-plaza-citylight-750
+    name: Burgas Plaza CityLight (750 x 1180 mm)
+    kind: print
+    size: {w: 750, h: 1180, unit: mm}
+    exports: [pdf]
+
+  - id: mall-print-burgas-plaza-citylight-1250
+    name: Burgas Plaza CityLight (1250 x 1850 mm)
+    kind: print
+    size: {w: 1250, h: 1850, unit: mm}
+    exports: [pdf]
+
+  - id: mall-print-xo-park-raketa
+    name: XO Park Raketa (1185 x 1750 mm)
+    kind: print
+    size: {w: 1185, h: 1750, unit: mm}
+    exports: [pdf]
+
+  - id: mall-print-serdika-parking-billboard
+    name: Serdika Center parking billboard (5980 x 2000 mm)
+    kind: print
+    size: {w: 5980, h: 2000, unit: mm}
+    bleed_mm: 50
+    exports: [pdf]
+
+  - id: mall-print-grand-varna-parking-doors
+    name: Grand Mall Varna parking entrance doors (2300 x 2130 mm; used for earlier TBA listing)
+    kind: print
+    size: {w: 2300, h: 2130, unit: mm}
+    exports: [pdf]
+
+  - id: mall-print-plovdiv-plaza-parking-panel
+    name: Plovdiv Plaza parking panel (970 x 1910 mm)
+    kind: print
+    size: {w: 970, h: 1910, unit: mm}
+    exports: [pdf]
+
+  - id: mall-print-stara-zagora-parking-wall
+    name: Stara Zagora Mall parking wall (3990 x 2190 mm)
+    kind: print
+    size: {w: 3990, h: 2190, unit: mm}
+    exports: [pdf]
+
+  - id: mall-print-burgas-galleria-glass-hm
+    name: Burgas Galleria glass by H&M (3700 x 1060 mm)
+    kind: print
+    size: {w: 3700, h: 1060, unit: mm}
+    exports: [pdf]
+
+  - id: mall-print-burgas-galleria-poster
+    name: Burgas Galleria corridor poster (500 x 700 mm)
+    kind: print
+    size: {w: 500, h: 700, unit: mm}
+    exports: [pdf]
+
+  - id: mall-print-burgas-galleria-lightbox
+    name: Burgas Galleria lightbox (1370 x 1370 mm)
+    kind: print
+    size: {w: 1370, h: 1370, unit: mm}
+    exports: [pdf]
+
+  - id: mall-screen-2080x2560
+    name: Mall digital screen (2080 x 2560 px)
+    kind: screen
+    size: {w: 2080, h: 2560, unit: px}
+    safe_px: 0
+    exports: [jpg, png]
+    allow_alpha: false
+
+  - id: mall-screen-1280x2240
+    name: Mall digital screen (1280 x 2240 px)
+    kind: screen
+    size: {w: 1280, h: 2240, unit: px}
+    safe_px: 0
+    exports: [jpg, png]
+    allow_alpha: false
+
+  - id: mall-screen-1440x1920
+    name: Mall digital screen (1440 x 1920 px)
+    kind: screen
+    size: {w: 1440, h: 1920, unit: px}
+    safe_px: 0
+    exports: [jpg, png]
+    allow_alpha: false
+
+  - id: mall-screen-416x1248
+    name: Mall digital screen (416 x 1248 px)
+    kind: screen
+    size: {w: 416, h: 1248, unit: px}
+    safe_px: 0
+    exports: [jpg, png]
+    allow_alpha: false
+
+  # The workbook supplies only a physical LED size of 3.84 x 2.88 m.
+  # Best-effort estimate uses a common 4 mm indoor LED pixel pitch: 960 x 720 px.
+  - id: mall-screen-paradise-led-column-estimated
+    name: Paradise Center LED column - estimated 4 mm pitch (960 x 720 px)
+    kind: screen
+    size: {w: 960, h: 720, unit: px}
+    safe_px: 0
+    exports: [jpg, mp4]
+    allow_alpha: false
+
+  - id: mall-screen-veliko-turnovo-led
+    name: Veliko Turnovo Mall LED screen (512 x 3968 px; reused for later listings)
+    kind: screen
+    size: {w: 512, h: 3968, unit: px}
+    safe_px: 0
+    exports: [jpg, mp4]
+    allow_alpha: false
+    max_kb: 30720
+
   - id: ig-post
     name: Instagram post
     kind: social
@@ -52,6 +218,26 @@ formats:
     exports: [png]
     allow_alpha: false
 
+  - id: fb-post
+    name: Facebook post (square)
+    kind: social
+    size: {w: 1080, h: 1080, unit: px}
+    safe_px: 0
+    exports: [jpg, png]
+    allow_alpha: false
+
+  - id: fb-story
+    name: Facebook story
+    kind: social
+    size: {w: 1080, h: 1920, unit: px}
+    safe_px: 0
+    exports: [jpg, png]
+    allow_alpha: false
+
 job_types:
-  full-campaign: [flyer-a4, flyer-a5, flyer-a6, "ig-*"]
-  shop-promo: [flyer-a4, "ig-story"]
+  full-campaign: [flyer-a4, flyer-a5, flyer-a6, "ig-*", "fb-*"]
+  shop-promo: [flyer-a4, "ig-story", "fb-story"]
+  mall-print: ["mall-print-*"]
+  mall-digital: ["mall-screen-*", "ig-*", "fb-*"]
+  mall-campaign: ["mall-print-*", "mall-screen-*", "ig-*", "fb-*"]
+

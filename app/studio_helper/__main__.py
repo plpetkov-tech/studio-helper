@@ -7,6 +7,7 @@ proves the packaged app runs with no external installs (SPEC.md §9).
 
 from __future__ import annotations
 
+import hashlib
 import os
 import shutil
 import sys
@@ -19,14 +20,29 @@ from studio_helper.api.context import AppContext
 from studio_helper.poller import Poller
 from studio_helper.server import create_server
 
+# SHA-256 (LF-normalised) of every bundled registry.yaml a release has
+# shipped. A user registry matching one of these was never edited, so
+# it is safe to replace with the newer bundled default on startup.
+PREVIOUS_DEFAULT_REGISTRY_HASHES = frozenset({
+    "b6eb82677aabd97cfa21d04dcdf9c0798ad6c01e27091a3319f68d4f9cfa8113",  # M0 placeholder
+})
+
+
+def _normalised_hash(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes().replace(b"\r\n", b"\n")).hexdigest()
+
 
 def seed_user_registry() -> None:
     dest = paths.user_registry_path()
-    if dest.exists():
-        return
     src = paths.bundled_registry_path()
     if not src.exists():
         return
+    if dest.exists():
+        if _normalised_hash(dest) not in PREVIOUS_DEFAULT_REGISTRY_HASHES:
+            return
+        if _normalised_hash(dest) == _normalised_hash(src):
+            return
+        shutil.copyfile(dest, dest.with_suffix(".yaml.bak"))
     paths.ensure_app_data_dirs()
     shutil.copyfile(src, dest)
 
