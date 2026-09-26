@@ -94,8 +94,16 @@ function exportOneArtboard(sourceDoc, artboardName, fmt, deliverable, exportRoot
             }
         }
 
-        var bounds = targetLayer.bounds; // [left, top, right, bottom] px
-        dup.crop([bounds[0], bounds[1], bounds[2], bounds[3]]);
+        // Crop to the artboard itself, not layer.bounds -- that's the
+        // extent of the artwork, which can be smaller or spill past it.
+        dup.activeLayer = targetLayer;
+        var ab = SH.activeArtboardRect();
+        if (ab) {
+            dup.crop([ab.left, ab.top, ab.right, ab.bottom]);
+        } else {
+            var bounds = targetLayer.bounds; // [left, top, right, bottom] px
+            dup.crop([bounds[0], bounds[1], bounds[2], bounds[3]]);
+        }
 
         if (fmt.allow_alpha) {
             dup.mergeVisibleLayers();

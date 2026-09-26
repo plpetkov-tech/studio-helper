@@ -55,6 +55,7 @@ module.exports = [
         charIDToTypeID: "readonly",
         stringIDToTypeID: "readonly",
         ActionDescriptor: "readonly",
+        executeActionGet: "readonly",
         ActionReference: "readonly",
         executeAction: "readonly",
         Extension: "readonly",

@@ -19,6 +19,43 @@ SH.addWarning = function (result, code, message, hint) {
     result.warnings.push({code: code, message: message, hint: hint || ""});
 };
 
+// -- artboards (Action Manager; Photoshop's DOM has no artboard API) ----
+
+SH.rectDescriptor = function (x, y, w, h) {
+    var d = new ActionDescriptor();
+    d.putDouble(stringIDToTypeID("top"), y);
+    d.putDouble(stringIDToTypeID("left"), x);
+    d.putDouble(stringIDToTypeID("bottom"), y + h);
+    d.putDouble(stringIDToTypeID("right"), x + w);
+    return d;
+};
+
+// The active layer's artboard rect {left, top, right, bottom} in px,
+// or null if it isn't an artboard / can't be read.
+SH.activeArtboardRect = function () {
+    try {
+        var ref = new ActionReference();
+        ref.putProperty(charIDToTypeID("Prpr"), stringIDToTypeID("artboard"));
+        ref.putEnumerated(charIDToTypeID("Lyr "), charIDToTypeID("Ordn"), charIDToTypeID("Trgt"));
+        var r = executeActionGet(ref)
+            .getObjectValue(stringIDToTypeID("artboard"))
+            .getObjectValue(stringIDToTypeID("artboardRect"));
+        return {
+            left: r.getDouble(stringIDToTypeID("left")),
+            top: r.getDouble(stringIDToTypeID("top")),
+            right: r.getDouble(stringIDToTypeID("right")),
+            bottom: r.getDouble(stringIDToTypeID("bottom"))
+        };
+    } catch (e) {
+        return null;
+    }
+};
+
+SH.sameRect = function (rect, x, y, w, h) {
+    return !!rect && Math.abs(rect.left - x) < 1 && Math.abs(rect.top - y) < 1 &&
+        Math.abs(rect.right - (x + w)) < 1 && Math.abs(rect.bottom - (y + h)) < 1;
+};
+
 // SH_ARGS is injected by the Python bridge before #include'ing the
 // script (SPEC.md §6.3). When run standalone from File > Scripts >
 // Other Script..., there is no SH_ARGS -- prompt for job.json instead

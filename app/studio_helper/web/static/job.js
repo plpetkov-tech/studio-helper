@@ -319,7 +319,10 @@
           showDigitalDocStatus(messages || "Could not create the digital document.");
           return;
         }
-        showDigitalDocStatus("Created the Photoshop file.");
+        var warnings = (result.warnings || []).map(function (w) {
+          return w.message + (w.hint ? " " + w.hint : "");
+        }).join(" ");
+        showDigitalDocStatus("Created the Photoshop file." + (warnings ? " " + warnings : ""));
         load();
       })
       .catch(function (err) {

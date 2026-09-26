@@ -78,33 +78,44 @@ function layoutGrid(plan, gapPx) {
 
 // -- Photoshop-touching glue ---------------------------------------------
 
-// Best-effort reconstruction of the community-known Action Manager
-// pattern for creating a Photoshop Artboard -- UNVERIFIED, see the
-// file header. (x, y) is the artboard's top-left corner, Photoshop's
-// native top-down pixel coordinates.
+// Creates a Photoshop Artboard via Action Manager (there is no DOM
+// method for it). Confirmed on a real machine (2026-09-24) that this
+// creates artboards, but with the rect nested under "using" Photoshop
+// ignored it and made every artboard its default size (2026-09-26).
+// The rect is now passed at the top level, as ScriptListener records
+// it, and the size is then read back and forced with
+// editArtboardEvent if it still doesn't match. (x, y) is the top-left
+// corner, Photoshop's top-down pixel coordinates.
 function makeArtboard(name, x, y, w, h) {
-    var idMk = charIDToTypeID("Mk  ");
-    var desc1 = new ActionDescriptor();
-    var idnull = charIDToTypeID("null");
-    var ref1 = new ActionReference();
-    var idartboardSection = stringIDToTypeID("artboardSection");
-    ref1.putClass(idartboardSection);
-    desc1.putReference(idnull, ref1);
-
-    var idusing = charIDToTypeID("Usng");
-    var desc2 = new ActionDescriptor();
-    var idartboardRect = stringIDToTypeID("artboardRect");
-    var desc3 = new ActionDescriptor();
-    desc3.putDouble(stringIDToTypeID("top"), y);
-    desc3.putDouble(stringIDToTypeID("left"), x);
-    desc3.putDouble(stringIDToTypeID("bottom"), y + h);
-    desc3.putDouble(stringIDToTypeID("right"), x + w);
-    desc2.putObject(idartboardRect, stringIDToTypeID("classFloatRect"), desc3);
-    desc2.putInteger(stringIDToTypeID("artboardBackgroundType"), 1); // 1 = white
-    desc1.putObject(idusing, idartboardSection, desc2);
-
-    executeAction(idMk, desc1, DialogModes.NO);
+    var desc = new ActionDescriptor();
+    var ref = new ActionReference();
+    ref.putClass(stringIDToTypeID("artboardSection"));
+    desc.putReference(charIDToTypeID("null"), ref);
+    var using = new ActionDescriptor();
+    using.putString(charIDToTypeID("Nm  "), name);
+    desc.putObject(charIDToTypeID("Usng"), stringIDToTypeID("artboardSection"), using);
+    desc.putObject(stringIDToTypeID("artboardRect"), stringIDToTypeID("classFloatRect"),
+        SH.rectDescriptor(x, y, w, h));
+    executeAction(charIDToTypeID("Mk  "), desc, DialogModes.NO);
     app.activeDocument.activeLayer.name = name;
+
+    if (!SH.sameRect(SH.activeArtboardRect(), x, y, w, h)) {
+        resizeActiveArtboard(x, y, w, h);
+    }
+    return SH.activeArtboardRect();
+}
+
+function resizeActiveArtboard(x, y, w, h) {
+    var desc = new ActionDescriptor();
+    var ref = new ActionReference();
+    ref.putEnumerated(charIDToTypeID("Lyr "), charIDToTypeID("Ordn"), charIDToTypeID("Trgt"));
+    desc.putReference(charIDToTypeID("null"), ref);
+    var artboard = new ActionDescriptor();
+    artboard.putObject(stringIDToTypeID("artboardRect"), stringIDToTypeID("classFloatRect"),
+        SH.rectDescriptor(x, y, w, h));
+    desc.putObject(stringIDToTypeID("artboard"), stringIDToTypeID("artboard"), artboard);
+    desc.putInteger(stringIDToTypeID("changeSizes"), 1);
+    executeAction(stringIDToTypeID("editArtboardEvent"), desc, DialogModes.NO);
 }
 
 function main(args) {
@@ -157,7 +168,15 @@ function main(args) {
     var artboardsData = [];
     for (i = 0; i < positions.length; i++) {
         var pos = positions[i];
-        makeArtboard(pos.plan.name, pos.x, pos.y, pos.plan.widthPx, pos.plan.heightPx);
+        var actual = makeArtboard(pos.plan.name, pos.x, pos.y, pos.plan.widthPx, pos.plan.heightPx);
+        if (!SH.sameRect(actual, pos.x, pos.y, pos.plan.widthPx, pos.plan.heightPx)) {
+            SH.addWarning(result, "ARTBOARD_SIZE",
+                "Artboard '" + pos.plan.name + "' came out " +
+                    (actual ? Math.round(actual.right - actual.left) + "×" +
+                        Math.round(actual.bottom - actual.top) : "an unknown size") +
+                    "px instead of " + pos.plan.widthPx + "×" + pos.plan.heightPx + "px.",
+                "Resize it with the Artboard tool, and tell whoever maintains Studio Helper.");
+        }
         artboardsData.push({
             name: pos.plan.name, format_id: pos.plan.formatId,
             x: pos.x, y: pos.y, width: pos.plan.widthPx, height: pos.plan.heightPx

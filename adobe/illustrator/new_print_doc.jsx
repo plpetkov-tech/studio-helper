@@ -309,6 +309,7 @@ function createDocumentForSheet(sheet, bleedMm, filePath) {
         }
     }
     guidesLayer.locked = true;
+    app.redraw(); // otherwise the Artboards panel can keep showing the old names
 
     var saveOpts = new IllustratorSaveOptions();
     saveOpts.pdfCompatible = true;
