@@ -42,10 +42,19 @@ SH.getArgs = function (promptTitle) {
 // always restoring the previous setting, and always returning the
 // JSON envelope -- even on an exception (SPEC.md §6.3, §14: "fully
 // wrapped in try/finally restoring app state").
+//
+// Every size these scripts pass is in pixels, but Photoshop reads bare
+// numbers in the user's ruler units -- with rulers in cm, a 1080px
+// document came out 1080cm (2026-09-26, real machine). So units are
+// forced to pixels for the run and restored afterwards.
 SH.run = function (fn, promptTitle) {
     var previousDisplayDialogs = app.displayDialogs;
+    var previousRulerUnits = app.preferences.rulerUnits;
+    var previousTypeUnits = app.preferences.typeUnits;
     var result;
     app.displayDialogs = DialogModes.NO;
+    app.preferences.rulerUnits = Units.PIXELS;
+    app.preferences.typeUnits = TypeUnits.PIXELS;
     try {
         result = fn(SH.getArgs(promptTitle));
     } catch (e) {
@@ -53,6 +62,8 @@ SH.run = function (fn, promptTitle) {
         SH.addError(result, "EXCEPTION", String(e), "");
     } finally {
         app.displayDialogs = previousDisplayDialogs;
+        app.preferences.rulerUnits = previousRulerUnits;
+        app.preferences.typeUnits = previousTypeUnits;
     }
     return JSON.stringify(result);
 };

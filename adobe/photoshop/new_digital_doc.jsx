@@ -25,6 +25,7 @@
 #include "lib/common.jsx"
 
 var GRID_GAP_PX = 100;
+var PSD_MAX_PX = 30000; // .psd's hard limit per side (larger needs .psb)
 
 function isDigitalFormat(fmt) {
     return fmt.kind !== "print";
@@ -137,6 +138,14 @@ function main(args) {
     for (i = 0; i < positions.length; i++) {
         totalWidth = Math.max(totalWidth, positions[i].x + positions[i].plan.widthPx);
         totalHeight = Math.max(totalHeight, positions[i].y + positions[i].plan.heightPx);
+    }
+
+    if (totalWidth > PSD_MAX_PX || totalHeight > PSD_MAX_PX) {
+        SH.addError(result, "TOO_LARGE",
+            "All digital formats together would be " + totalWidth + "×" + totalHeight +
+                "px, over Photoshop's " + PSD_MAX_PX + "px limit for a .psd file.",
+            "Split the digital formats across two jobs.");
+        return result;
     }
 
     var doc = app.documents.add(

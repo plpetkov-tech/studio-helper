@@ -93,7 +93,7 @@ function run() {
     assert.strictEqual(plan[0].scale, 0.1);
   });
 
-  check("layoutArtboards uses panel_gap_mm within a format, spacing between formats", () => {
+  check("layoutSheet uses panel_gap_mm within a format, spacing between formats", () => {
     const formats = [
       {kind: "print", id: "flyer-a5", size: {w: 148, h: 210}},
       {
@@ -101,28 +101,114 @@ function run() {
         panels: [{w: 900, h: 2100}, {w: 900, h: 2100}],
       },
     ];
-    const plan = ctx.artboardPlan(formats);
-    const spacingPt = ctx.SH.mmToPt(20 * 2); // arbitrary spacing distinct from the 20mm panel gap
-    const artboards = ctx.layoutArtboards(plan, spacingPt);
+    const blocks = ctx.formatBlocks(ctx.artboardPlan(formats));
+    assert.strictEqual(blocks.length, 2);
+    assert.strictEqual(blocks[1].widthMm, 1820);
+    const sheets = ctx.packSheets(blocks, 5000, 40);
+    assert.strictEqual(sheets.length, 1);
+    const spacingPt = ctx.SH.mmToPt(40);
+    const artboards = ctx.layoutSheet(sheets[0], spacingPt, 0, 0);
 
-    // flyer-a5 (index 0) starts at 0
-    assert.strictEqual(artboards[0].left, 0);
-    // elevator-main panel 1 (index 1, different format) starts after
-    // flyer-a5's width plus the *artboard spacing*, not the panel gap.
-    const expectedPanel1Left = ctx.SH.mmToPt(148) + spacingPt;
-    assert.ok(Math.abs(artboards[1].left - expectedPanel1Left) < 1e-9);
-    // elevator-main panel 2 (index 2, same format, panelIndex>0) starts
-    // after panel 1's width plus the real panel_gap_mm, not spacingPt.
-    const expectedPanel2Left = artboards[1].right + ctx.SH.mmToPt(20);
-    assert.ok(Math.abs(artboards[2].left - expectedPanel2Left) < 1e-9);
+    // tallest first: elevator panels, then the flyer, all in one row
+    assert.deepStrictEqual(Array.from(artboards, (a) => a.plan.name),
+      ["elevator-main_p1", "elevator-main_p2", "flyer-a5"]);
+    const gap = artboards[1].left - artboards[0].right;
+    assert.ok(Math.abs(gap - ctx.SH.mmToPt(20)) < 1e-9);
+    assert.ok(Math.abs(artboards[2].left - artboards[1].right - spacingPt) < 1e-9);
+    // row tops line up, top > bottom
+    assert.strictEqual(artboards[0].top, artboards[2].top);
+    assert.ok(artboards[2].top > artboards[2].bottom);
   });
 
-  check("layoutArtboards keeps a common y=0 baseline, top > bottom", () => {
+  check("layoutSheet centres the sheet on the given canvas centre", () => {
     const formats = [{kind: "print", id: "flyer-a5", size: {w: 148, h: 210}}];
-    const artboards = ctx.layoutArtboards(ctx.artboardPlan(formats), ctx.SH.mmToPt(20));
-    assert.strictEqual(artboards[0].bottom, 0);
-    assert.strictEqual(artboards[0].top, ctx.SH.mmToPt(210));
-    assert.ok(artboards[0].top > artboards[0].bottom);
+    const sheets = ctx.packSheets(ctx.formatBlocks(ctx.artboardPlan(formats)), 5000, 20);
+    const [a] = ctx.layoutSheet(sheets[0], ctx.SH.mmToPt(20), 100, -50);
+    assert.ok(Math.abs((a.left + a.right) / 2 - 100) < 1e-9);
+    assert.ok(Math.abs((a.top + a.bottom) / 2 + 50) < 1e-9);
+  });
+
+  check("packSheets wraps into rows, then new sheets, never exceeding the cap", () => {
+    const formats = [];
+    for (let i = 0; i < 12; i++) {
+      formats.push({kind: "print", id: "wall-" + i, size: {w: 2000, h: 2000}});
+    }
+    const cap = 5000;
+    const sheets = ctx.packSheets(ctx.formatBlocks(ctx.artboardPlan(formats)), cap, 20);
+    // 2 per row, 2 rows per sheet -> 3 sheets
+    assert.strictEqual(sheets.length, 3);
+    for (const sheet of sheets) {
+      let h = 0;
+      for (const row of sheet) {
+        assert.ok(row.widthMm <= cap);
+        h += row.heightMm;
+      }
+      assert.ok(h + 20 * (sheet.length - 1) <= cap);
+    }
+  });
+
+  check("planGroup fits the real mall-print job into a few canvases, all on-canvas", () => {
+    const yamlPath = path.join(__dirname, "..", "..", "defaults", "registry.yaml");
+    const text = fs.readFileSync(yamlPath, "utf8");
+    // minimal extraction of the mall-print formats (id, size, scale, bleed)
+    const formats = [];
+    let cur = null;
+    for (const line of text.split(/\r?\n/)) {
+      let m = line.match(/^  - id: (mall-print-\S+)/);
+      if (m) { cur = {kind: "print", id: m[1], bleed_mm: 3}; formats.push(cur); continue; }
+      if (/^  - id: /.test(line)) { cur = null; continue; }
+      if (!cur) continue;
+      m = line.match(/size: \{w: (\d+), h: (\d+)/);
+      if (m) cur.size = {w: +m[1], h: +m[2]};
+      m = line.match(/scale: ([\d.]+)/);
+      if (m) cur.scale = +m[1];
+      m = line.match(/bleed_mm: (\d+)/);
+      if (m) cur.bleed_mm = +m[1];
+    }
+    assert.ok(formats.length >= 15);
+    // what job creation does for formats over the Illustrator limit
+    for (const f of formats) {
+      if (!f.scale && Math.max(f.size.w, f.size.h) > 5500) f.scale = 0.1;
+    }
+    const limitPt = ctx.SH.mmToPt(ctx.CANVAS_LIMIT_MM);
+    let files = 0;
+    for (const group of ctx.groupByBleed(formats)) {
+      const planned = ctx.planGroup(group);
+      assert.ok(!planned.error, planned.error && planned.error.message);
+      files += planned.sheets.length;
+      const spacingPt = ctx.SH.mmToPt(ctx.spacingMmFor(group.bleedMm));
+      for (const sheet of planned.sheets) {
+        const abs = ctx.layoutSheet(sheet, spacingPt, 0, 0);
+        const bleedPt = ctx.SH.mmToPt(group.bleedMm);
+        for (const a of abs) {
+          assert.ok(a.left - bleedPt >= -limitPt / 2 && a.right + bleedPt <= limitPt / 2);
+          assert.ok(a.bottom - bleedPt >= -limitPt / 2 && a.top + bleedPt <= limitPt / 2);
+        }
+      }
+    }
+    assert.ok(files <= 4, "expected at most 4 files, got " + files);
+  });
+
+  check("planGroup refuses a format too big even for one canvas", () => {
+    const planned = ctx.planGroup(
+      {bleedMm: 3, formats: [{kind: "print", id: "huge", size: {w: 9000, h: 1000}}]}
+    );
+    assert.strictEqual(planned.error.code, "CANVAS_TOO_LARGE");
+    assert.ok(/create a new job/.test(planned.error.hint));
+  });
+
+  check("printFileNames adds _partN only when a group spans several files", () => {
+    const groups = [{bleedMm: 3}, {bleedMm: 50}];
+    const planned = [{sheets: [[], []]}, {sheets: [[]]}];
+    assert.deepStrictEqual(Array.from(ctx.printFileNames("job", groups, planned, "_v01")), [
+      "job_print_bleed3mm_part1_v01.ai",
+      "job_print_bleed3mm_part2_v01.ai",
+      "job_print_bleed50mm_v01.ai",
+    ]);
+    assert.deepStrictEqual(
+      Array.from(ctx.printFileNames("job", [{bleedMm: 3}], [{sheets: [[]]}], "_v01")),
+      ["job_print_v01.ai"]
+    );
   });
 
   check("zeroPad2 pads single digits, leaves two-plus digits alone", () => {

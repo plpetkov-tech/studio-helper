@@ -216,3 +216,32 @@ def test_record_digital_file_overwrites_previous_value(jobs_root, registry):
     job_mod.record_digital_file(jobs_root, job["id"], str(root / "a.psd"))
     updated = job_mod.record_digital_file(jobs_root, job["id"], str(root / "b.psd"))
     assert updated["files"]["psd"] == "b.psd"
+
+
+def test_create_job_auto_scales_formats_too_big_for_illustrator(jobs_root):
+    from pathlib import Path
+
+    bundled = Path(__file__).parents[2] / "defaults" / "registry.yaml"
+    registry = load_registry(bundled)
+    job = job_mod.create_job(
+        jobs_root, registry, "Mall",
+        ["mall-print-serdika-big-sky-mural", "mall-print-plovdiv-entrance-door",
+         "mall-print-paradise-snap-frame", "ig-post"],
+        now=FIXED_NOW,
+    )
+    scales = {f["id"]: f["scale"] for f in job["formats"]}
+    assert scales["mall-print-serdika-big-sky-mural"] == 0.1  # 6000mm tall -> 1:10
+    assert scales["mall-print-plovdiv-entrance-door"] == 0.1  # already set in the registry
+    assert scales["mall-print-paradise-snap-frame"] == 1  # 4200mm fits at 1:1
+    assert scales["ig-post"] == 1  # digital formats are never scaled
+
+
+def test_auto_scale_job_upgrades_an_existing_job(jobs_root, registry):
+    job = job_mod.create_job(jobs_root, registry, "Old", ["flyer-a5"], now=FIXED_NOW)
+    job["formats"][0]["size"] = {"w": 6000, "h": 2000, "unit": "mm"}  # as if created oversize
+    job_mod._write_job(job_mod.job_path(jobs_root, job["id"]), job)
+
+    upgraded = job_mod.auto_scale_job(jobs_root, job["id"])
+    assert upgraded["formats"][0]["scale"] == 0.1
+    assert job_mod.load_job(jobs_root, job["id"])["formats"][0]["scale"] == 0.1
+    assert upgraded["deliverables"] == job["deliverables"]

@@ -115,7 +115,7 @@ def open_job_folder(ctx, body, job_id):
 
 @route("POST", "/api/jobs/<job_id>/illustrator/new-print-doc")
 def create_illustrator_print_doc(ctx, body, job_id):
-    job = job_mod.load_job(ctx.jobs_root, job_id)
+    job = job_mod.auto_scale_job(ctx.jobs_root, job_id)
     working_dir = job_mod.job_path(ctx.jobs_root, job_id) / "03_working"
 
     def work() -> dict:

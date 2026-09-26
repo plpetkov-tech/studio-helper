@@ -51,6 +51,37 @@ def _deliverables_for(date_str: str, slug: str, fmt: dict, version: int) -> list
     return deliverables
 
 
+# Illustrator's canvas is 5765mm (227in) per side; its new_print_doc.jsx
+# also keeps a margin for bleed. Anything bigger is drawn at 1:10.
+ILLUSTRATOR_MAX_ARTBOARD_MM = 5500
+
+
+def _auto_scale(fmt: dict) -> dict:
+    """Print formats too big for an Illustrator artboard at 1:1 get
+    `scale: 0.1` (SPEC.md §6.4 "Scale"). A scale the registry already
+    set to something other than 1 is kept as is."""
+    if fmt["kind"] != "print" or fmt.get("scale", 1) != 1:
+        return fmt
+    sides = [(p["w"], p["h"]) for p in fmt["panels"]] if fmt.get("panels") else [
+        (fmt["size"]["w"], fmt["size"]["h"])
+    ]
+    if max(max(w, h) for w, h in sides) > ILLUSTRATOR_MAX_ARTBOARD_MM:
+        fmt["scale"] = 0.1
+    return fmt
+
+
+def auto_scale_job(jobs_root: Path, job_id: str) -> dict:
+    """Applies _auto_scale to a job created before it existed, so its
+    oversize print formats work without recreating the job. Expected
+    file names don't depend on scale, so deliverables stay as they are."""
+    job = load_job(jobs_root, job_id)
+    before = [f.get("scale", 1) for f in job["formats"]]
+    job["formats"] = [_auto_scale(f) for f in job["formats"]]
+    if [f.get("scale", 1) for f in job["formats"]] != before:
+        _write_job(job_path(jobs_root, job_id), job)
+    return job
+
+
 def create_job(
     jobs_root: Path,
     registry: Registry,
@@ -89,7 +120,7 @@ def create_job(
     version = 1
     # Fully resolved copies (incl. defaults) so the job stays stable
     # even if registry.yaml changes later (SPEC.md §6.1 job.json).
-    formats_resolved = [dict(registry.formats[fid]) for fid in format_ids]
+    formats_resolved = [_auto_scale(dict(registry.formats[fid])) for fid in format_ids]
     deliverables = []
     for fmt in formats_resolved:
         deliverables.extend(_deliverables_for(date_str, slug, fmt, version))

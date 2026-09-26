@@ -3,7 +3,8 @@
 // Input: {job, output_dir}. Creates one .ai document per distinct
 // effective bleed among the job's print formats (Illustrator's bleed
 // is document-wide), with one artboard per format -- or per panel,
-// for a multi-panel format like elevator doors.
+// for a multi-panel format like elevator doors. A group too big for
+// one Illustrator canvas is split across "_part1", "_part2", ... files.
 //
 // UNVERIFIED against a real copy of Illustrator as of milestone M3.
 // Built to the documented DocumentPreset/artboard scripting API with
@@ -104,39 +105,135 @@ function drawGuideRect(layer, left, top, right, bottom) {
     return rect;
 }
 
-// Lays out one artboard per plan entry, left to right, with the real
-// panel_gap_mm between a format's own panels and the wider artboard
-// spacing between different formats (SPEC.md §6.4 "Panels").
-function layoutArtboards(plan, spacingPt) {
-    var artboards = [];
-    var cursorPt = 0;
-    var j, p, wPt, hPt, gapPt, prev;
+// A format's artboards (its panels, or just itself) stay together in
+// one row: [{formatId, entries, widthMm, heightMm}], in plan order.
+function formatBlocks(plan) {
+    var blocks = [];
+    var j, p, last;
     for (j = 0; j < plan.length; j++) {
         p = plan[j];
-        wPt = SH.mmToPt(p.widthMm);
-        hPt = SH.mmToPt(p.heightMm);
-        if (j > 0) {
-            prev = plan[j - 1];
-            gapPt = (prev.formatId === p.formatId && p.panelIndex > 0)
-                ? SH.mmToPt(p.panelGapMm)
-                : spacingPt;
-            cursorPt += gapPt;
+        last = blocks.length ? blocks[blocks.length - 1] : null;
+        if (last && last.formatId === p.formatId && p.panelIndex > 0) {
+            last.widthMm += p.panelGapMm + p.widthMm;
+            last.heightMm = Math.max(last.heightMm, p.heightMm);
+            last.entries.push(p);
+        } else {
+            blocks.push({formatId: p.formatId, entries: [p], widthMm: p.widthMm, heightMm: p.heightMm});
         }
-        artboards.push({
-            plan: p,
-            left: cursorPt,
-            top: hPt,
-            right: cursorPt + wPt,
-            bottom: 0,
-            widthPt: wPt,
-            heightPt: hPt
-        });
-        cursorPt += wPt;
+    }
+    return blocks;
+}
+
+// Illustrator's whole canvas is CANVAS_LIMIT_MM square, so a big job
+// can't fit in one file. Shelf-packs blocks (tallest first) into rows,
+// rows into sheets no bigger than capMm square; each sheet becomes its
+// own .ai file. Returns [[row, ...], ...], row = {blocks, widthMm, heightMm}.
+function packSheets(blocks, capMm, spacingMm) {
+    var sorted = blocks.slice(0);
+    var i, j, k, b, row, placed, sheetH;
+    // stable sort by height desc (ES3 sort isn't guaranteed stable)
+    for (i = 0; i < sorted.length; i++) { sorted[i]._order = i; }
+    sorted.sort(function (a, c) {
+        return (c.heightMm - a.heightMm) || (a._order - c._order);
+    });
+
+    var sheets = [];
+    for (i = 0; i < sorted.length; i++) {
+        b = sorted[i];
+        placed = false;
+        for (j = 0; j < sheets.length && !placed; j++) {
+            for (k = 0; k < sheets[j].length && !placed; k++) {
+                row = sheets[j][k];
+                if (row.widthMm + spacingMm + b.widthMm <= capMm) {
+                    row.blocks.push(b);
+                    row.widthMm += spacingMm + b.widthMm;
+                    placed = true;
+                }
+            }
+        }
+        for (j = 0; j < sheets.length && !placed; j++) {
+            sheetH = 0;
+            for (k = 0; k < sheets[j].length; k++) { sheetH += sheets[j][k].heightMm + spacingMm; }
+            if (sheetH + b.heightMm <= capMm) {
+                sheets[j].push({blocks: [b], widthMm: b.widthMm, heightMm: b.heightMm});
+                placed = true;
+            }
+        }
+        if (!placed) {
+            sheets.push([{blocks: [b], widthMm: b.widthMm, heightMm: b.heightMm}]);
+        }
+    }
+    return sheets;
+}
+
+// Positions every artboard of one sheet, rows top to bottom, with the
+// real panel_gap_mm between a format's own panels and spacingPt between
+// formats/rows (SPEC.md §6.4 "Panels"), centred on (centerX, centerY)
+// -- the canvas centre, so the whole sheet stays on the canvas.
+function layoutSheet(sheet, spacingPt, centerX, centerY) {
+    var artboards = [];
+    var yPt = 0, maxRight = 0;
+    var r, b, e, row, xPt, p, wPt, hPt;
+    for (r = 0; r < sheet.length; r++) {
+        row = sheet[r];
+        if (r > 0) { yPt -= spacingPt; }
+        xPt = 0;
+        for (b = 0; b < row.blocks.length; b++) {
+            if (b > 0) { xPt += spacingPt; }
+            for (e = 0; e < row.blocks[b].entries.length; e++) {
+                p = row.blocks[b].entries[e];
+                if (e > 0) { xPt += SH.mmToPt(p.panelGapMm); }
+                wPt = SH.mmToPt(p.widthMm);
+                hPt = SH.mmToPt(p.heightMm);
+                artboards.push({
+                    plan: p, left: xPt, top: yPt, right: xPt + wPt, bottom: yPt - hPt,
+                    widthPt: wPt, heightPt: hPt
+                });
+                xPt += wPt;
+            }
+        }
+        maxRight = Math.max(maxRight, xPt);
+        yPt -= SH.mmToPt(row.heightMm);
+    }
+    var dx = centerX - maxRight / 2;
+    var dy = centerY - yPt / 2; // yPt is the (negative) bottom edge
+    var i, a;
+    for (i = 0; i < artboards.length; i++) {
+        a = artboards[i];
+        a.left += dx; a.right += dx; a.top += dy; a.bottom += dy;
     }
     return artboards;
 }
 
-function createDocumentForGroup(group, filePath) {
+function spacingMmFor(bleedMm) {
+    return Math.max(20, 2 * bleedMm + 10);
+}
+
+// Largest sheet side that still leaves room for the bleed and a margin.
+function sheetCapMm(bleedMm) {
+    return CANVAS_LIMIT_MM - 2 * bleedMm - 100;
+}
+
+// Returns {error} or {sheets} for one bleed group.
+function planGroup(group) {
+    var plan = artboardPlan(group.formats);
+    var capMm = sheetCapMm(group.bleedMm);
+    var j;
+    for (j = 0; j < plan.length; j++) {
+        if (plan[j].widthMm > capMm || plan[j].heightMm > capMm) {
+            return {error: {
+                code: "CANVAS_TOO_LARGE",
+                message: "'" + plan[j].name + "' would be larger than " +
+                    "Illustrator's canvas limit (" + CANVAS_LIMIT_MM + "mm).",
+                hint: "Set a smaller `scale` (e.g. 0.1) for this format in the registry, " +
+                    "then create a new job -- existing jobs keep the sizes they were created with."
+            }};
+        }
+    }
+    return {sheets: packSheets(formatBlocks(plan), capMm, spacingMmFor(group.bleedMm))};
+}
+
+function createDocumentForSheet(sheet, bleedMm, filePath) {
     var outFile = new File(filePath);
     if (outFile.exists) {
         return {error: {
@@ -146,40 +243,38 @@ function createDocumentForGroup(group, filePath) {
         }};
     }
 
-    var plan = artboardPlan(group.formats);
-    var bleedPt = SH.mmToPt(group.bleedMm);
-    var spacingPt = Math.max(SH.mmToPt(20), 2 * bleedPt + SH.mmToPt(10));
-    var artboards = layoutArtboards(plan, spacingPt);
-
-    var limitPt = SH.mmToPt(CANVAS_LIMIT_MM);
-    var j;
-    for (j = 0; j < artboards.length; j++) {
-        if (artboards[j].widthPt > limitPt || artboards[j].heightPt > limitPt) {
-            return {error: {
-                code: "CANVAS_TOO_LARGE",
-                message: "'" + artboards[j].plan.name + "' would be larger than " +
-                    "Illustrator's canvas limit (" + CANVAS_LIMIT_MM + "mm).",
-                hint: "Set `scale: 0.1` for this format in the registry."
-            }};
-        }
-    }
+    var bleedPt = SH.mmToPt(bleedMm);
+    var spacingPt = SH.mmToPt(spacingMmFor(bleedMm));
+    var first = sheet[0].blocks[0].entries[0];
 
     var preset = new DocumentPreset();
     preset.colorMode = DocumentColorSpace.CMYK;
     preset.units = RulerUnits.Millimeters;
     preset.rasterResolution = DocumentRasterResolution.HighResolution;
-    preset.numArtboards = artboards.length;
+    preset.numArtboards = 1;
     preset.documentBleedLink = true;
     preset.documentBleedOffsetRect = [bleedPt, bleedPt, bleedPt, bleedPt];
-    preset.width = artboards[0].widthPt;
-    preset.height = artboards[0].heightPt;
+    preset.width = SH.mmToPt(first.widthMm);
+    preset.height = SH.mmToPt(first.heightMm);
 
     var doc = app.documents.addDocument(DocumentColorSpace.CMYK, preset);
 
+    // A new document's single artboard sits in the middle of the canvas.
+    var initial = doc.artboards[0].artboardRect;
+    var artboards = layoutSheet(
+        sheet, spacingPt, (initial[0] + initial[2]) / 2, (initial[1] + initial[3]) / 2
+    );
+
+    var j;
     for (j = 0; j < artboards.length; j++) {
-        doc.artboards[j].artboardRect = SH.rect(
+        var rect = SH.rect(
             artboards[j].left, artboards[j].top, artboards[j].right, artboards[j].bottom
         );
+        if (j === 0) {
+            doc.artboards[0].artboardRect = rect;
+        } else {
+            doc.artboards.add(rect);
+        }
         var name = artboards[j].plan.name;
         if (artboards[j].plan.scale !== 1) {
             name += "@1:" + (1 / artboards[j].plan.scale);
@@ -233,7 +328,21 @@ function createDocumentForGroup(group, filePath) {
         });
     }
 
-    return {data: {path: outFile.fsName, bleed_mm: group.bleedMm, artboards: artboardData}};
+    return {data: {path: outFile.fsName, bleed_mm: bleedMm, artboards: artboardData}};
+}
+
+// "<id>_print[_bleed3mm][_part2]_v01.ai", one per sheet, in order.
+function printFileNames(jobId, groups, planned, versionSuffix) {
+    var names = [];
+    var i, s, suffix;
+    for (i = 0; i < groups.length; i++) {
+        suffix = groups.length > 1 ? "_print_bleed" + groups[i].bleedMm + "mm" : "_print";
+        for (s = 0; s < planned[i].sheets.length; s++) {
+            names.push(jobId + suffix +
+                (planned[i].sheets.length > 1 ? "_part" + (s + 1) : "") + versionSuffix + ".ai");
+        }
+    }
+    return names;
 }
 
 function main(args) {
@@ -256,14 +365,29 @@ function main(args) {
     var versionSuffix = "_v" + zeroPad2(job.version || 1);
     var documents = [];
 
+    var planned = [];
     for (i = 0; i < groups.length; i++) {
-        var suffix = groups.length > 1 ? "_print_bleed" + groups[i].bleedMm + "mm" : "_print";
-        var fileName = job.id + suffix + versionSuffix + ".ai";
-        var outcome = createDocumentForGroup(groups[i], joinPath(outputDir, fileName));
-        if (outcome.error) {
-            SH.addError(result, outcome.error.code, outcome.error.message, outcome.error.hint);
-        } else {
-            documents.push(outcome.data);
+        planned.push(planGroup(groups[i]));
+        if (planned[i].error) {
+            SH.addError(result, planned[i].error.code, planned[i].error.message,
+                planned[i].error.hint);
+        }
+    }
+    if (!result.ok) { return result; }
+
+    var names = printFileNames(job.id, groups, planned, versionSuffix);
+    var s, n = 0;
+    for (i = 0; i < groups.length; i++) {
+        for (s = 0; s < planned[i].sheets.length; s++) {
+            var outcome = createDocumentForSheet(
+                planned[i].sheets[s], groups[i].bleedMm, joinPath(outputDir, names[n])
+            );
+            n += 1;
+            if (outcome.error) {
+                SH.addError(result, outcome.error.code, outcome.error.message, outcome.error.hint);
+            } else {
+                documents.push(outcome.data);
+            }
         }
     }
 
