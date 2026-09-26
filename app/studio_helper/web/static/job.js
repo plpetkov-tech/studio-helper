@@ -42,7 +42,7 @@
     if (!checks || checks.length === 0) return "";
     var items = checks.map(function (c) {
       return (
-        "<li><strong>" + SH.escapeHtml(c.status) + "</strong> " + SH.escapeHtml(c.message) +
+        '<li class="' + SH.escapeHtml(c.status) + '">' + SH.escapeHtml(c.message) +
         (c.hint ? ' <span class="hint">' + SH.escapeHtml(c.hint) + "</span>" : "") +
         "</li>"
       );
@@ -214,20 +214,61 @@
     files.forEach(function (f) {
       var result = f.result;
       var fileName = f.ai_path.split(/[\\/]/).pop();
-      html += '<div class="card"><h3>' + SH.escapeHtml(fileName) + "</h3>";
-      if (result.data && result.data.checks) {
-        html += checksHtml(result.data.checks);
-      }
+      var data = result.data || {};
+      var checks = data.checks || [];
+      var problems = checks.filter(function (c) { return c.status !== "ok"; });
+      var passed = checks.length - problems.length;
+      var exportedCount = (data.exported || []).length;
       var skipped = (result.warnings || []).some(function (w) {
         return w.code === "SKIPPED_EXPORT";
       });
+      // Errors that aren't a failed check: the script itself stopped
+      // (e.g. Illustrator refused to save), so there may be no checks at all.
+      var checkIds = {};
+      checks.forEach(function (c) { checkIds[c.id] = true; });
+      var scriptErrors = (result.errors || []).filter(function (e) { return !checkIds[e.code]; });
+      var otherWarnings = (result.warnings || []).filter(function (w) {
+        return w.code !== "SKIPPED_EXPORT" && !checkIds[w.code];
+      });
+
+      var summary;
+      if (scriptErrors.length > 0) {
+        summary = '<p class="banner error">Stopped with an error -- nothing was exported.</p>';
+      } else if (exportedCount > 0) {
+        summary = '<p class="banner success">Exported ' + exportedCount + " file(s) to 04_export/print.</p>";
+      } else if (skipped) {
+        summary = '<p class="banner error">Nothing exported: ' + problems.filter(function (c) {
+          return c.status === "fail";
+        }).length + " problem(s) to fix first.</p>";
+      } else if (problems.length === 0) {
+        summary = '<p class="banner success">All checks passed.</p>';
+      } else if (problems.some(function (c) { return c.status === "fail"; })) {
+        summary = '<p class="banner error">Problems found -- fix them before exporting.</p>';
+      } else {
+        summary = "";
+      }
+
+      html += '<div class="card"><h3>' + SH.escapeHtml(fileName) + "</h3>" + summary;
+      if (scriptErrors.length > 0 || otherWarnings.length > 0) {
+        html += checksHtml(scriptErrors.map(function (e) {
+          return {status: "fail", message: e.message, hint: e.hint};
+        }).concat(otherWarnings.map(function (w) {
+          return {status: "warn", message: w.message, hint: w.hint};
+        })));
+      }
+      // Problems first; the passed checks fold away.
+      problems.sort(function (a, b) {
+        return (a.status === "fail" ? 0 : 1) - (b.status === "fail" ? 0 : 1);
+      });
+      html += checksHtml(problems);
+      if (passed > 0) {
+        html += "<details><summary class=\"hint\">" + passed + " check(s) passed</summary>" +
+          checksHtml(checks.filter(function (c) { return c.status === "ok"; })) + "</details>";
+      }
       if (skipped) {
         html +=
           '<button class="export-anyway-btn" data-path="' +
           SH.escapeHtml(f.ai_path) + '">Export anyway</button>';
-      }
-      if (result.data && result.data.exported && result.data.exported.length > 0) {
-        html += '<p class="hint">Exported ' + result.data.exported.length + " file(s).</p>";
       }
       html += "</div>";
     });

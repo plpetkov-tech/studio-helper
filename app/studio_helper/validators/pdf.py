@@ -42,8 +42,11 @@ def validate(path: Path, fmt: dict, deliverable: dict) -> list[Check]:
         return checks
 
     page = reader.pages[0]
+    # A 1:10 artboard exports a 1:10 PDF: size and bleed both scaled.
+    scale = fmt.get("scale", 1) or 1
     w_mm, h_mm = match.deliverable_size(fmt, deliverable)
-    bleed_mm = fmt.get("bleed_mm", 0) or 0
+    w_mm, h_mm = w_mm * scale, h_mm * scale
+    bleed_mm = (fmt.get("bleed_mm", 0) or 0) * scale
 
     trim_box = _raw_box(page, "/TrimBox")
     checks.append(_check_trimbox(trim_box, w_mm, h_mm))

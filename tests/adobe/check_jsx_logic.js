@@ -71,6 +71,17 @@ function run() {
     assert.strictEqual(groups[1].formats.length, 1);
   });
 
+  check("groupByBleed uses the scaled bleed, so 1:1 and 1:10 formats get separate files", () => {
+    const groups = ctx.groupByBleed([
+      {kind: "print", id: "a", bleed_mm: 3},
+      {kind: "print", id: "b", bleed_mm: 3, scale: 0.1},
+      {kind: "print", id: "c", bleed_mm: 3, scale: 0.1},
+    ]);
+    assert.strictEqual(groups.length, 2);
+    assert.strictEqual(groups[1].bleedMm, 0.3);
+    assert.strictEqual(groups[1].formats.length, 2);
+  });
+
   check("artboardPlan expands panels with p1/p2 naming", () => {
     const formats = [
       {

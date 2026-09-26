@@ -27,6 +27,7 @@
 var BLEED_COVERAGE_TOLERANCE_MM = 0.5;
 var SIZE_TOLERANCE_MM = 0.1;
 var REACH_EPSILON_MM = 0.1;
+var FALLBACK_PDF_PRESET = "[PDF/X-1a:2001]";
 
 function joinPath(dir, name) {
     return dir.replace(/[\\\/]+$/, "") + "/" + name;
@@ -129,6 +130,32 @@ function visiblePageItems(layer) {
         out.push(it);
     }
     return out;
+}
+
+function allVisibleItems(doc) {
+    var items = [];
+    var i;
+    for (i = 0; i < doc.layers.length; i++) {
+        items = items.concat(visiblePageItems(doc.layers[i]));
+    }
+    return items;
+}
+
+// True when no visible, non-guide item overlaps the artboard rect
+// ([left, top, right, bottom] pt, y-axis up).
+function isArtboardEmpty(items, rect) {
+    var i, b;
+    for (i = 0; i < items.length; i++) {
+        try {
+            b = items[i].visibleBounds;
+        } catch (e) {
+            continue;
+        }
+        if (b[0] < rect[2] && b[2] > rect[0] && b[3] < rect[1] && b[1] > rect[3]) {
+            return false;
+        }
+    }
+    return true;
 }
 
 // SPEC.md §6.4 bleed coverage heuristic, step 2: Background layer's
@@ -268,6 +295,7 @@ function checkArtboards(doc, job) {
     var seenDeliverables = {};
     var i, ab, parsed, fmt, size, scale, expectedW, expectedH, rect, actualW, actualH;
     var expectedBleedMm, docBleed, actualBleedMm, bleedPt, bleedRect, items, failingEdges, e, names;
+    var allItems = allVisibleItems(doc);
 
     for (i = 0; i < doc.artboards.length; i++) {
         ab = doc.artboards[i];
@@ -310,7 +338,7 @@ function checkArtboards(doc, job) {
             checks.push({id: "artboard-size", status: "ok", message: "'" + ab.name + "' size matches."});
         }
 
-        expectedBleedMm = (fmt.bleed_mm || 0) * scale;
+        expectedBleedMm = docBleedMm(fmt);
         docBleed = doc.documentBleedOffsetRect; // [top, left, bottom, right] pt
         actualBleedMm = SH.ptToMm(docBleed[0]);
         if (Math.abs(actualBleedMm - expectedBleedMm) > SIZE_TOLERANCE_MM) {
@@ -320,6 +348,13 @@ function checkArtboards(doc, job) {
                 hint: "Reset the document bleed to match this format's registry entry."});
         } else {
             checks.push({id: "bleed-size", status: "ok", message: "Bleed matches for '" + ab.name + "'."});
+        }
+
+        if (isArtboardEmpty(allItems, rect)) {
+            checks.push({id: "artboard-empty", status: "fail",
+                message: "'" + ab.name + "' is empty -- nothing is placed on it yet.",
+                hint: "Design it first, or use \"Export anyway\" to export it blank (e.g. for a test)."});
+            continue;
         }
 
         if (expectedBleedMm > 0) {
@@ -367,7 +402,7 @@ function checkArtboards(doc, job) {
 function exportOneTiff(doc, artboardIndex, fmt, deliverable, exportDir) {
     var ab = doc.artboards[artboardIndex];
     var originalRect = ab.artboardRect.slice();
-    var bleedPt = SH.mmToPt(fmt.bleed_mm || 0);
+    var bleedPt = SH.mmToPt(docBleedMm(fmt));
     var scale = fmt.scale || 1;
     var outFile = new File(joinPath(exportDir, deliverable.expected_stem + ".tif"));
 
@@ -394,12 +429,31 @@ function exportOneTiff(doc, artboardIndex, fmt, deliverable, exportDir) {
     return {path: outFile.fsName, type: "tiff", format_id: fmt.id, panel: deliverable.panel};
 }
 
-function exportOnePdf(doc, artboardIndex, fmt, deliverable, exportDir) {
+// Bleed in document mm (scaled with the artwork), as new_print_doc.jsx sets it.
+function docBleedMm(fmt) {
+    return (fmt.bleed_mm || 0) * (fmt.scale || 1);
+}
+
+// The registry's preset if Illustrator has it, else the built-in
+// PDF/X-1a, else Illustrator's defaults. `presets` is app.PDFPresetsList.
+function choosePdfPreset(wanted, presets) {
+    var candidates = [wanted, FALLBACK_PDF_PRESET];
+    var i, j;
+    for (i = 0; i < candidates.length; i++) {
+        if (!candidates[i]) { continue; }
+        for (j = 0; j < presets.length; j++) {
+            if (presets[j] === candidates[i]) { return candidates[i]; }
+        }
+    }
+    return "";
+}
+
+function exportOnePdf(doc, artboardIndex, fmt, deliverable, exportDir, preset) {
     var outFile = new File(joinPath(exportDir, deliverable.expected_stem + ".pdf"));
-    var bleedPt = SH.mmToPt(fmt.bleed_mm || 0);
+    var bleedPt = SH.mmToPt(docBleedMm(fmt));
 
     var opts = new PDFSaveOptions();
-    opts.pDFPreset = fmt.pdf_preset || "";
+    if (preset) { opts.pDFPreset = preset; }
     opts.artboardRange = String(artboardIndex + 1);
     // Set explicitly too, as a guard against the preset (SPEC.md §6.4).
     opts.bleedTop = bleedPt;
@@ -414,7 +468,7 @@ function exportOnePdf(doc, artboardIndex, fmt, deliverable, exportDir) {
     return {path: outFile.fsName, type: "pdf", format_id: fmt.id, panel: deliverable.panel};
 }
 
-function exportArtboards(doc, job, exportDir) {
+function exportArtboards(doc, job, exportDir, result) {
     var tiffJobs = [];
     var pdfJobs = [];
     var written = [];
@@ -443,8 +497,21 @@ function exportArtboards(doc, job, exportDir) {
     for (i = 0; i < tiffJobs.length; i++) {
         written.push(exportOneTiff(doc, tiffJobs[i].index, tiffJobs[i].fmt, tiffJobs[i].deliverable, exportDir));
     }
+    var presets = [];
+    for (i = 0; i < app.PDFPresetsList.length; i++) { presets.push(app.PDFPresetsList[i]); }
+    var wanted, preset, warned = {};
     for (i = 0; i < pdfJobs.length; i++) {
-        written.push(exportOnePdf(doc, pdfJobs[i].index, pdfJobs[i].fmt, pdfJobs[i].deliverable, exportDir));
+        wanted = pdfJobs[i].fmt.pdf_preset || "";
+        preset = choosePdfPreset(wanted, presets);
+        if (wanted && preset !== wanted && !warned[wanted]) {
+            warned[wanted] = true;
+            SH.addWarning(result, "PDF_PRESET_MISSING",
+                "PDF preset '" + wanted + "' isn't installed in Illustrator; used " +
+                    (preset || "Illustrator's default PDF settings") + " instead.",
+                "Install the print department's .joboptions file (Edit › Adobe PDF Presets › Import).");
+        }
+        written.push(exportOnePdf(doc, pdfJobs[i].index, pdfJobs[i].fmt, pdfJobs[i].deliverable,
+            exportDir, preset));
     }
 
     return written;
@@ -486,7 +553,7 @@ function main(args) {
                     'Fix the issues, or choose "Export anyway".');
             } else {
                 doc.save(); // SPEC.md §6.4 export step 1
-                exported = exportArtboards(doc, job, args.export_dir);
+                exported = exportArtboards(doc, job, args.export_dir, result);
             }
         }
     } finally {

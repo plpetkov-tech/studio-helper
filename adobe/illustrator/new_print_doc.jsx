@@ -24,8 +24,10 @@ function isPrintFormat(fmt) {
     return fmt.kind === "print";
 }
 
+// Bleed in document mm: a 1:10 artboard gets 1/10 of the real bleed,
+// like everything else on it. Rounded so 3 * 0.1 groups as 0.3.
 function effectiveBleedMm(fmt) {
-    return fmt.bleed_mm || 0;
+    return Math.round((fmt.bleed_mm || 0) * (fmt.scale || 1) * 1000) / 1000;
 }
 
 // Groups print formats by effective bleed: [{bleedMm, formats: [...]}]

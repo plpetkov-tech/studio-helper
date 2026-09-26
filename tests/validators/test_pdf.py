@@ -85,3 +85,11 @@ def test_panel_deliverable_uses_panel_size(fixtures_dir):
     deliverable = {"format_id": "elevator-main", "type": "pdf", "panel": 1, "expected_stem": "x"}
     checks = pdf.validate(fixtures_dir / "good_a5.pdf", fmt, deliverable)
     assert status_of(checks, "trimbox") == "ok"
+
+
+def test_scaled_format_expects_scaled_trim_and_bleed(fixtures_dir, print_fmt, pdf_deliverable):
+    # 1480x2100mm with 30mm bleed at 1:10 exports as an A5 PDF with 3mm bleed.
+    scaled = dict(print_fmt, size={"w": 1480, "h": 2100, "unit": "mm"}, bleed_mm=30, scale=0.1)
+    checks = pdf.validate(fixtures_dir / "good_a5.pdf", scaled, pdf_deliverable)
+    assert status_of(checks, "trimbox") == "ok"
+    assert status_of(checks, "bleedbox") == "ok"

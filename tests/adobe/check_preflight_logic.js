@@ -120,6 +120,29 @@ function run() {
     assert.strictEqual(ctx.printDeliverablesFor(job, "elev", 1).length, 0);
   });
 
+  check("choosePdfPreset: registry preset, else built-in PDF/X-1a, else defaults", () => {
+    assert.strictEqual(ctx.choosePdfPreset("Mine", ["Mine", "[PDF/X-1a:2001]"]), "Mine");
+    assert.strictEqual(ctx.choosePdfPreset("Mine", ["[High Quality Print]", "[PDF/X-1a:2001]"]),
+      "[PDF/X-1a:2001]");
+    assert.strictEqual(ctx.choosePdfPreset("Mine", ["[High Quality Print]"]), "");
+    assert.strictEqual(ctx.choosePdfPreset("", ["[PDF/X-1a:2001]"]), "[PDF/X-1a:2001]");
+  });
+
+  check("docBleedMm scales the bleed with the artwork", () => {
+    assert.strictEqual(ctx.docBleedMm({bleed_mm: 3}), 3);
+    assert.ok(Math.abs(ctx.docBleedMm({bleed_mm: 3, scale: 0.1}) - 0.3) < 1e-9);
+    assert.strictEqual(ctx.docBleedMm({}), 0);
+  });
+
+  check("isArtboardEmpty: only items overlapping the artboard count", () => {
+    const rect = [0, 100, 100, 0]; // left, top, right, bottom (y up)
+    const item = (b) => ({visibleBounds: b});
+    assert.strictEqual(ctx.isArtboardEmpty([], rect), true);
+    assert.strictEqual(ctx.isArtboardEmpty([item([200, 100, 300, 0])], rect), true); // next artboard
+    assert.strictEqual(ctx.isArtboardEmpty([item([90, 50, 150, -20])], rect), false); // overlaps
+    assert.strictEqual(ctx.isArtboardEmpty([item([-10, 110, 110, -10])], rect), false); // full bleed bg
+  });
+
   check("findFormat / printDeliverablesFor / formatSizeFor round-trip a job", () => {
     const job = {
       formats: [

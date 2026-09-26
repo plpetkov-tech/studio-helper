@@ -37,16 +37,15 @@ def _check_dimensions(img: Image.Image, fmt: dict, deliverable: dict) -> Check:
     w_mm, h_mm = match.deliverable_size(fmt, deliverable)
     bleed_mm = fmt.get("bleed_mm", 0) or 0
     tiff_ppi = fmt.get("tiff_ppi")
-    scale = fmt.get("scale", 1) or 1
 
     if not tiff_ppi:
         return Check("dimensions", "ok", "No TIFF resolution configured to check against.")
 
-    # The .ai is drawn at `scale` (bleed in its own mm, unscaled) and
-    # exported at tiff_ppi / scale, i.e. tiff_ppi at the physical size.
-    effective_ppi = tiff_ppi / scale
-    expected_w = round((w_mm * scale + 2 * bleed_mm) / MM_PER_IN * effective_ppi)
-    expected_h = round((h_mm * scale + 2 * bleed_mm) / MM_PER_IN * effective_ppi)
+    # The .ai is drawn at `scale` (bleed included) and exported at
+    # tiff_ppi / scale, so the pixels are (size + bleed) at tiff_ppi --
+    # the same as a 1:1 file would be.
+    expected_w = round((w_mm + 2 * bleed_mm) / MM_PER_IN * tiff_ppi)
+    expected_h = round((h_mm + 2 * bleed_mm) / MM_PER_IN * tiff_ppi)
     actual_w, actual_h = img.size
 
     if abs(actual_w - expected_w) > PIXEL_TOLERANCE or abs(actual_h - expected_h) > PIXEL_TOLERANCE:

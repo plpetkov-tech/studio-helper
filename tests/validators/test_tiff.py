@@ -23,9 +23,11 @@ def test_wrong_dimensions_fail(fixtures_dir, print_fmt, tiff_deliverable):
 
 
 def test_scaled_format_expects_scaled_document_pixels(fixtures_dir, print_fmt, tiff_deliverable):
-    # A 1480x2100mm format drawn at 1:10 is a 148x210mm artboard (+3mm
-    # document bleed), exported at tiff_ppi / scale = 15 / 0.1 = 150ppi --
-    # exactly what good_a5.tiff is.
-    scaled = dict(print_fmt, size={"w": 1480, "h": 2100, "unit": "mm"}, scale=0.1, tiff_ppi=15)
+    # A 1480x2100mm format with 30mm bleed drawn at 1:10 is a 148x210mm
+    # artboard with 3mm bleed, exported at tiff_ppi / scale = 15 / 0.1 =
+    # 150ppi -- exactly what good_a5.tiff is.
+    scaled = dict(
+        print_fmt, size={"w": 1480, "h": 2100, "unit": "mm"}, bleed_mm=30, scale=0.1, tiff_ppi=15
+    )
     checks = tiff.validate(fixtures_dir / "good_a5.tiff", scaled, tiff_deliverable)
     assert status_of(checks, "dimensions") == "ok"
