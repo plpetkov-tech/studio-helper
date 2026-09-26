@@ -109,6 +109,21 @@
     });
   });
 
+  document.getElementById("delete-job-btn").addEventListener("click", function () {
+    var ok = window.confirm(
+      "Delete this job?\n\nIts folder is moved to \"_Deleted Jobs\" inside your jobs folder, " +
+      "so nothing is lost -- move it back to restore it."
+    );
+    if (!ok) return;
+    SH.post("/api/jobs/" + encodeURIComponent(jobId) + "/delete").then(function (res) {
+      if (!res.data.ok) {
+        SH.showError(errorEl, res.data.error || "Could not delete the job.");
+        return;
+      }
+      window.location.href = "/";
+    });
+  });
+
   var printDocStatusEl = document.getElementById("print-doc-status");
   var digitalDocStatusEl = document.getElementById("digital-doc-status");
 

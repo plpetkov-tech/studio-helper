@@ -100,6 +100,12 @@ def start_revision(ctx, body, job_id):
     return 200, {"ok": True, "job": job}
 
 
+@route("POST", "/api/jobs/<job_id>/delete")
+def delete_job(ctx, body, job_id):
+    dest = job_mod.delete_job(ctx.jobs_root, job_id)
+    return 200, {"ok": True, "moved_to": str(dest)}
+
+
 @route("POST", "/api/jobs/<job_id>/open-folder")
 def open_job_folder(ctx, body, job_id):
     root = job_mod.job_path(ctx.jobs_root, job_id)

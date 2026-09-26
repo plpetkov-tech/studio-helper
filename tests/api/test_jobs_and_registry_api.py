@@ -133,6 +133,39 @@ def test_start_revision_bumps_version(api):
     assert data["job"]["version"] == 2
 
 
+def test_delete_job_moves_folder_to_deleted_jobs(api, tmp_path):
+    _status, created = api("POST", "/api/jobs", {"name": "Autumn Sale", "format_ids": ["flyer-a5"]})
+    job_id = created["job"]["id"]
+    work_file = tmp_path / "jobs" / job_id / "03_working" / "art.ai"
+    work_file.write_text("keep me")
+
+    status, data = api("POST", f"/api/jobs/{job_id}/delete")
+    assert status == 200
+    assert not (tmp_path / "jobs" / job_id).exists()
+    moved = tmp_path / "jobs" / "_Deleted Jobs" / job_id / "03_working" / "art.ai"
+    assert moved.read_text() == "keep me"
+
+    _status, listing = api("GET", "/api/jobs")
+    assert job_id not in [j["id"] for j in listing["jobs"]]
+
+
+def test_delete_job_twice_with_same_id_keeps_both(api, tmp_path):
+    trash = tmp_path / "jobs" / "_Deleted Jobs"
+    job_id = None
+    body = {"name": "Autumn Sale", "format_ids": ["flyer-a5"]}
+    for _ in range(2):
+        _status, created = api("POST", "/api/jobs", body)
+        job_id = created["job"]["id"]
+        assert api("POST", f"/api/jobs/{job_id}/delete")[0] == 200
+    assert (trash / job_id).exists()
+    assert (trash / f"{job_id} (2)").exists()
+
+
+def test_delete_job_rejects_path_escape(api):
+    status, data = api("POST", "/api/jobs/..%2F..%2Fetc/delete")
+    assert data["ok"] is False
+
+
 def test_deliverable_status_reflects_export_dir(api, tmp_path):
     _status, created = api("POST", "/api/jobs", {"name": "Autumn Sale", "format_ids": ["flyer-a5"]})
     job = created["job"]

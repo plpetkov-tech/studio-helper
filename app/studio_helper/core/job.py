@@ -185,6 +185,34 @@ def record_digital_file(jobs_root: Path, job_id: str, psd_path: str) -> dict:
     return job
 
 
+DELETED_JOBS_DIR = "_Deleted Jobs"
+
+
+def delete_job(jobs_root: Path, job_id: str) -> Path:
+    """Move the job folder into `_Deleted Jobs/` under jobs_root. Never
+    erases anything: her .ai/.psd files must survive (SPEC.md §2 point 6),
+    so a deleted job can be restored by moving the folder back."""
+    root = job_path(jobs_root, job_id)
+    if not (root / "job.json").exists():
+        raise JobError(f"No such job: {job_id}")
+
+    trash = jobs_root / DELETED_JOBS_DIR
+    trash.mkdir(exist_ok=True)
+    dest = trash / job_id
+    n = 2
+    while dest.exists():
+        dest = trash / f"{job_id} ({n})"
+        n += 1
+    try:
+        root.rename(dest)
+    except PermissionError as exc:
+        raise JobError(
+            "Could not delete the job -- a file in it is open. "
+            "Close it in Illustrator/Photoshop and try again."
+        ) from exc
+    return dest
+
+
 def bump_version(jobs_root: Path, job_id: str) -> dict:
     """'Start revision': vN -> vN+1. New exports get the new version;
     older files are left in place (SPEC.md §6.1 naming)."""

@@ -211,6 +211,13 @@ button.primary:hover, .button.primary:hover {
   box-shadow: 0 2px 4px rgba(66, 56, 201, 0.2), 0 8px 20px rgba(79, 70, 229, 0.3);
 }
 
+button.danger, .button.danger { color: var(--fail-600); }
+
+button.danger:hover, .button.danger:hover {
+  background: var(--fail-50);
+  border-color: var(--fail-600);
+}
+
 .actions { display: flex; gap: 10px; flex-wrap: wrap; margin: 18px 0; }
 
 /* -- cards --------------------------------------------------------- */
