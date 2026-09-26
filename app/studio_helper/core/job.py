@@ -23,14 +23,28 @@ def _now_local() -> datetime:
     return datetime.now().astimezone()
 
 
-def _deliverables_for(date_str: str, slug: str, fmt: dict, version: int) -> list[dict]:
+PRINT_TYPES = ("pdf", "tiff")
+
+
+def _exports_for_size(fmt: dict, w: float, h: float) -> list[str]:
+    """`exports` lists what a format may be delivered as. When a print
+    format allows both PDF and TIFF, the physical size picks one: TIFF
+    over `tiff_if_longest_side_mm_over`, else PDF (SPEC.md §6.4 step 2)."""
     exports = fmt.get("exports", [])
+    if fmt.get("kind") != "print" or not all(t in exports for t in PRINT_TYPES):
+        return list(exports)
+    threshold = fmt.get("tiff_if_longest_side_mm_over")
+    drop = "pdf" if threshold and max(w, h) > threshold else "tiff"
+    return [t for t in exports if t != drop]
+
+
+def _deliverables_for(date_str: str, slug: str, fmt: dict, version: int) -> list[dict]:
     panels = fmt.get("panels")
     unit = fmt.get("unit") or fmt["size"]["unit"]
     deliverables = []
 
     def add(w: float, h: float, panel_index: int | None) -> None:
-        for export_type in exports:
+        for export_type in _exports_for_size(fmt, w, h):
             deliverables.append(
                 {
                     "format_id": fmt["id"],

@@ -36,6 +36,7 @@ PAGES = {
     "/job.html": "job.html",
     "/registry.html": "registry.html",
     "/setup-check.html": "setup-check.html",
+    "/guide.html": "guide.html",
 }
 
 

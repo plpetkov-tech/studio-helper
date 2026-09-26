@@ -473,3 +473,24 @@ ol li { margin-bottom: 6px; font-size: 15px; }
 .page { max-width: 640px; margin: 10vh auto 0; padding: 0 24px; text-align: center; }
 .status { font-size: 16px; color: var(--ink-500); margin-bottom: 32px; }
 .status.ok { color: var(--ok-600); }
+
+/* -- guide ----------------------------------------------------------- */
+
+main.guide { max-width: 720px; }
+.guide h2 { margin-top: 36px; scroll-margin-top: 16px; }
+.guide p, .guide ul li { font-size: 15px; line-height: 1.6; }
+.guide ul { padding-left: 22px; }
+.guide ul li { margin-bottom: 6px; }
+.guide-toc ol { margin: 0; columns: 2; column-gap: 24px; }
+.guide-toc a { color: inherit; }
+.guide pre {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 14px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.5;
+  overflow-x: auto;
+}
+@media (max-width: 560px) { .guide-toc ol { columns: 1; } }

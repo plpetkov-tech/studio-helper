@@ -42,9 +42,11 @@ def _check_dimensions(img: Image.Image, fmt: dict, deliverable: dict) -> Check:
     if not tiff_ppi:
         return Check("dimensions", "ok", "No TIFF resolution configured to check against.")
 
+    # The .ai is drawn at `scale` (bleed in its own mm, unscaled) and
+    # exported at tiff_ppi / scale, i.e. tiff_ppi at the physical size.
     effective_ppi = tiff_ppi / scale
-    expected_w = round((w_mm + 2 * bleed_mm) / MM_PER_IN * effective_ppi)
-    expected_h = round((h_mm + 2 * bleed_mm) / MM_PER_IN * effective_ppi)
+    expected_w = round((w_mm * scale + 2 * bleed_mm) / MM_PER_IN * effective_ppi)
+    expected_h = round((h_mm * scale + 2 * bleed_mm) / MM_PER_IN * effective_ppi)
     actual_w, actual_h = img.size
 
     if abs(actual_w - expected_w) > PIXEL_TOLERANCE or abs(actual_h - expected_h) > PIXEL_TOLERANCE:

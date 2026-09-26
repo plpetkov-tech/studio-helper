@@ -93,6 +93,12 @@
         "safe_mm": { "type": "number", "minimum": 0 },
         "safe_px": { "type": "number", "minimum": 0 },
         "scale": { "type": "number", "exclusiveMinimum": 0 },
+        "tiff_ppi": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "ppi at the physical size; overrides print_defaults.tiff_ppi"
+        },
+        "tiff_if_longest_side_mm_over": { "type": "number", "exclusiveMinimum": 0 },
         "exports": {
           "type": "array",
           "minItems": 1,

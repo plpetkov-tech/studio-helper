@@ -40,17 +40,6 @@ function findFormat(job, formatId) {
     return null;
 }
 
-function findDeliverable(job, formatId, panel, type) {
-    var i, d;
-    for (i = 0; i < job.deliverables.length; i++) {
-        d = job.deliverables[i];
-        if (d.format_id === formatId && (d.panel || null) === (panel || null) && d.type === type) {
-            return d;
-        }
-    }
-    return null;
-}
-
 // "flyer-a5" -> {formatId: "flyer-a5", panel: null}
 // "elevator-main_p2@1:10" -> {formatId: "elevator-main", panel: 2}
 function parseArtboardName(name) {
@@ -69,12 +58,20 @@ function formatSizeFor(fmt, panel) {
     return fmt.size;
 }
 
-function decideOutputType(fmt, widthMm, heightMm) {
-    var threshold = fmt.tiff_if_longest_side_mm_over;
-    if (threshold && Math.max(widthMm, heightMm) > threshold) {
-        return "tiff";
+// The PDF/TIFF deliverables job.json lists for one artboard. Python
+// already picked between PDF and TIFF by physical size when creating
+// the job (SPEC.md §6.4 step 2), so this script exports exactly those.
+function printDeliverablesFor(job, formatId, panel) {
+    var out = [];
+    var i, d;
+    for (i = 0; i < job.deliverables.length; i++) {
+        d = job.deliverables[i];
+        if (d.format_id === formatId && (d.panel || null) === (panel || null) &&
+                (d.type === "pdf" || d.type === "tiff")) {
+            out.push(d);
+        }
     }
-    return "pdf";
+    return out;
 }
 
 // -- pure: interval-gap math (see tests/adobe/check_preflight_logic.js) --
@@ -421,7 +418,7 @@ function exportArtboards(doc, job, exportDir) {
     var tiffJobs = [];
     var pdfJobs = [];
     var written = [];
-    var i, ab, parsed, fmt, size, scale, widthMm, heightMm, outputType, deliverable;
+    var i, j, ab, parsed, fmt, size, deliverables;
 
     for (i = 0; i < doc.artboards.length; i++) {
         ab = doc.artboards[i];
@@ -431,17 +428,13 @@ function exportArtboards(doc, job, exportDir) {
         size = formatSizeFor(fmt, parsed.panel);
         if (!size) { continue; }
 
-        scale = fmt.scale || 1;
-        widthMm = size.w * scale;
-        heightMm = size.h * scale;
-        outputType = decideOutputType(fmt, widthMm, heightMm);
-        deliverable = findDeliverable(job, parsed.formatId, parsed.panel, outputType);
-        if (!deliverable) { continue; }
-
-        if (outputType === "tiff") {
-            tiffJobs.push({index: i, fmt: fmt, deliverable: deliverable});
-        } else {
-            pdfJobs.push({index: i, fmt: fmt, deliverable: deliverable});
+        deliverables = printDeliverablesFor(job, parsed.formatId, parsed.panel);
+        for (j = 0; j < deliverables.length; j++) {
+            if (deliverables[j].type === "tiff") {
+                tiffJobs.push({index: i, fmt: fmt, deliverable: deliverables[j]});
+            } else {
+                pdfJobs.push({index: i, fmt: fmt, deliverable: deliverables[j]});
+            }
         }
     }
 

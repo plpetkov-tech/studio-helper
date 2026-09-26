@@ -265,3 +265,38 @@ def test_relaunch_script_renames_old_install_instead_of_deleting_it():
         if "Remove-Item" in line and "-Recurse" in line:
             assert "$previousDir" in line
             assert "$OldDir" not in line
+
+
+def _install(parent, name):
+    folder = parent / name
+    folder.mkdir()
+    (folder / "Start Studio Helper.bat").write_text("@echo off")
+    return folder
+
+
+def test_cleanup_old_installs_keeps_current_and_one_rollback(tmp_path):
+    for name in ["StudioHelper-v0.3.1.previous", "StudioHelper-v0.3.2.previous",
+                 "StudioHelper-v0.3.3", "StudioHelper-v0.3.4.previous"]:
+        _install(tmp_path, name)
+    current = _install(tmp_path, "StudioHelper-v0.3.10")
+    newer = _install(tmp_path, "StudioHelper-v0.4.0")  # manual rollback: leave alone
+    (tmp_path / "StudioHelper-v0.1.0").mkdir()  # no launcher: not ours, leave alone
+    (tmp_path / "Studio Jobs").mkdir()
+
+    removed = updater.cleanup_old_installs(current)
+
+    assert sorted(p.name for p in removed) == [
+        "StudioHelper-v0.3.1.previous", "StudioHelper-v0.3.2.previous", "StudioHelper-v0.3.3",
+    ]
+    left = sorted(p.name for p in tmp_path.iterdir())
+    assert left == ["Studio Jobs", "StudioHelper-v0.1.0", "StudioHelper-v0.3.10",
+                    "StudioHelper-v0.3.4.previous", "StudioHelper-v0.4.0"]
+    assert current.exists() and newer.exists()
+
+
+def test_cleanup_old_installs_ignores_dev_checkout(tmp_path):
+    repo = tmp_path / "studio-helper"
+    repo.mkdir()
+    _install(tmp_path, "StudioHelper-v0.1.0")
+    assert updater.cleanup_old_installs(repo) == []
+    assert (tmp_path / "StudioHelper-v0.1.0").exists()

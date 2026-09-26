@@ -245,3 +245,22 @@ def test_auto_scale_job_upgrades_an_existing_job(jobs_root, registry):
     assert upgraded["formats"][0]["scale"] == 0.1
     assert job_mod.load_job(jobs_root, job["id"])["formats"][0]["scale"] == 0.1
     assert upgraded["deliverables"] == job["deliverables"]
+
+
+@pytest.mark.parametrize(
+    ("exports", "size", "expected"),
+    [
+        (["pdf"], (4200, 2000), ["pdf"]),  # only PDF allowed -> PDF, however big
+        (["tiff"], (500, 300), ["tiff"]),  # only TIFF allowed -> TIFF, however small
+        (["pdf", "tiff"], (1090, 2300), ["tiff"]),  # both: physical size over threshold
+        (["pdf", "tiff"], (148, 210), ["pdf"]),  # both: under threshold
+    ],
+)
+def test_print_deliverable_type_follows_exports_then_physical_size(exports, size, expected):
+    fmt = {
+        "id": "x", "kind": "print", "exports": exports, "scale": 0.1,
+        "size": {"w": size[0], "h": size[1], "unit": "mm"},
+        "tiff_if_longest_side_mm_over": 1000,
+    }
+    deliverables = job_mod._deliverables_for("2026-09-26", "s", fmt, 1)
+    assert [d["type"] for d in deliverables] == expected

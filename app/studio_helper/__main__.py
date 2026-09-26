@@ -15,7 +15,7 @@ import threading
 import webbrowser
 from pathlib import Path
 
-from studio_helper import config, instance, logging_setup, paths
+from studio_helper import config, instance, logging_setup, paths, updater
 from studio_helper.api.context import AppContext
 from studio_helper.poller import Poller
 from studio_helper.server import create_server
@@ -25,6 +25,7 @@ from studio_helper.server import create_server
 # it is safe to replace with the newer bundled default on startup.
 PREVIOUS_DEFAULT_REGISTRY_HASHES = frozenset({
     "b6eb82677aabd97cfa21d04dcdf9c0798ad6c01e27091a3319f68d4f9cfa8113",  # M0 placeholder
+    "ed5579a6600b7b82819d68108db045f9235be9d42f26af00129d284744043ecb",  # v0.3.2 mall formats
 })
 
 
@@ -59,6 +60,11 @@ def run() -> int:
 
     instance.clear()
     seed_user_registry()
+    try:
+        for folder in updater.cleanup_old_installs(paths.bundled_root()):
+            logger.info("Removed old install %s", folder)
+    except OSError:
+        logger.exception("Could not clean up old installs")
     cfg = config.Config.load()
     poller = Poller(Path(cfg.jobs_root))
     ctx = AppContext(cfg, poller=poller)

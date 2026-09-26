@@ -108,22 +108,19 @@ function run() {
     );
   });
 
-  check("decideOutputType: pdf below the tiff threshold", () => {
-    const fmt = {tiff_if_longest_side_mm_over: 1000};
-    assert.strictEqual(ctx.decideOutputType(fmt, 500, 700), "pdf");
+  check("printDeliverablesFor returns exactly the job's pdf/tiff deliverables for an artboard", () => {
+    const job = {deliverables: [
+      {format_id: "door", panel: null, type: "tiff", expected_stem: "a"},
+      {format_id: "door", panel: null, type: "png", expected_stem: "b"},
+      {format_id: "flyer", panel: null, type: "pdf", expected_stem: "c"},
+      {format_id: "elev", panel: 2, type: "pdf", expected_stem: "d"},
+    ]};
+    assert.deepEqual(Array.from(ctx.printDeliverablesFor(job, "door", null), (d) => d.type), ["tiff"]);
+    assert.deepEqual(Array.from(ctx.printDeliverablesFor(job, "elev", 2), (d) => d.expected_stem), ["d"]);
+    assert.strictEqual(ctx.printDeliverablesFor(job, "elev", 1).length, 0);
   });
 
-  check("decideOutputType: tiff above the tiff threshold on either dimension", () => {
-    const fmt = {tiff_if_longest_side_mm_over: 1000};
-    assert.strictEqual(ctx.decideOutputType(fmt, 1500, 700), "tiff");
-    assert.strictEqual(ctx.decideOutputType(fmt, 700, 1500), "tiff");
-  });
-
-  check("decideOutputType: pdf when no threshold is configured", () => {
-    assert.strictEqual(ctx.decideOutputType({}, 99999, 99999), "pdf");
-  });
-
-  check("findFormat / findDeliverable / formatSizeFor round-trip a job", () => {
+  check("findFormat / printDeliverablesFor / formatSizeFor round-trip a job", () => {
     const job = {
       formats: [
         {id: "flyer-a5", size: {w: 148, h: 210}},
@@ -137,10 +134,8 @@ function run() {
     const fmt = ctx.findFormat(job, "elevator-main");
     assert.ok(fmt);
     assert.deepEqual(ctx.formatSizeFor(fmt, 2), {w: 900, h: 2100});
-    const deliverable = ctx.findDeliverable(job, "elevator-main", 2, "pdf");
-    assert.strictEqual(deliverable.expected_stem, "y");
+    assert.strictEqual(ctx.printDeliverablesFor(job, "elevator-main", 2)[0].expected_stem, "y");
     assert.strictEqual(ctx.findFormat(job, "nope"), null);
-    assert.strictEqual(ctx.findDeliverable(job, "flyer-a5", null, "tiff"), null);
   });
 
   check("joinPath normalizes a trailing slash or backslash", () => {

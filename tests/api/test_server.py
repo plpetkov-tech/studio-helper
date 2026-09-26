@@ -41,7 +41,7 @@ def test_index_served(running_server):
 
 
 @pytest.mark.parametrize(
-    "page", ["/new-job.html", "/job.html", "/registry.html", "/setup-check.html"]
+    "page", ["/new-job.html", "/job.html", "/registry.html", "/setup-check.html", "/guide.html"]
 )
 def test_other_pages_served(running_server, page):
     _server, port = running_server

@@ -19,6 +19,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -204,6 +205,42 @@ def download_and_stage(info: UpdateInfo) -> Path:
 # caught something. At most one rollback copy is kept: a
 # ".previous" left over from the update before last is removed
 # first, right before this update's old install takes its place.
+_INSTALL_DIR_RE = re.compile(r"^StudioHelper-v(\d+(?:\.\d+)*)(\.previous)?$")
+_LAUNCHER = "Start Studio Helper.bat"
+
+
+def cleanup_old_installs(current_root: Path) -> list[Path]:
+    """Deletes install folders left next to this one by earlier updates.
+    The relaunch script only ever removes `<old>.previous` under the
+    old version's own name, so every update used to leave one more
+    `StudioHelper-vX.previous` behind. Keeps this install and the
+    newest older one as the rollback copy; never touches a newer
+    version (a manual rollback) or anything without our launcher in
+    it. Returns the folders deleted."""
+    current = _INSTALL_DIR_RE.match(current_root.name)
+    if not current:
+        return []  # dev checkout or unusual layout: nothing to judge by
+    current_version = _parse_version(current.group(1))
+
+    older = []
+    for sibling in current_root.parent.iterdir():
+        m = _INSTALL_DIR_RE.match(sibling.name)
+        if (
+            m and sibling != current_root and sibling.is_dir()
+            and (sibling / _LAUNCHER).exists()
+            and _parse_version(m.group(1)) < current_version
+        ):
+            older.append((_parse_version(m.group(1)), sibling))
+    older.sort(key=lambda item: item[0])
+
+    removed = []
+    for _version, folder in older[:-1]:  # the newest older one stays as rollback
+        shutil.rmtree(folder, ignore_errors=True)
+        if not folder.exists():
+            removed.append(folder)
+    return removed
+
+
 _RELAUNCH_PS1 = """
 param(
     [Parameter(Mandatory=$true)][int]$OldPid,
