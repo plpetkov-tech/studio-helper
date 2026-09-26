@@ -22,7 +22,7 @@ def test_fresh_install_gets_bundled_default(tmp_path, monkeypatch):
 def test_untouched_old_default_is_upgraded_with_backup(tmp_path, monkeypatch):
     user, bundled = _setup(tmp_path, monkeypatch)
     fixture = Path(__file__).parents[1] / "fixtures" / "registry_v0_placeholder.yaml"
-    old = fixture.read_bytes().replace(b"\n", b"\r\n")  # as seeded from a Windows checkout
+    old = fixture.read_bytes().replace(b"\r\n", b"\n").replace(b"\n", b"\r\n")  # Windows copy
     user.parent.mkdir(parents=True)
     user.write_bytes(old)
     entry.seed_user_registry()
