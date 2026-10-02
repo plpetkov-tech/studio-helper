@@ -209,6 +209,21 @@ formats:
     tiff_ppi: 30         # = the supplier's 300 dpi on the 1:10 file
     exports: [tiff]
 
+  # Two artboards of one composition, stacked top to bottom and printed
+  # separately (TEODOR campaign, 2026-09). The design runs across the seam.
+  - id: banner-pair-stacked
+    name: Banner pair, stacked (2 × 867 × 431 mm, printed separately)
+    group: Banners
+    notes: "Two separate prints that read as one picture, top piece above bottom piece. Design across both artboards; artwork crossing the seam doubles as each piece's bleed."
+    kind: print
+    panels:
+      - {w: 867, h: 431}
+      - {w: 867, h: 431}
+    panel_gap_mm: 0
+    panel_layout: column
+    unit: mm
+    exports: [pdf, tiff]
+
   - id: mall-screen-2080x2560
     name: Mall digital screen (2080 x 2560 px)
     group: Mall screens

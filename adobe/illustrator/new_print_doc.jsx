@@ -71,6 +71,7 @@ function artboardPlan(formats) {
                     panel: j + 1,
                     panelIndex: j,
                     panelGapMm: (fmt.panel_gap_mm || 0) * scale,
+                    stacked: fmt.panel_layout === "column",
                     scale: scale
                 });
             }
@@ -107,8 +108,9 @@ function drawGuideRect(layer, left, top, right, bottom) {
     return rect;
 }
 
-// A format's artboards (its panels, or just itself) stay together in
-// one row: [{formatId, entries, widthMm, heightMm}], in plan order.
+// A format's artboards (its panels, or just itself) stay together as
+// one block -- side by side, or top to bottom for `panel_layout:
+// column` -- [{formatId, entries, widthMm, heightMm}], in plan order.
 function formatBlocks(plan) {
     var blocks = [];
     var j, p, last;
@@ -116,8 +118,13 @@ function formatBlocks(plan) {
         p = plan[j];
         last = blocks.length ? blocks[blocks.length - 1] : null;
         if (last && last.formatId === p.formatId && p.panelIndex > 0) {
-            last.widthMm += p.panelGapMm + p.widthMm;
-            last.heightMm = Math.max(last.heightMm, p.heightMm);
+            if (p.stacked) {
+                last.heightMm += p.panelGapMm + p.heightMm;
+                last.widthMm = Math.max(last.widthMm, p.widthMm);
+            } else {
+                last.widthMm += p.panelGapMm + p.widthMm;
+                last.heightMm = Math.max(last.heightMm, p.heightMm);
+            }
             last.entries.push(p);
         } else {
             blocks.push({formatId: p.formatId, entries: [p], widthMm: p.widthMm, heightMm: p.heightMm});
@@ -175,24 +182,37 @@ function packSheets(blocks, capMm, spacingMm) {
 function layoutSheet(sheet, spacingPt, centerX, centerY) {
     var artboards = [];
     var yPt = 0, maxRight = 0;
-    var r, b, e, row, xPt, p, wPt, hPt;
+    var r, b, e, row, xPt, p, wPt, hPt, block, blockX, panelY;
     for (r = 0; r < sheet.length; r++) {
         row = sheet[r];
         if (r > 0) { yPt -= spacingPt; }
         xPt = 0;
         for (b = 0; b < row.blocks.length; b++) {
             if (b > 0) { xPt += spacingPt; }
-            for (e = 0; e < row.blocks[b].entries.length; e++) {
-                p = row.blocks[b].entries[e];
-                if (e > 0) { xPt += SH.mmToPt(p.panelGapMm); }
+            block = row.blocks[b];
+            blockX = xPt;
+            panelY = yPt;
+            for (e = 0; e < block.entries.length; e++) {
+                p = block.entries[e];
                 wPt = SH.mmToPt(p.widthMm);
                 hPt = SH.mmToPt(p.heightMm);
-                artboards.push({
-                    plan: p, left: xPt, top: yPt, right: xPt + wPt, bottom: yPt - hPt,
-                    widthPt: wPt, heightPt: hPt
-                });
-                xPt += wPt;
+                if (p.stacked) {
+                    if (e > 0) { panelY -= SH.mmToPt(p.panelGapMm); }
+                    artboards.push({
+                        plan: p, left: blockX, top: panelY, right: blockX + wPt, bottom: panelY - hPt,
+                        widthPt: wPt, heightPt: hPt
+                    });
+                    panelY -= hPt;
+                } else {
+                    if (e > 0) { xPt += SH.mmToPt(p.panelGapMm); }
+                    artboards.push({
+                        plan: p, left: xPt, top: yPt, right: xPt + wPt, bottom: yPt - hPt,
+                        widthPt: wPt, heightPt: hPt
+                    });
+                    xPt += wPt;
+                }
             }
+            if (block.entries[0].stacked) { xPt = blockX + SH.mmToPt(block.widthMm); }
         }
         maxRight = Math.max(maxRight, xPt);
         yPt -= SH.mmToPt(row.heightMm);
@@ -307,7 +327,11 @@ function createDocumentForSheet(sheet, bleedMm, filePath) {
         }
         if (entry.plan.panelIndex > 0 && entry.plan.panelGapMm > 0) {
             gapPt = SH.mmToPt(entry.plan.panelGapMm);
-            drawGuideRect(guidesLayer, entry.left - gapPt, entry.top, entry.left, entry.bottom);
+            if (entry.plan.stacked) {
+                drawGuideRect(guidesLayer, entry.left, entry.top + gapPt, entry.right, entry.top);
+            } else {
+                drawGuideRect(guidesLayer, entry.left - gapPt, entry.top, entry.left, entry.bottom);
+            }
         }
     }
     guidesLayer.locked = true;

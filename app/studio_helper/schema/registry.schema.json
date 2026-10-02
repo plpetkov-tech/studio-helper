@@ -93,6 +93,11 @@
           "items": { "$ref": "#/$defs/panel" }
         },
         "panel_gap_mm": { "type": "number", "minimum": 0 },
+        "panel_layout": {
+          "type": "string",
+          "enum": ["row", "column"],
+          "description": "panels side by side (row, default) or stacked top to bottom (column)"
+        },
         "unit": {
           "type": "string",
           "enum": ["mm", "px"],

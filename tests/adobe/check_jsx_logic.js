@@ -132,6 +132,23 @@ function run() {
     assert.ok(artboards[2].top > artboards[2].bottom);
   });
 
+  check("stacked panels (panel_layout: column) sit top to bottom, touching at gap 0", () => {
+    const formats = [{
+      kind: "print", id: "banner-pair", panel_gap_mm: 0, panel_layout: "column",
+      panels: [{w: 867, h: 431}, {w: 867, h: 431}],
+    }, {kind: "print", id: "flyer-a5", size: {w: 148, h: 210}}];
+    const blocks = ctx.formatBlocks(ctx.artboardPlan(formats));
+    assert.strictEqual(blocks[0].widthMm, 867);
+    assert.strictEqual(blocks[0].heightMm, 862);
+    const [p1, p2, flyer] = Array.from(ctx.layoutSheet(ctx.packSheets(blocks, 5000, 20)[0], ctx.SH.mmToPt(20), 0, 0));
+    assert.strictEqual(p1.plan.name, "banner-pair_p1");
+    assert.strictEqual(p1.left, p2.left);
+    assert.ok(Math.abs(p1.bottom - p2.top) < 1e-9); // the seam
+    assert.ok(p1.top > p2.top);
+    // the next format starts after the pair's width, not after two widths
+    assert.ok(Math.abs(flyer.left - (p1.right + ctx.SH.mmToPt(20))) < 1e-6);
+  });
+
   check("layoutSheet centres the sheet on the given canvas centre", () => {
     const formats = [{kind: "print", id: "flyer-a5", size: {w: 148, h: 210}}];
     const sheets = ctx.packSheets(ctx.formatBlocks(ctx.artboardPlan(formats)), 5000, 20);
