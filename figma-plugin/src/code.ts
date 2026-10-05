@@ -47,6 +47,9 @@ async function createFrames(job: Job): Promise<string> {
 
   // Idempotent (SPEC.md §6.6): only add frames that aren't already on
   // the page, by name -- never touch existing content.
+  // documentAccess "dynamic-page": a page that isn't open must be
+  // loaded before its children can be read.
+  await page.loadAsync();
   const existingNames = new Set(page.children.map((n) => n.name));
   const toCreate = specs.filter((s) => !existingNames.has(s.stem));
 
@@ -85,7 +88,9 @@ async function createFrames(job: Job): Promise<string> {
     page.appendChild(frame);
   }
 
-  figma.currentPage = page;
+  // Plain `figma.currentPage = page` throws under dynamic-page (seen on
+  // a real machine, 2026-10-05) -- after the frames were already made.
+  await figma.setCurrentPageAsync(page);
   figma.viewport.scrollAndZoomIntoView(page.children);
 
   const skipped = specs.length - toCreate.length;
