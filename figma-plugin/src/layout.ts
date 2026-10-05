@@ -9,6 +9,7 @@ export interface JobFormat {
   size?: { w: number; h: number; unit: string };
   safe_px?: number;
   allow_alpha?: boolean;
+  notes?: string;
 }
 
 export interface JobDeliverable {
@@ -36,9 +37,13 @@ export interface FrameSpec {
   safePx: number;
   /** What Figma's Export should write: the first png/jpg the format allows. */
   exportType: "PNG" | "JPG";
+  /** The format's notes (logo / terms rules...), shown above the frame. */
+  notes: string;
 }
 
 const GRID_GAP_PX = 100;
+/** Room above each frame for its notes label (see code.ts). */
+export const NOTE_SPACE_PX = 220;
 const FRAME_EXPORT_TYPES = new Set(["png", "jpg"]);
 
 /** One frame spec per digital deliverable Figma can actually produce
@@ -65,6 +70,7 @@ export function digitalFrameSpecs(job: Job): FrameSpec[] {
       heightPx: format.size.h,
       safePx: format.safe_px || 0,
       exportType: deliverable.type === "jpg" ? "JPG" : "PNG",
+      notes: (format.notes || "").trim(),
     });
   }
 
@@ -98,7 +104,7 @@ export interface Positioned<T> {
  * width/height with each row's tallest item (SPEC.md §6.6: "Arranges
  * them in a grid"). Generic so the caller gets its original items
  * back, not a re-lookup by dimensions (which could collide). */
-export function layoutGrid<T extends Sized>(items: T[]): Positioned<T>[] {
+export function layoutGrid<T extends Sized>(items: T[], rowGapPx = GRID_GAP_PX): Positioned<T>[] {
   const columns = gridColumns(items.length);
   const positions: Positioned<T>[] = [];
   let x = 0;
@@ -114,7 +120,7 @@ export function layoutGrid<T extends Sized>(items: T[]): Positioned<T>[] {
     if (col >= columns) {
       col = 0;
       x = 0;
-      y += rowHeight + GRID_GAP_PX;
+      y += rowHeight + rowGapPx;
       rowHeight = 0;
     }
   }

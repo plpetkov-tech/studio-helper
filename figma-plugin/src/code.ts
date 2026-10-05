@@ -2,7 +2,7 @@
 // sandboxed plugin environment; talks to ui.html only via postMessage
 // (no disk access, no network -- see manifest.json's networkAccess).
 
-import { bumpFrameName, digitalFrameSpecs, layoutGrid, pageName } from "./layout";
+import { NOTE_SPACE_PX, bumpFrameName, digitalFrameSpecs, layoutGrid, pageName } from "./layout";
 import type { Job } from "./layout";
 
 figma.showUI(__html__, { width: 360, height: 460 });
@@ -61,7 +61,14 @@ async function createFrames(job: Job): Promise<string> {
       node.exportSettings = [exportSetting(spec.exportType)];
     }
   }
-  const positions = layoutGrid(toCreate);
+  // Frames with notes get a label above them, so leave room for it.
+  const hasNotes = toCreate.some((s) => s.notes);
+  const positions = layoutGrid(toCreate, hasNotes ? 100 + NOTE_SPACE_PX : undefined);
+  if (hasNotes) {
+    await figma.loadFontAsync(NOTE_FONT);
+    // keep the first row's labels clear of anything already above y=0
+    for (const pos of positions) pos.y += NOTE_SPACE_PX;
+  }
 
   for (const pos of positions) {
     const frame = figma.createFrame();
@@ -86,6 +93,7 @@ async function createFrames(job: Job): Promise<string> {
     }
 
     page.appendChild(frame);
+    if (pos.item.notes) page.appendChild(noteLabel(frame, pos.item.notes));
   }
 
   // Plain `figma.currentPage = page` throws under dynamic-page (seen on
@@ -105,6 +113,25 @@ async function createFrames(job: Job): Promise<string> {
   return parts.length > 0
     ? `${parts.join(", ")} ${prefix}.`
     : `All frames already exist ${prefix} -- nothing to add.`;
+}
+
+const NOTE_FONT: FontName = { family: "Inter", style: "Regular" };
+
+/** The format's notes as a locked grey label just above the frame --
+ * outside it, so Figma's Export never includes it. */
+function noteLabel(frame: FrameNode, notes: string): TextNode {
+  const text = figma.createText();
+  text.fontName = NOTE_FONT;
+  text.fontSize = 32;
+  text.characters = notes;
+  text.fills = [{ type: "SOLID", color: { r: 0.45, g: 0.45, b: 0.45 } }];
+  text.textAutoResize = "HEIGHT";
+  text.resize(Math.max(frame.width, 360), text.height);
+  text.x = frame.x;
+  text.y = frame.y - text.height - 24;
+  text.name = `Notes · ${frame.name}`;
+  text.locked = true;
+  return text;
 }
 
 function exportSetting(format: "PNG" | "JPG"): ExportSettingsImage {

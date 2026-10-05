@@ -53,6 +53,33 @@ function groupByBleed(formats) {
     return groups;
 }
 
+function trimNotes(notes) {
+    return notes ? String(notes).replace(/^\s+|\s+$/g, "") : "";
+}
+
+// Word-wraps notes into lines of at most maxChars (a word longer than
+// that gets its own line rather than being cut).
+function wrapNotes(text, maxChars) {
+    var words = text.split(/\s+/), lines = [], line = "";
+    var i;
+    for (i = 0; i < words.length; i++) {
+        if (!words[i]) { continue; }
+        if (line && (line + " " + words[i]).length > maxChars) {
+            lines.push(line);
+            line = words[i];
+        } else {
+            line = line ? line + " " + words[i] : words[i];
+        }
+    }
+    if (line) { lines.push(line); }
+    return lines;
+}
+
+// Label size for an artboard: readable, never bigger than 14 pt.
+function noteSizePt(artboardWidthPt) {
+    return Math.max(6, Math.min(14, artboardWidthPt / 45));
+}
+
 // One entry per artboard to create, in layout order.
 function artboardPlan(formats) {
     var plan = [];
@@ -72,6 +99,7 @@ function artboardPlan(formats) {
                     panelIndex: j,
                     panelGapMm: (fmt.panel_gap_mm || 0) * scale,
                     stacked: fmt.panel_layout === "column",
+                    notes: j === 0 ? trimNotes(fmt.notes) : "",
                     scale: scale
                 });
             }
@@ -85,6 +113,7 @@ function artboardPlan(formats) {
                 panel: null,
                 panelIndex: 0,
                 panelGapMm: 0,
+                notes: trimNotes(fmt.notes),
                 scale: scale
             });
         }
@@ -255,6 +284,20 @@ function planGroup(group) {
     return {sheets: packSheets(formatBlocks(plan), capMm, spacingMmFor(group.bleedMm))};
 }
 
+function addNoteLabel(layer, entry, bleedPt) {
+    var size = noteSizePt(entry.widthPt);
+    var lines = wrapNotes(entry.plan.notes, Math.max(20, Math.floor(entry.widthPt / (size * 0.5))));
+    var grey = new CMYKColor();
+    grey.black = 60;
+    var tf = layer.textFrames.add();
+    tf.contents = lines.join("\r");
+    tf.textRange.characterAttributes.size = size;
+    tf.textRange.characterAttributes.fillColor = grey;
+    tf.name = "Notes · " + entry.plan.name;
+    // bottom of the label sits 4 pt above the top bleed edge
+    tf.position = [entry.left, entry.top + bleedPt + 4 + lines.length * size * 1.2];
+}
+
 function createDocumentForSheet(sheet, bleedMm, filePath) {
     var outFile = new File(filePath);
     if (outFile.exists) {
@@ -335,6 +378,27 @@ function createDocumentForSheet(sheet, bleedMm, filePath) {
         }
     }
     guidesLayer.locked = true;
+
+    // The format's notes (pockets, text distance...) on a locked,
+    // non-printing layer just above each artboard, past its bleed: never
+    // in a PDF/TIFF, and preflight skips non-printing layers.
+    var notesLayer = null, notesFailed = false;
+    for (j = 0; j < artboards.length; j++) {
+        if (!artboards[j].plan.notes) { continue; }
+        try {
+            if (!notesLayer) {
+                notesLayer = doc.layers.add();
+                notesLayer.name = "Notes";
+            }
+            addNoteLabel(notesLayer, artboards[j], bleedPt);
+        } catch (e) {
+            notesFailed = true;
+        }
+    }
+    if (notesLayer) {
+        notesLayer.printable = false;
+        notesLayer.locked = true;
+    }
     app.redraw(); // otherwise the Artboards panel can keep showing the old names
 
     var saveOpts = new IllustratorSaveOptions();
@@ -355,7 +419,8 @@ function createDocumentForSheet(sheet, bleedMm, filePath) {
         });
     }
 
-    return {data: {path: outFile.fsName, bleed_mm: bleedMm, artboards: artboardData}};
+    return {data: {path: outFile.fsName, bleed_mm: bleedMm, artboards: artboardData,
+        notes_failed: notesFailed}};
 }
 
 // "<id>_print[_bleed3mm][_part2]_v01.ai", one per sheet, in order.
@@ -413,6 +478,10 @@ function main(args) {
             if (outcome.error) {
                 SH.addError(result, outcome.error.code, outcome.error.message, outcome.error.hint);
             } else {
+                if (outcome.data.notes_failed) {
+                    SH.addWarning(result, "NOTES_LABEL",
+                        "Couldn't add some notes labels in " + names[n - 1] + ". The file itself is fine.", "");
+                }
                 documents.push(outcome.data);
             }
         }

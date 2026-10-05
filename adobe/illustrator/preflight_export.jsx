@@ -123,7 +123,8 @@ function findLayerByName(doc, name) {
 function visiblePageItems(layer) {
     var out = [];
     var i, it;
-    if (!layer.visible) { return out; }
+    // hidden layers and non-printing ones (the Notes labels) aren't artwork
+    if (!layer.visible || layer.printable === false) { return out; }
     for (i = 0; i < layer.pageItems.length; i++) {
         it = layer.pageItems[i];
         if (it.hidden || it.guides) { continue; }

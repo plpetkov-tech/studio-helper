@@ -25,7 +25,8 @@
 #include "lib/common.jsx"
 
 var GRID_GAP_PX = 100;
-var PSD_MAX_PX = 30000; // .psd's hard limit per side (larger needs .psb)
+var PSD_MAX_PX = 30000;
+var NOTE_SPACE_PX = 220; // room above an artboard for its notes label // .psd's hard limit per side (larger needs .psb)
 
 function isDigitalFormat(fmt) {
     return fmt.kind !== "print";
@@ -50,7 +51,8 @@ function artboardPlan(formats) {
     var i, fmt;
     for (i = 0; i < formats.length; i++) {
         fmt = formats[i];
-        plan.push({name: fmt.id, widthPx: fmt.size.w, heightPx: fmt.size.h, formatId: fmt.id});
+        plan.push({name: fmt.id, widthPx: fmt.size.w, heightPx: fmt.size.h, formatId: fmt.id,
+            notes: fmt.notes ? String(fmt.notes).replace(/^\s+|\s+$/g, "") : ""});
     }
     return plan;
 }
@@ -118,6 +120,28 @@ function resizeActiveArtboard(x, y, w, h) {
     executeAction(stringIDToTypeID("editArtboardEvent"), desc, DialogModes.NO);
 }
 
+// The format's notes (logo / campaign-terms rules...) as a locked grey
+// text layer just above the artboard -- top-level, outside every
+// artboard, so export_digital.jsx (which keeps only the artboard it
+// exports) never includes it.
+function addNoteLabel(doc, plan, x, y) {
+    var layer = doc.artLayers.add();
+    layer.kind = LayerKind.TEXT;
+    layer.name = "Notes · " + plan.name;
+    var grey = new SolidColor();
+    grey.rgb.red = 115; grey.rgb.green = 115; grey.rgb.blue = 115;
+    var t = layer.textItem;
+    t.kind = TextType.PARAGRAPHTEXT;
+    t.contents = plan.notes;
+    t.size = 28;
+    t.color = grey;
+    t.width = Math.max(plan.widthPx, 360);
+    t.height = NOTE_SPACE_PX - 60;
+    t.position = [x, y - NOTE_SPACE_PX + 30];
+    layer.move(doc, ElementPlacement.PLACEATBEGINNING);
+    layer.allLocked = true;
+}
+
 function main(args) {
     var result = SH.makeResult();
     var job = args.job;
@@ -143,7 +167,12 @@ function main(args) {
     }
 
     var plan = artboardPlan(digitalFormats);
-    var positions = layoutGrid(plan, GRID_GAP_PX);
+    var hasNotes = false;
+    for (i = 0; i < plan.length; i++) { if (plan[i].notes) { hasNotes = true; } }
+    var positions = layoutGrid(plan, GRID_GAP_PX + (hasNotes ? NOTE_SPACE_PX : 0));
+    if (hasNotes) {
+        for (i = 0; i < positions.length; i++) { positions[i].y += NOTE_SPACE_PX; }
+    }
 
     var totalWidth = 1, totalHeight = 1;
     for (i = 0; i < positions.length; i++) {
@@ -176,6 +205,14 @@ function main(args) {
                         Math.round(actual.bottom - actual.top) : "an unknown size") +
                     "px instead of " + pos.plan.widthPx + "×" + pos.plan.heightPx + "px.",
                 "Resize it with the Artboard tool, and tell whoever maintains Studio Helper.");
+        }
+        if (pos.plan.notes) {
+            try {
+                addNoteLabel(app.activeDocument, pos.plan, pos.x, pos.y);
+            } catch (e) {
+                SH.addWarning(result, "NOTES_LABEL",
+                    "Couldn't add the notes label for '" + pos.plan.name + "': " + String(e.message || e), "");
+            }
         }
         artboardsData.push({
             name: pos.plan.name, format_id: pos.plan.formatId,

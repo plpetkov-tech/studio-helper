@@ -240,6 +240,19 @@ function run() {
     );
   });
 
+  check("wrapNotes wraps on words; artboards carry notes (first panel only)", () => {
+    assert.deepStrictEqual(Array.from(ctx.wrapNotes("Text 20 cm from every edge", 12)),
+      ["Text 20 cm", "from every", "edge"]);
+    assert.deepStrictEqual(Array.from(ctx.wrapNotes("  ", 10)), []);
+    const plan = ctx.artboardPlan([
+      {kind: "print", id: "door", panels: [{w: 1, h: 1}, {w: 1, h: 1}], notes: " Pocket 7 cm "},
+      {kind: "print", id: "flyer", size: {w: 1, h: 1}},
+    ]);
+    assert.deepStrictEqual(Array.from(plan, (p) => p.notes), ["Pocket 7 cm", "", ""]);
+    assert.strictEqual(ctx.noteSizePt(10000), 14);
+    assert.strictEqual(ctx.noteSizePt(10), 6);
+  });
+
   check("zeroPad2 pads single digits, leaves two-plus digits alone", () => {
     assert.strictEqual(ctx.zeroPad2(1), "01");
     assert.strictEqual(ctx.zeroPad2(9), "09");

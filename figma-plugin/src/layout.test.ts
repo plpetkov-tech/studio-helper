@@ -168,3 +168,27 @@ describe("export type", () => {
     expect(specs.map((s) => [s.stem, s.exportType])).toEqual([["a", "JPG"], ["b", "PNG"]]);
   });
 });
+
+
+describe("notes", () => {
+  it("carry the format's notes onto its frame spec", () => {
+    const job: Job = {
+      id: "2026-10-05_web", name: "Web", slug: "web", created: "", version: 1,
+      formats: [
+        { id: "web-580x730", kind: "web", size: { w: 580, h: 730, unit: "px" },
+          notes: " With logo, no campaign terms. " },
+        { id: "ig-post", kind: "social", size: { w: 1080, h: 1350, unit: "px" } },
+      ],
+      deliverables: [
+        { format_id: "web-580x730", type: "jpg", panel: null, expected_stem: "a" },
+        { format_id: "ig-post", type: "png", panel: null, expected_stem: "b" },
+      ],
+    };
+    expect(digitalFrameSpecs(job).map((s) => s.notes)).toEqual(["With logo, no campaign terms.", ""]);
+  });
+
+  it("rows can be spaced wider to leave room for labels", () => {
+    const items = [1, 2, 3].map(() => ({ widthPx: 100, heightPx: 100 }));
+    expect(layoutGrid(items, 320)[2].y).toBe(420);
+  });
+});

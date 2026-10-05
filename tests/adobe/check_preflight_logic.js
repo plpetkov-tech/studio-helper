@@ -180,6 +180,22 @@ function run() {
     assert.strictEqual(bleed.status, "fail");
   });
 
+  check("a non-printing Notes layer is not artwork", () => {
+    const pt = (mm) => ctx.SH.mmToPt(mm);
+    const doc = {
+      artboards: [{name: "flyer-a5", artboardRect: [0, pt(210), pt(148), 0]}],
+      layers: [{name: "Notes", visible: true, printable: false, pageItems: [
+        {visibleBounds: [0, pt(260), pt(148), pt(5)]}, // overlaps the artboard on purpose
+      ]}],
+    };
+    const job = {
+      formats: [{id: "flyer-a5", kind: "print", size: {w: 148, h: 210}, bleed_mm: 3}],
+      deliverables: [{format_id: "flyer-a5", panel: null, type: "pdf", expected_stem: "x"}],
+    };
+    const empty = Array.from(ctx.checkArtboards(doc, job)).filter((c) => c.id === "artboard-empty")[0];
+    assert.strictEqual(empty.status, "fail");
+  });
+
   check("findFormat / printDeliverablesFor / formatSizeFor round-trip a job", () => {
     const job = {
       formats: [
