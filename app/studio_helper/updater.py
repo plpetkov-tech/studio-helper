@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import os
 import re
 import shutil
@@ -32,6 +33,8 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from studio_helper import __version__, paths
+
+logger = logging.getLogger("studio_helper.updater")
 
 REPO = "plpetkov-tech/studio-helper"
 API_URL = f"https://api.github.com/repos/{REPO}/releases/latest"
@@ -182,6 +185,12 @@ def download_and_stage(info: UpdateInfo) -> Path:
 
         final_dir = install_root / f"StudioHelper-v{info.latest_version}"
         if final_dir.exists():
+            # Left over from an earlier attempt at this same version.
+            if not only_app_files(final_dir):
+                raise UpdateError(
+                    f"{final_dir.name} already exists and has files in it that aren't "
+                    "part of Studio Helper. Move your files out of it, then try again."
+                )
             shutil.rmtree(final_dir)
         entries[0].rename(final_dir)
         return final_dir
@@ -202,21 +211,53 @@ def download_and_stage(info: UpdateInfo) -> Path:
 # copy right next to it to fall back to by hand (SPEC.md §15,
 # 2026-09-24) -- there is no automated health check of the new
 # version here, so this is the safety net for when one would have
-# caught something. At most one rollback copy is kept: a
-# ".previous" left over from the update before last is removed
-# first, right before this update's old install takes its place.
-_INSTALL_DIR_RE = re.compile(r"^StudioHelper-v(\d+(?:\.\d+)*)(\.previous)?$")
+# caught something. The script never deletes a folder: if a
+# ".previous" is already there, the old install gets a dated
+# ".previous-<time>" name instead. Removing old installs is left to
+# cleanup_old_installs(), which keeps one rollback copy and never
+# deletes a folder with her files in it.
+_INSTALL_DIR_RE = re.compile(r"^StudioHelper-v(\d+(?:\.\d+)*)(\.previous(?:-\d+)?)?$")
 _LAUNCHER = "Start Studio Helper.bat"
+
+# What a release folder holds at its top level. Anything else there
+# (a "Studio Jobs" folder, a .zip of exports she saved next to the
+# launcher) means the folder is more than an old install.
+_RELEASE_TOP_LEVEL = {
+    _LAUNCHER, "README.txt", "SBOM.cdx.json",
+    "LICENSES", "adobe", "app", "defaults", "figma-plugin", "runtime",
+}
+# Never part of a release; always her work.
+_USER_WORK_SUFFIXES = {
+    ".ai", ".psd", ".psb", ".indd", ".idml", ".eps", ".svg", ".fig",
+    ".pdf", ".tif", ".tiff", ".jpg", ".jpeg", ".png", ".gif", ".webp",
+    ".mp4", ".mov", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx",
+}
+
+
+def only_app_files(folder: Path) -> bool:
+    """True when `folder` looks like nothing but a Studio Helper install:
+    known top-level entries only, and no artwork or office files
+    anywhere inside. Deleting an old install must never take her files
+    with it; when unsure, keep the folder."""
+    try:
+        for entry in folder.iterdir():
+            if entry.name not in _RELEASE_TOP_LEVEL:
+                return False
+        for path in folder.rglob("*"):
+            if path.suffix.lower() in _USER_WORK_SUFFIXES:
+                return False
+    except OSError:
+        return False
+    return True
 
 
 def cleanup_old_installs(current_root: Path) -> list[Path]:
-    """Deletes install folders left next to this one by earlier updates.
-    The relaunch script only ever removes `<old>.previous` under the
-    old version's own name, so every update used to leave one more
-    `StudioHelper-vX.previous` behind. Keeps this install and the
-    newest older one as the rollback copy; never touches a newer
-    version (a manual rollback) or anything without our launcher in
-    it. Returns the folders deleted."""
+    """Deletes install folders left next to this one by earlier updates
+    (every update leaves one `StudioHelper-vX.previous` behind). Keeps
+    this install and the newest older one as the rollback copy; never
+    touches a newer version (a manual rollback), anything without our
+    launcher in it, or a folder with anything in it that isn't part of
+    Studio Helper (only_app_files). Returns the folders deleted."""
     current = _INSTALL_DIR_RE.match(current_root.name)
     if not current:
         return []  # dev checkout or unusual layout: nothing to judge by
@@ -235,6 +276,10 @@ def cleanup_old_installs(current_root: Path) -> list[Path]:
 
     removed = []
     for _version, folder in older[:-1]:  # the newest older one stays as rollback
+        if not only_app_files(folder):
+            logger.warning("Kept old install %s: it has files that aren't part of Studio Helper",
+                           folder)
+            continue
         shutil.rmtree(folder, ignore_errors=True)
         if not folder.exists():
             removed.append(folder)
@@ -250,9 +295,12 @@ param(
 try { Wait-Process -Id $OldPid -Timeout 30 -ErrorAction SilentlyContinue } catch {}
 Start-Sleep -Seconds 1
 
+# Never deletes anything: if a "<old>.previous" is already there, this
+# one gets a dated name instead, and the app's own cleanup on its next
+# start decides what's safe to remove (updater.cleanup_old_installs).
 $previousDir = "$OldDir.previous"
 if (Test-Path -LiteralPath $previousDir) {
-    Remove-Item -LiteralPath $previousDir -Recurse -Force -ErrorAction SilentlyContinue
+    $previousDir = "$OldDir.previous-" + (Get-Date -Format "yyyyMMddHHmmss")
 }
 if (Test-Path -LiteralPath $OldDir) {
     $previousName = Split-Path -Leaf $previousDir

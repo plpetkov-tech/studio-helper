@@ -10,6 +10,11 @@
 // modifies the source PSD -- every artboard is exported from a
 // throwaway duplicate, closed without saving.
 //
+// If the PSD is already open, that's her live document: it's saved
+// first when it has unsaved changes (she clicked Export; she wants
+// what's on screen) and is never closed. A PSD that wasn't open is
+// opened for the export and closed again.
+//
 // UNVERIFIED against a real copy of Photoshop, same as
 // new_digital_doc.jsx. Document.duplicate/crop/flatten/mergeVisible-
 // Layers/convertProfile/saveAs are stable documented API (higher
@@ -161,7 +166,12 @@ function main(args) {
         return result;
     }
 
-    var doc = app.open(psdFile);
+    var openDoc = SH.findOpenDocument(psdFile);
+    if (openDoc && !openDoc.saved) {
+        openDoc.save();
+        result.data.saved_source = psdFile.name;
+    }
+    var doc = openDoc || app.open(psdFile);
     var written = [];
 
     try {
@@ -190,10 +200,13 @@ function main(args) {
             }
         }
     } finally {
-        // Never modify the source PSD (SPEC.md §6.5): close exactly as
-        // opened, discarding anything the export loop touched on `doc`
-        // itself (it shouldn't have touched it, but this is the guard).
-        doc.close(SaveOptions.DONOTSAVECHANGES);
+        if (openDoc) {
+            // Hers: leave it open, and in front again.
+            try { app.activeDocument = openDoc; } catch (e) { /* best effort */ }
+        } else {
+            // Opened only for this export, and only ever duplicated, never edited.
+            doc.close(SaveOptions.DONOTSAVECHANGES);
+        }
     }
 
     result.data.exported = written;

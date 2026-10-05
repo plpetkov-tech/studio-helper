@@ -63,6 +63,8 @@ jobs:
         run: node tests/adobe/check_preflight_logic.js
       - name: Execute the Photoshop adapters' pure grid-layout/lookup logic
         run: node tests/adobe/check_photoshop_logic.js
+      - name: Open documents are never closed, discarded or saved by a check (mocked apps)
+        run: node tests/adobe/check_document_safety.js
 
   figma-plugin:
     name: Figma plugin build + test

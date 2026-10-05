@@ -133,7 +133,9 @@ def test_writes_report_html(tmp_path):
     assert "Autumn Sale" in report.read_text(encoding="utf-8")
 
 
-def test_ignores_jobs_older_than_the_window(tmp_path):
+def test_checks_a_job_created_long_ago_when_a_new_export_lands(tmp_path):
+    # Was skipped: the window counted from the job's creation date, so a
+    # campaign running past 14 days stopped being checked.
     jobs_root = tmp_path / "jobs"
     jobs_root.mkdir()
     registry = _make_registry(tmp_path)
@@ -147,7 +149,44 @@ def test_ignores_jobs_older_than_the_window(tmp_path):
     poller.scan_once()
     poller.scan_once()
 
+    assert len(poller.results_for(job["id"])) == 1
+
+
+def _age_job(job_dir, days):
+    old = time.time() - days * 86400
+    for p in [job_dir, *job_dir.rglob("*")]:
+        os.utime(p, (old, old))
+
+
+def test_ignores_jobs_with_no_activity_in_the_window(tmp_path):
+    jobs_root = tmp_path / "jobs"
+    jobs_root.mkdir()
+    registry = _make_registry(tmp_path)
+    job = _create_job(jobs_root, registry)
+    Image.new("RGB", (20, 20), "red").save(_export_path(jobs_root, job))
+    _age_job(jobs_root / job["id"], days=30)
+
+    poller = Poller(jobs_root)
+    poller.scan_once()
+    poller.scan_once()
+
     assert poller.results_for(job["id"]) == {}
+
+
+def test_opening_an_inactive_job_checks_it(tmp_path):
+    jobs_root = tmp_path / "jobs"
+    jobs_root.mkdir()
+    registry = _make_registry(tmp_path)
+    job = _create_job(jobs_root, registry)
+    Image.new("RGB", (20, 20), "red").save(_export_path(jobs_root, job))
+    _age_job(jobs_root / job["id"], days=30)
+
+    poller = Poller(jobs_root)
+    poller.touch(job["id"])
+    poller.scan_once()
+    poller.scan_once()
+
+    assert len(poller.results_for(job["id"])) == 1
 
 
 def test_removes_results_for_deleted_files(tmp_path):

@@ -137,7 +137,7 @@
     customSlot.innerHTML =
       '<form class="custom-form" id="custom-form" novalidate>' +
         '<div class="row"><div class="field" style="flex:2;min-width:200px"><label for="c-name">What is it?</label><input class="input" id="c-name" placeholder="e.g. Mall of Sofia column wrap" required></div>' +
-        '<div class="field"><label for="c-kind">Type</label><select class="input" id="c-kind"><option value="print">Print (mm)</option><option value="screen">Screen (px)</option><option value="social">Social (px)</option></select></div></div>' +
+        '<div class="field"><label for="c-kind">Type</label><select class="input" id="c-kind"><option value="print">Print (mm)</option><option value="screen">Screen (px)</option><option value="social">Social (px)</option><option value="web">Web (px)</option></select></div></div>' +
         '<div class="row">' +
           '<div class="field"><label for="c-w">Width <span id="c-unit">mm</span></label><input class="input mono" id="c-w" type="number" min="1" required></div>' +
           '<div class="field"><label for="c-h">Height</label><input class="input mono" id="c-h" type="number" min="1" required></div>' +
@@ -160,11 +160,11 @@
     var print = kind === "print";
     document.getElementById("c-unit").textContent = print ? "mm" : "px";
     customSlot.querySelectorAll(".print-only").forEach(function (el) { el.hidden = !print; });
-    document.getElementById("c-export").innerHTML = (print ? ["tiff", "pdf"] : ["png", "jpg"]).map(function (e) {
+    document.getElementById("c-export").innerHTML = (print ? ["tiff", "pdf"] : kind === "web" ? ["jpg", "png"] : ["png", "jpg"]).map(function (e) {
       return '<option value="' + e + '">' + e.toUpperCase() + "</option>";
     }).join("");
     var groupSel = document.getElementById("c-group");
-    var want = print ? "Mall print" : kind === "social" ? "Social" : "Mall screens";
+    var want = {print: "Mall print", social: "Social", web: "Web", screen: "Mall screens"}[kind];
     Array.prototype.forEach.call(groupSel.options, function (o) { if (o.value === want) groupSel.value = want; });
   }
 

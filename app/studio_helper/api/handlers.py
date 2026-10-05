@@ -203,7 +203,14 @@ def create_job(ctx, body):
 @route("GET", "/api/jobs/<job_id>")
 def get_job(ctx, body, job_id):
     job = job_mod.load_job(ctx.jobs_root, job_id)
-    return 200, {"ok": True, "job": job, "deliverables": _deliverable_status(job, ctx)}
+    if ctx.poller is not None:
+        ctx.poller.touch(job_id)
+    return 200, {
+        "ok": True,
+        "job": job,
+        "deliverables": _deliverable_status(job, ctx),
+        "print_files": job_mod.current_print_files(job),
+    }
 
 
 @route("POST", "/api/jobs/<job_id>/revision")
@@ -353,7 +360,7 @@ def open_photoshop_scripts_folder(ctx, body):
 
 def _print_ai_paths(ctx, job: dict) -> list[Path]:
     root = job_mod.job_path(ctx.jobs_root, job["id"])
-    return [root / rel for rel in (job["files"].get("print") or [])]
+    return [root / rel for rel in job_mod.current_print_files(job)]
 
 
 def _digital_export_dirs(job: dict, root: Path) -> dict[str, Path]:

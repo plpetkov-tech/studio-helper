@@ -306,3 +306,69 @@ def test_refresh_from_registry_updates_tiff_ppi_of_an_existing_job(jobs_root, re
     assert refreshed["formats"][0]["tiff_ppi"] == 60
     assert job_mod.load_job(jobs_root, job["id"])["formats"][0]["tiff_ppi"] == 60
     assert refreshed["deliverables"] == job["deliverables"]
+
+
+def _job_with_print_files(files, version=1):
+    return {"version": version, "files": {"print": files, "psd": None}}
+
+
+def test_current_print_files_is_only_the_newest_set():
+    # One set per "Create Illustrator file": v01 (two sheets), then v03.
+    job = _job_with_print_files([
+        "03_working/x_print_part1_v01.ai",
+        "03_working/x_print_part2_v01.ai",
+        "03_working/x_print_v03.ai",
+    ], version=4)
+    assert job_mod.current_print_files(job) == ["03_working/x_print_v03.ai"]
+
+
+def test_current_print_files_keeps_every_sheet_of_the_newest_set():
+    job = _job_with_print_files([
+        "03_working/x_print_v01.ai",
+        "03_working/x_print_part1_v02.ai",
+        "03_working/x_print_part2_v02.ai",
+    ], version=2)
+    assert job_mod.current_print_files(job) == [
+        "03_working/x_print_part1_v02.ai",
+        "03_working/x_print_part2_v02.ai",
+    ]
+
+
+def test_current_print_files_keeps_using_an_older_file_after_a_revision():
+    # Start revision doesn't make new files; she keeps working in v01.
+    job = _job_with_print_files(["03_working/x_print_v01.ai"], version=3)
+    assert job_mod.current_print_files(job) == ["03_working/x_print_v01.ai"]
+
+
+def test_current_print_files_with_no_version_suffix_uses_all():
+    job = _job_with_print_files(["03_working/legacy.ai"])
+    assert job_mod.current_print_files(job) == ["03_working/legacy.ai"]
+
+
+def test_concurrent_bump_version_loses_no_increment(jobs_root, registry):
+    import threading
+
+    job = job_mod.create_job(jobs_root, registry, "Autumn Sale", ["flyer-a5"], now=FIXED_NOW)
+    real_load = job_mod.load_job
+    both_inside = threading.Barrier(2, timeout=0.5)
+
+    def slow_load(*args, **kwargs):
+        loaded = real_load(*args, **kwargs)
+        try:
+            both_inside.wait()  # without the lock, both threads read v01 here
+        except threading.BrokenBarrierError:
+            pass
+        return loaded
+
+    job_mod.load_job = slow_load
+    try:
+        threads = [threading.Thread(target=job_mod.bump_version, args=(jobs_root, job["id"]))
+                   for _ in range(2)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+    finally:
+        job_mod.load_job = real_load
+
+    assert job_mod.load_job(jobs_root, job["id"])["version"] == 3

@@ -66,6 +66,7 @@
           <ul>
             <li><strong>Check &amp; export print</strong> checks every artboard: size, bleed filled, CMYK, image resolution, fonts, empty artboards. If everything passes, it writes the TIFF / PDF into <code>04_export/print</code> with the right name. Mall print goes out as TIFF, small print as PDF.</li>
             <li>If something fails, the panel says exactly what and where. Fix it, or use <strong>Export anyway</strong>.</li>
+            <li>Your file can stay open. Export saves your unsaved changes first, then exports. <strong>Check only</strong> never saves or closes anything.</li>
             <li><strong>Export Photoshop</strong> exports every artboard as PNG / JPG, flattened and in sRGB. Your .psd isn’t changed.</li>
             <li>Figma and video (mp4): export them yourself into <code>04_export</code>, with the file name shown on the job page.</li>
           </ul>
@@ -93,9 +94,9 @@
         <section class="card gsec" id="more">
           <h2>Revisions, deleting, updates</h2>
           <ul>
-            <li><strong>Start revision:</strong> the version goes v01 → v02, so new exports get new names and the old ones stay for reference.</li>
+            <li><strong>Start revision:</strong> the version goes v01 → v02, so new exports get new names and the old ones stay for reference. Keep working in the same Illustrator/Photoshop file; export uses your newest one.</li>
             <li><strong>More → Delete job</strong> moves the folder to <code>Studio Jobs\_Deleted Jobs</code>. Nothing is erased.</li>
-            <li><strong>? → Check for updates</strong> installs the new version and restarts. One backup of the old version is kept; older ones are cleaned up.</li>
+            <li><strong>? → Check for updates</strong> installs the new version and restarts. One backup of the old version is kept; older ones are cleaned up, unless you saved your own files inside them.</li>
           </ul>
         </section>
         <section class="card gsec" id="trouble">

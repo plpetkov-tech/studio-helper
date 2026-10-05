@@ -1,4 +1,4 @@
-"""Watches each recent job's 04_export/ folder and validates files as
+"""Watches each active job's 04_export/ folder and validates files as
 they land (SPEC.md §6.7). This is what makes the tool useful in
 "shadow mode": it works on files exported by hand, before any
 Illustrator/Photoshop/Figma automation exists (SPEC.md M2).
@@ -8,9 +8,9 @@ from __future__ import annotations
 
 import logging
 import threading
+import time
 import zipfile
 from dataclasses import dataclass
-from datetime import datetime, timedelta
 from pathlib import Path
 
 from studio_helper.core import job as job_mod
@@ -21,6 +21,11 @@ logger = logging.getLogger("studio_helper.poller")
 
 SCAN_INTERVAL_SECONDS = 2
 STABLE_SCANS_REQUIRED = 2
+# A job is watched while it's active: something happened in it in the
+# last JOB_WINDOW_DAYS (see _last_activity). It used to be "created in
+# the last 14 days", so a campaign that ran longer silently stopped
+# being checked. Watching every job ever made instead would re-check
+# every old export on each start, and they add up at 30-40 jobs a week.
 JOB_WINDOW_DAYS = 14
 
 
@@ -39,6 +44,7 @@ class Poller:
         self._results: dict[str, dict[str, FileResult]] = {}
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
+        self._opened: dict[str, float] = {}  # job id -> when its page was last opened
 
     def start(self) -> None:
         self._thread = threading.Thread(target=self._run, daemon=True)
@@ -48,6 +54,11 @@ class Poller:
         self._stop.set()
         if self._thread is not None:
             self._thread.join(timeout=5)
+
+    def touch(self, job_id: str) -> None:
+        """The job page is open: watch this job however old it is."""
+        with self._lock:
+            self._opened[job_id] = time.time()
 
     def results_for(self, job_id: str) -> dict[str, FileResult]:
         with self._lock:
@@ -64,16 +75,17 @@ class Poller:
     def scan_once(self) -> None:
         if not self.jobs_root.exists():
             return
-        cutoff = datetime.now().astimezone() - timedelta(days=JOB_WINDOW_DAYS)
+        cutoff = time.time() - JOB_WINDOW_DAYS * 86400
+        with self._lock:
+            opened = dict(self._opened)
         for job_dir in self.jobs_root.iterdir():
             if not job_dir.is_dir() or not (job_dir / "job.json").exists():
                 continue
+            if max(_last_activity(job_dir), opened.get(job_dir.name, 0)) < cutoff:
+                continue
             try:
                 job = job_mod.load_job(self.jobs_root, job_dir.name)
-                created = datetime.fromisoformat(job["created"])
             except (job_mod.JobError, ValueError, KeyError):
-                continue
-            if created < cutoff:
                 continue
             self._scan_job(job_dir, job)
 
@@ -168,3 +180,24 @@ class Poller:
                 zip_path.unlink()
             except OSError:
                 logger.exception("Extracted %s but could not remove it", zip_path)
+
+
+def _last_activity(job_dir: Path) -> float:
+    """Newest mtime of job.json, 04_export and its subfolders: a few
+    stats per job, no reading. A new export changes its folder's mtime;
+    job.json changes on revisions, new working files and exports from
+    the app. Re-exporting over an existing file may not touch either,
+    so opening the job page (Poller.touch) also counts."""
+    paths = [job_dir / "job.json", job_dir / "04_export"]
+    export_root = job_dir / "04_export"
+    try:
+        paths += [p for p in export_root.iterdir() if p.is_dir()]
+    except OSError:
+        pass
+    newest = 0.0
+    for p in paths:
+        try:
+            newest = max(newest, p.stat().st_mtime)
+        except OSError:
+            continue
+    return newest

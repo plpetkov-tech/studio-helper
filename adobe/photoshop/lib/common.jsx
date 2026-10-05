@@ -21,6 +21,24 @@ SH.describeError = function (e) {
     return text;
 };
 
+// The document already open in Photoshop for `file`, or null. Never
+// open a file just to look at it: app.open() on a file that's already
+// open hands back her live document, unsaved changes and all, and a
+// script that then closes it throws that work away.
+SH.findOpenDocument = function (file) {
+    var target = String(file.fsName).toLowerCase();
+    var i, path;
+    for (i = 0; i < app.documents.length; i++) {
+        try {
+            path = String(app.documents[i].fullName.fsName).toLowerCase();
+        } catch (e) {
+            continue; // never saved, so it has no path
+        }
+        if (path === target) { return app.documents[i]; }
+    }
+    return null;
+};
+
 SH.makeResult = function () {
     return {ok: true, data: {}, errors: [], warnings: []};
 };

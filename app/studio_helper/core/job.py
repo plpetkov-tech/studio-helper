@@ -4,7 +4,10 @@ report results back (SPEC.md §4 design principles)."""
 
 from __future__ import annotations
 
+import functools
 import json
+import re
+import threading
 from datetime import datetime
 from pathlib import Path
 
@@ -17,6 +20,21 @@ SCHEMA_VERSION = 1
 
 class JobError(Exception):
     pass
+
+
+# Every job.json change is load -> modify -> write. Requests run on
+# separate threads, so two at once (a double-clicked "Start revision")
+# would both read v02 and both write v03. One lock for all of them is
+# plenty for one person's jobs.
+_write_lock = threading.RLock()
+
+
+def _locked(fn):
+    @functools.wraps(fn)
+    def wrapper(*args, **kwargs):
+        with _write_lock:
+            return fn(*args, **kwargs)
+    return wrapper
 
 
 def _now_local() -> datetime:
@@ -84,6 +102,7 @@ def _auto_scale(fmt: dict) -> dict:
     return fmt
 
 
+@_locked
 def auto_scale_job(jobs_root: Path, job_id: str) -> dict:
     """Applies _auto_scale to a job created before it existed, so its
     oversize print formats work without recreating the job. Expected
@@ -96,6 +115,7 @@ def auto_scale_job(jobs_root: Path, job_id: str) -> dict:
     return job
 
 
+@_locked
 def refresh_from_registry(jobs_root: Path, job_id: str, registry: Registry,
                           keys: tuple[str, ...] = ("tiff_ppi",)) -> dict:
     """Export settings that don't change a job's sizes or file names
@@ -227,6 +247,7 @@ def list_jobs(jobs_root: Path) -> list[dict]:
     return jobs
 
 
+@_locked
 def record_print_files(jobs_root: Path, job_id: str, ai_paths: list[str]) -> dict:
     """Records .ai files created by the Illustrator adapter in
     job.json's files.print list, as paths relative to the job root
@@ -250,6 +271,7 @@ def record_print_files(jobs_root: Path, job_id: str, ai_paths: list[str]) -> dic
     return job
 
 
+@_locked
 def record_digital_file(jobs_root: Path, job_id: str, psd_path: str) -> dict:
     """Records the .psd file created by the Photoshop adapter in
     job.json's files.psd (a single path, unlike files.print -- one PSD
@@ -266,6 +288,31 @@ def record_digital_file(jobs_root: Path, job_id: str, psd_path: str) -> dict:
     job["files"]["psd"] = rel
     _write_job(root, job)
     return job
+
+
+_VERSION_SUFFIX = re.compile(r"_v(\d+)$")
+
+
+def file_version(rel_path: str) -> int | None:
+    """2 for ".../x_print_part1_v02.ai"; None without a _vNN suffix."""
+    m = _VERSION_SUFFIX.search(Path(rel_path).stem)
+    return int(m.group(1)) if m else None
+
+
+def current_print_files(job: dict) -> list[str]:
+    """The Illustrator files to check and export: only the newest set.
+    files.print keeps every .ai ever created for the job, one set per
+    "Create Illustrator file" (v01, v03, ...). Exporting all of them
+    gave each one the current version's export names, so older
+    artwork overwrote the current one. The newest set is the one with
+    the highest _vNN, which may be older than the job's version: she
+    can keep working in the same file across revisions."""
+    files = job["files"].get("print") or []
+    versions = [v for v in (file_version(f) for f in files) if v is not None]
+    if not versions:
+        return list(files)
+    newest = max(versions)
+    return [f for f in files if file_version(f) == newest]
 
 
 DELETED_JOBS_DIR = "_Deleted Jobs"
@@ -296,6 +343,7 @@ def delete_job(jobs_root: Path, job_id: str) -> Path:
     return dest
 
 
+@_locked
 def bump_version(jobs_root: Path, job_id: str) -> dict:
     """'Start revision': vN -> vN+1. New exports get the new version;
     older files are left in place (SPEC.md §6.1 naming)."""

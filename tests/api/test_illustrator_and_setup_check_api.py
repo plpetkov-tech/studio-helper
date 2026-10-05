@@ -255,6 +255,38 @@ def test_export_print_can_target_one_ai_path(api, monkeypatch, tmp_path):
     assert calls == [ai_path]
 
 
+def test_export_print_uses_only_the_newest_illustrator_files(api, monkeypatch, tmp_path):
+    # A v01 file and a v03 file are both recorded (she created files
+    # again after revisions). Exporting both gave each the current
+    # export names, so the old artwork overwrote the current one.
+    call, poll = api
+    job_id, old_ai = _create_job_with_fake_print_file(call, tmp_path)
+    job_root = tmp_path / "jobs" / job_id
+    new_rel = f"03_working/{job_id}_print_v03.ai"
+    (job_root / new_rel).write_bytes(b"fake v03")
+    job_json = job_root / "job.json"
+    data = json.loads(job_json.read_text(encoding="utf-8"))
+    data["files"]["print"].append(new_rel)
+    data["version"] = 4
+    job_json.write_text(json.dumps(data), encoding="utf-8")
+
+    calls = []
+
+    def fake_preflight(job, path, mode, export_dir=None, force=False):
+        calls.append((mode, path))
+        return {"ok": True, "data": {"checks": [], "exported": []}}
+
+    monkeypatch.setattr(handlers.illustrator, "preflight", fake_preflight)
+
+    for action in ("export-print", "check-print"):
+        _status, started = call("POST", f"/api/jobs/{job_id}/illustrator/{action}")
+        poll(started["task_id"])
+    assert [p for _mode, p in calls] == [job_root / new_rel, job_root / new_rel]
+
+    _status, got = call("GET", f"/api/jobs/{job_id}")
+    assert got["print_files"] == [new_rel]
+
+
 def test_unknown_task_id_is_404(api):
     call, _poll = api
     status, data = call("GET", "/api/tasks/does-not-exist")

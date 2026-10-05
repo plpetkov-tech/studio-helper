@@ -28,6 +28,7 @@ KINDS = {
     "print": ("mm", ("tiff", "pdf")),
     "screen": ("px", ("png", "jpg")),
     "social": ("px", ("png", "jpg")),
+    "web": ("px", ("jpg", "png")),
 }
 
 
@@ -59,7 +60,7 @@ def build_format(spec: dict, taken_ids: set[str]) -> dict:
         raise CustomFormatError("Give the size a name, e.g. \"Mall of Sofia column wrap\".")
     kind = spec.get("kind")
     if kind not in KINDS:
-        raise CustomFormatError("Choose whether it's print, a screen or social.")
+        raise CustomFormatError("Choose whether it's print, a screen, social or web.")
     unit, exports = KINDS[kind]
     w = _number(spec, "w", required=True)
     h = _number(spec, "h", required=True)

@@ -134,7 +134,7 @@
     UI.openDrawer("Add a format", "Saved to your formats file, ready for every new job",
       '<form id="add-form" class="stack" novalidate>' +
         '<div class="field"><label for="a-name">Name</label><input class="input" id="a-name" placeholder="e.g. Business card" required></div>' +
-        '<div class="row"><div class="field"><label for="a-kind">Type</label><select class="input" id="a-kind"><option value="print">Print (mm)</option><option value="screen">Screen (px)</option><option value="social">Social (px)</option></select></div>' +
+        '<div class="row"><div class="field"><label for="a-kind">Type</label><select class="input" id="a-kind"><option value="print">Print (mm)</option><option value="screen">Screen (px)</option><option value="social">Social (px)</option><option value="web">Web (px)</option></select></div>' +
         '<div class="field"><label for="a-group">List under</label><select class="input" id="a-group">' + groups + '<option value="__new">New group…</option></select></div></div>' +
         '<div class="field" id="a-newgroup-wrap" hidden><label for="a-newgroup">New group name</label><input class="input" id="a-newgroup" placeholder="e.g. Shop signs"></div>' +
         '<div class="row"><div class="field"><label for="a-w">Width <span id="a-unit">mm</span></label><input class="input mono" id="a-w" type="number" min="1"></div>' +
@@ -151,12 +151,23 @@
       var print = document.getElementById("a-kind").value === "print";
       document.getElementById("a-unit").textContent = print ? "mm" : "px";
       form.querySelector(".print-only").hidden = !print;
-      document.getElementById("a-export").innerHTML = (print ? ["tiff", "pdf"] : ["png", "jpg"]).map(function (e) {
+      document.getElementById("a-export").innerHTML = (print ? ["tiff", "pdf"] : document.getElementById("a-kind").value === "web" ? ["jpg", "png"] : ["png", "jpg"]).map(function (e) {
         return '<option value="' + e + '">' + e.toUpperCase() + "</option>";
       }).join("");
       document.getElementById("a-newgroup-wrap").hidden = document.getElementById("a-group").value !== "__new";
     }
-    form.addEventListener("change", sync);
+    // Choosing a type files it under that type's group, as on New job;
+    // she can still pick another group afterwards.
+    function defaultGroup() {
+      var want = {print: "Mall print", social: "Social", web: "Web", screen: "Mall screens"}[document.getElementById("a-kind").value];
+      var sel = document.getElementById("a-group");
+      Array.prototype.forEach.call(sel.options, function (o) { if (o.value === want) sel.value = want; });
+    }
+    form.addEventListener("change", function (e) {
+      if (e.target.id === "a-kind") defaultGroup();
+      sync();
+    });
+    defaultGroup();
     sync();
     document.getElementById("a-name").focus();
     form.addEventListener("submit", function (e) {

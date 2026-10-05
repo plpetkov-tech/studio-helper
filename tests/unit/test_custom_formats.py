@@ -42,11 +42,24 @@ def test_build_format_cyrillic_name_and_unique_id():
     assert fmt["size"]["unit"] == "px"
 
 
+def test_build_format_web_saves_and_loads(tmp_path):
+    # The type picker had no Web, though the registry and exporters support it.
+    fmt = cf.build_format({"name": "Homepage hero", "kind": "web", "w": 1920, "h": 600}, set())
+    assert fmt["kind"] == "web"
+    assert fmt["size"] == {"w": 1920, "h": 600, "unit": "px"}
+    assert fmt["exports"] == ["jpg"]
+
+    path = tmp_path / "registry.yaml"
+    path.write_text(REGISTRY, encoding="utf-8")
+    registry = cf.save_format(path, fmt)
+    assert registry.formats["homepage-hero"]["kind"] == "web"
+
+
 @pytest.mark.parametrize(
     ("spec", "message"),
     [
         ({"kind": "print", "w": 1, "h": 1}, "name"),
-        ({"name": "x", "kind": "poster", "w": 1, "h": 1}, "print, a screen or social"),
+        ({"name": "x", "kind": "poster", "w": 1, "h": 1}, "print, a screen, social or web"),
         ({"name": "x", "kind": "print", "w": 0, "h": 1}, "w must be more than 0"),
         ({"name": "x", "kind": "print", "w": "abc", "h": 1}, "must be a number"),
         ({"name": "x", "kind": "social", "w": 1, "h": 1, "export": "tiff"}, "PNG or JPG"),

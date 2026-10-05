@@ -253,18 +253,16 @@ def test_schedule_relaunch_launches_detached_powershell(monkeypatch, tmp_path):
 def test_relaunch_script_renames_old_install_instead_of_deleting_it():
     """A release that fails to start must still leave a working copy
     behind (SPEC.md §15, 2026-09-24) -- the old install is renamed to
-    "<OldDir>.previous", never deleted outright. Only a *stale*
-    ".previous" from the update before last is removed."""
+    "<OldDir>.previous", never deleted. It deletes no folder at all:
+    an existing ".previous" makes it pick a dated name instead, and
+    the guarded Python cleanup decides later."""
     script = updater._RELAUNCH_PS1
 
     assert "Rename-Item" in script
     assert '$previousDir = "$OldDir.previous"' in script
-    # The only Remove-Item targeting a whole folder tree must be scoped
-    # to $previousDir (the stale backup), never bare $OldDir.
+    assert '"$OldDir.previous-"' in script
     for line in script.splitlines():
-        if "Remove-Item" in line and "-Recurse" in line:
-            assert "$previousDir" in line
-            assert "$OldDir" not in line
+        assert not ("Remove-Item" in line and "-Recurse" in line), line
 
 
 def _install(parent, name):
@@ -300,3 +298,66 @@ def test_cleanup_old_installs_ignores_dev_checkout(tmp_path):
     _install(tmp_path, "StudioHelper-v0.1.0")
     assert updater.cleanup_old_installs(repo) == []
     assert (tmp_path / "StudioHelper-v0.1.0").exists()
+
+
+def test_cleanup_old_installs_keeps_a_folder_with_her_files_in_it(tmp_path):
+    for name in ["StudioHelper-v0.3.1.previous", "StudioHelper-v0.3.2.previous",
+                 "StudioHelper-v0.3.3.previous"]:
+        _install(tmp_path, name)
+    artwork = tmp_path / "StudioHelper-v0.3.1.previous" / "app" / "poster_final.ai"
+    artwork.parent.mkdir()
+    artwork.write_bytes(b"her work")
+    extra = tmp_path / "StudioHelper-v0.3.2.previous" / "Studio Jobs"
+    extra.mkdir()
+    current = _install(tmp_path, "StudioHelper-v0.4.0")
+
+    removed = updater.cleanup_old_installs(current)
+
+    assert removed == []
+    assert artwork.read_bytes() == b"her work"
+    assert extra.exists()
+
+
+def test_cleanup_old_installs_handles_dated_previous_names(tmp_path):
+    _install(tmp_path, "StudioHelper-v0.3.1.previous")
+    _install(tmp_path, "StudioHelper-v0.3.1.previous-20261005120000")
+    _install(tmp_path, "StudioHelper-v0.3.2.previous")
+    current = _install(tmp_path, "StudioHelper-v0.4.0")
+
+    removed = updater.cleanup_old_installs(current)
+
+    assert sorted(p.name for p in removed) == [
+        "StudioHelper-v0.3.1.previous", "StudioHelper-v0.3.1.previous-20261005120000",
+    ]
+    assert (tmp_path / "StudioHelper-v0.3.2.previous").exists()
+
+
+def test_only_app_files_accepts_a_real_release_layout(tmp_path):
+    folder = _install(tmp_path, "StudioHelper-v0.4.0")
+    for rel in ["README.txt", "SBOM.cdx.json", "app/studio_helper/__init__.py",
+                "runtime/python312.zip", "LICENSES/Inter-OFL.txt",
+                "app/studio_helper/web/static/fonts/Inter.woff2", "figma-plugin/manifest.json"]:
+        (folder / rel).parent.mkdir(parents=True, exist_ok=True)
+        (folder / rel).write_text("x")
+    assert updater.only_app_files(folder)
+
+
+def test_download_and_stage_refuses_to_replace_a_folder_with_her_files(monkeypatch, tmp_path):
+    current = tmp_path / "StudioHelper-v0.1.0"
+    current.mkdir()
+    leftover = tmp_path / "StudioHelper-v9.9.9"
+    leftover.mkdir()
+    (leftover / "client logo.psd").write_bytes(b"her work")
+
+    zip_bytes = _make_zip_bytes("StudioHelper-v9.9.9", {"Start Studio Helper.bat": "@echo off"})
+    info, sums_bytes = _info(zip_bytes)
+    monkeypatch.setattr(updater.paths, "bundled_root", lambda: current)
+    monkeypatch.setattr(
+        updater.urllib.request,
+        "urlopen",
+        _fake_urlopen_returning({"https://x/zip": zip_bytes, "https://x/sums": sums_bytes}),
+    )
+
+    with pytest.raises(updater.UpdateError, match="Move your files out"):
+        updater.download_and_stage(info)
+    assert (leftover / "client logo.psd").read_bytes() == b"her work"

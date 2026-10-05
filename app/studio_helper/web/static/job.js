@@ -21,6 +21,7 @@
 
   var job = null;
   var deliverables = [];
+  var printFiles = []; // the newest set of .ai files: the ones export uses
   var jobsRoot = "";
   // Per-step status lines set by the actions below; survive re-renders.
   var status = {setup: null, export: null};
@@ -31,13 +32,14 @@
     for (var i = 0; i < job.formats.length; i++) if (job.formats[i].id === id) return job.formats[i];
     return null;
   }
+  function baseName(p) { return p.split(/[\\/]/).pop(); }
   function vv(n) { return "v" + (n < 10 ? "0" : "") + n; }
 
   // -- derived state --------------------------------------------------------
   function facts() {
     var hasPrint = job.formats.some(function (f) { return f.kind === "print"; });
     var hasDigital = job.formats.some(function (f) { return f.kind !== "print"; });
-    var printReady = !hasPrint || (job.files.print || []).length > 0;
+    var printReady = !hasPrint || printFiles.length > 0;
     var psdReady = !hasDigital || !!job.files.psd;
     var c = {ok: 0, warn: 0, fail: 0, missing: 0};
     deliverables.forEach(function (d) { c[d.status === "found" ? "ok" : d.status]++; });
@@ -92,7 +94,8 @@
     var steps = [
       {t: "Set up files", d: "Artboards at the right size, with bleed and safe-zone guides.", acts: setupActs, key: "setup"},
       {t: "Design", d: "Work in 03_working as usual. Keep the artboard names; they become the file names.", acts: btn("open-folder", "Open job folder")},
-      {t: "Check & export", d: "Checks every artboard, then exports the ones that pass into 04_export.", acts: exportActs, key: "export"},
+      {t: "Check & export", d: "Checks the artboards, then exports into 04_export. Saves your open file first if it has unsaved changes." +
+        (f.hasPrint && printFiles.length ? " Print exports from " + printFiles.map(baseName).join(", ") + "." : ""), acts: exportActs, key: "export"},
       {t: "Delivered", d: (c.ok + c.warn) + " of " + n + " files ready" + (c.fail ? ", " + c.fail + " failing" : "") + ".",
         acts: f.allDone ? btn("open-folder", "Open job folder") : ""},
     ];
@@ -150,6 +153,7 @@
       var versionChanged = job && job.version !== res.data.job.version;
       job = res.data.job;
       deliverables = res.data.deliverables;
+      printFiles = res.data.print_files || [];
       if (first || versionChanged) renderHead();
       renderAll();
     }).catch(function () {
@@ -209,7 +213,8 @@
       var skipped = (r.warnings || []).some(function (w) { return w.code === "SKIPPED_EXPORT"; });
       var exported = (data.exported || []).length;
       var fails = checks.filter(function (c) { return c.status === "fail"; }).length;
-      var banner = scriptErrors.length ? '<div class="banner fail">Stopped with an error. Nothing was exported.</div>' :
+      var banner = scriptErrors.length && exported ? '<div class="banner fail">Exported ' + exported + " file" + (exported > 1 ? "s" : "") + ", but some failed. See below.</div>" :
+        scriptErrors.length ? '<div class="banner fail">Stopped with an error. Nothing was exported.</div>' :
         exported ? '<div class="banner ok">Exported ' + exported + " file" + (exported > 1 ? "s" : "") + " to 04_export/print.</div>" :
         skipped ? '<div class="banner fail">Nothing exported: ' + fails + " problem" + (fails === 1 ? "" : "s") + " to fix first.</div>" :
         fails ? '<div class="banner fail">' + fails + " problem" + (fails === 1 ? "" : "s") + " found. Fix before exporting.</div>" :
@@ -217,7 +222,8 @@
       var extra = scriptErrors.map(function (e) { return {status: "fail", message: e.message, hint: e.hint}; })
         .concat(warnings.map(function (w) { return {status: "warn", message: w.message, hint: w.hint}; }));
       return '<div class="file-card"><h3 class="mono" style="font-size:12.5px;overflow-wrap:anywhere">' + esc(f.ai_path.split(/[\\/]/).pop()) + "</h3>" +
-        banner + UI.checksList(extra) + splitChecks(checks) +
+        banner + (data.saved_source ? '<p class="note">Saved your changes to ' + esc(data.saved_source) + " first.</p>" : "") +
+        UI.checksList(extra) + splitChecks(checks) +
         (skipped ? '<div class="acts"><button class="btn" data-anyway="' + esc(f.ai_path) + '">Export anyway</button></div>' : "") + "</div>";
     }).join("");
     UI.openDrawer(title, "Illustrator print file" + ((files || []).length > 1 ? "s" : ""), html || '<p class="muted">No print files to check.</p>');
@@ -311,13 +317,15 @@
     status.export = {text: exporting ? "Checking, then exporting what passes…" : "Checking…"};
     startTask(act, exporting ? "/illustrator/export-print" : "/illustrator/check-print", body).then(function (result) {
       var files = result.files || [];
-      var exported = 0, problems = 0;
+      var exported = 0, problems = 0, saved = [];
       files.forEach(function (f) {
         var data = (f.result || {}).data || {};
         exported += (data.exported || []).length;
+        if (data.saved_source) saved.push(data.saved_source);
         problems += (data.checks || []).filter(function (c) { return c.status === "fail"; }).length + ((f.result || {}).errors || []).length;
       });
-      status.export = exported ? {cls: "ok", text: "Exported " + exported + " file" + (exported > 1 ? "s" : "") + "."} :
+      var savedText = saved.length ? "Saved " + saved.join(", ") + ", then " : "";
+      status.export = exported ? {cls: "ok", text: (savedText ? savedText + "exported " : "Exported ") + exported + " file" + (exported > 1 ? "s" : "") + "."} :
         problems ? {cls: "fail", text: (exporting ? "Nothing exported. " : "") + "See the problems in the panel."} :
         {cls: "ok", text: "All checks passed."};
       preflightDrawer(files, exporting ? "Check & export print" : "Print check");
@@ -336,18 +344,27 @@
       }
       var n = (result.data.exported || []).length;
       var warnings = (result.warnings || []).map(function (w) { return w.message; });
+      var saved = result.data.saved_source ? "Saved " + result.data.saved_source + ", then e" : "E";
       status.export = {cls: warnings.length ? "fail" : "ok",
-        text: "Exported " + n + " file" + (n === 1 ? "" : "s") + " from Photoshop." + (warnings.length ? " " + warnings.join(" ") : "")};
+        text: saved + "xported " + n + " file" + (n === 1 ? "" : "s") + " from Photoshop." + (warnings.length ? " " + warnings.join(" ") : "")};
     }).catch(function (err) {
       status.export = {cls: "fail", text: "Photoshop didn’t respond."};
       manualFallback(err.message, "Photoshop", "export_digital.jsx", "/api/adobe/open-photoshop-scripts-folder");
     }).finally(function () { load(); });
   }
 
+  function newPrintSetDrawer() {
+    UI.openDrawer("Create new Illustrator files?", "",
+      "<p>This job already has " + printFiles.map(function (p) { return '<span class="mono">' + esc(baseName(p)) + "</span>"; }).join(", ") + ".</p>" +
+      "<p>New files start blank, get " + vv(job.version) + " in their names, and from then on print export uses them instead. Your current files stay in 03_working.</p>" +
+      '<div class="acts"><button class="btn" id="newset-confirm">Create blank ' + vv(job.version) + ' files</button><button class="btn primary" data-close>Keep my files</button></div>');
+    document.getElementById("newset-confirm").addEventListener("click", function () { UI.closeDrawer(); createPrint(); });
+  }
+
   function revisionDrawer() {
     UI.openDrawer("Start revision " + vv(job.version + 1) + "?", "",
       "<p>New exports get " + vv(job.version + 1) + " in their names. Everything already exported stays as it is, for reference.</p>" +
-      "<p class=\"note\">Create the Illustrator/Photoshop files again afterwards to get " + vv(job.version + 1) + " working files.</p>" +
+      "<p class=\"note\">Keep working in the same Illustrator/Photoshop files. Export picks up your changes and names them " + vv(job.version + 1) + ".</p>" +
       '<div class="acts"><button class="btn primary" id="rev-confirm">Start ' + vv(job.version + 1) + '</button><button class="btn ghost" data-close>Cancel</button></div>');
     document.getElementById("rev-confirm").addEventListener("click", function () {
       SH.post(api("/revision")).then(function (res) {
@@ -390,7 +407,7 @@
       case "open-folder": SH.post(api("/open-folder")); UI.toast("Opening the job folder…"); break;
       case "copy-path": copyJobPath(); break;
       case "delete": deleteDrawer(); break;
-      case "create-print": createPrint(); break;
+      case "create-print": if (facts().printReady && facts().hasPrint) newPrintSetDrawer(); else createPrint(); break;
       case "create-psd": createPsd(); break;
       case "figma": figmaDrawer(); break;
       case "export-print": runPrint("export-print", {force: false}); break;

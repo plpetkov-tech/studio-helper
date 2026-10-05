@@ -12,11 +12,20 @@
 // itself (maxGapMm) has no Illustrator dependency and is executed for
 // real in tests/adobe/check_preflight_logic.js.
 //
+// Her open documents are never closed, discarded or changed:
+// - "Check only" reads the open document if there is one (unsaved
+//   changes included) and leaves it exactly as it was. A file that
+//   wasn't open is opened for the check and closed again.
+// - Export first saves the open document if it has unsaved changes
+//   (she clicked Export; she wants what's on screen), then exports from
+//   a throwaway copy next to the .ai, which is closed and deleted
+//   afterwards. Her own window, undo history and zoom stay untouched.
+//
 // Two documented gotchas this script works around (SPEC.md §6.4):
 // - `doc.saveAs(file, PDFSaveOptions)` turns the open document into
 //   that PDF -- so TIFF exports (which use exportFile, not saveAs)
-//   run first, and PDF exports run last, after which `doc` is never
-//   touched again.
+//   run first, and PDF exports run last. That only ever happens to the
+//   throwaway copy.
 // - TIFF export clips to the artboard, dropping the bleed -- so a
 //   TIFF-bound artboard's rect is temporarily expanded by the bleed,
 //   exported, and restored in a finally block.
@@ -485,10 +494,11 @@ function exportOnePdf(doc, artboardIndex, fmt, deliverable, exportDir, preset) {
     return {path: outFile.fsName, type: "pdf", format_id: fmt.id, panel: deliverable.panel};
 }
 
-function exportArtboards(doc, job, exportDir, result) {
+// Pushes each file onto `written` as soon as it's on disk, so an
+// exception halfway still reports what did get exported.
+function exportArtboards(doc, job, exportDir, result, written) {
     var tiffJobs = [];
     var pdfJobs = [];
-    var written = [];
     var i, j, ab, parsed, fmt, size, deliverables;
 
     for (i = 0; i < doc.artboards.length; i++) {
@@ -512,7 +522,11 @@ function exportArtboards(doc, job, exportDir, result) {
     // TIFF first (exportFile doesn't change doc's identity); PDF last
     // (saveAs does) -- see the file header and SPEC.md §6.4.
     for (i = 0; i < tiffJobs.length; i++) {
-        written.push(exportOneTiff(doc, tiffJobs[i].index, tiffJobs[i].fmt, tiffJobs[i].deliverable, exportDir));
+        try {
+            written.push(exportOneTiff(doc, tiffJobs[i].index, tiffJobs[i].fmt, tiffJobs[i].deliverable, exportDir));
+        } catch (e) {
+            addExportError(result, tiffJobs[i].deliverable, ".tif", e);
+        }
     }
     var presets = [];
     for (i = 0; i < app.PDFPresetsList.length; i++) { presets.push(app.PDFPresetsList[i]); }
@@ -527,18 +541,106 @@ function exportArtboards(doc, job, exportDir, result) {
                     (preset || "Illustrator's default PDF settings") + " instead.",
                 "Install the print department's .joboptions file (Edit › Adobe PDF Presets › Import).");
         }
-        written.push(exportOnePdf(doc, pdfJobs[i].index, pdfJobs[i].fmt, pdfJobs[i].deliverable,
-            exportDir, preset));
+        try {
+            written.push(exportOnePdf(doc, pdfJobs[i].index, pdfJobs[i].fmt, pdfJobs[i].deliverable,
+                exportDir, preset));
+        } catch (e) {
+            addExportError(result, pdfJobs[i].deliverable, ".pdf", e);
+        }
+    }
+}
+
+function addExportError(result, deliverable, ext, e) {
+    SH.addError(result, "EXPORT_FAILED",
+        "Couldn't export " + deliverable.expected_stem + ext + ": " + SH.describeError(e), "");
+}
+
+function runChecks(doc, job) {
+    var checks = [];
+    checks.push(checkColorMode(doc));
+    checks = checks.concat(checkArtboards(doc, job));
+    checks.push(checkRasterColorSpaces(doc));
+    checks.push(checkSpotColors(doc));
+    checks.push(checkHiddenLayers(doc));
+    return checks;
+}
+
+function hasFailure(checks) {
+    var i;
+    for (i = 0; i < checks.length; i++) {
+        if (checks[i].status === "fail") { return true; }
+    }
+    return false;
+}
+
+// "~studio-helper-export_<time>.ai" next to the source: same folder, so
+// linked images resolve exactly as they do for her.
+function tempCopyFile(aiFile) {
+    var stamp = new Date().getTime() + "_" + Math.floor(Math.random() * 100000);
+    return new File(joinPath(aiFile.parent.fsName, "~studio-helper-export_" + stamp + ".ai"));
+}
+
+function closeQuietly(doc) {
+    try {
+        doc.close(SaveOptions.DONOTSAVECHANGES);
+    } catch (e) {
+        // already closed/invalid -- nothing more we can do
+    }
+}
+
+function reactivate(doc) {
+    if (!doc) { return; }
+    try { app.activeDocument = doc; } catch (e) { /* best effort */ }
+}
+
+function checkOnly(aiFile, job) {
+    var openDoc = SH.findOpenDocument(aiFile);
+    var doc = openDoc || app.open(aiFile);
+    try {
+        return runChecks(doc, job);
+    } finally {
+        // Checks only read. Close only what this script opened.
+        if (openDoc) { reactivate(openDoc); } else { closeQuietly(doc); }
+    }
+}
+
+function checkAndExport(aiFile, args, result, exported) {
+    var openDoc = SH.findOpenDocument(aiFile);
+    if (openDoc && !openDoc.saved) {
+        openDoc.save();
+        result.data.saved_source = aiFile.name;
     }
 
-    return written;
+    var copy = tempCopyFile(aiFile);
+    if (!aiFile.copy(copy.fsName)) {
+        SH.addError(result, "COPY_FAILED", "Couldn't make a temporary copy of " + aiFile.name + " to export from.",
+            "Check there's free disk space and the 03_working folder isn't read-only, then try again.");
+        return [];
+    }
+
+    var doc = null;
+    var checks = [];
+    try {
+        doc = app.open(copy);
+        checks = runChecks(doc, args.job);
+        if (hasFailure(checks) && !args.force) {
+            SH.addWarning(result, "SKIPPED_EXPORT",
+                "Export skipped because preflight found problems.",
+                'Fix the issues, or choose "Export anyway".');
+        } else {
+            exportArtboards(doc, args.job, args.export_dir, result, exported);
+        }
+    } finally {
+        if (doc) { closeQuietly(doc); }
+        try { copy.remove(); } catch (e) { /* left behind; harmless */ }
+        reactivate(openDoc);
+    }
+    return checks;
 }
 
 function main(args) {
     var result = SH.makeResult();
-    var job = args.job;
     var mode = args.mode || "check";
-    var forceExport = !!args.force;
 
     var aiFile = new File(args.ai_path);
     if (!aiFile.exists) {
@@ -546,45 +648,13 @@ function main(args) {
         return result;
     }
 
-    var doc = app.open(aiFile);
     var exported = [];
-    var checks = [];
-
+    var checks;
     try {
-        checks.push(checkColorMode(doc));
-        checks = checks.concat(checkArtboards(doc, job));
-        checks.push(checkRasterColorSpaces(doc));
-        checks.push(checkSpotColors(doc));
-        checks.push(checkHiddenLayers(doc));
-
-        var hasFail = false;
-        var i;
-        for (i = 0; i < checks.length; i++) {
-            if (checks[i].status === "fail") { hasFail = true; break; }
-        }
-
-        if (mode === "export") {
-            if (hasFail && !forceExport) {
-                SH.addWarning(result, "SKIPPED_EXPORT",
-                    "Export skipped because preflight found problems.",
-                    'Fix the issues, or choose "Export anyway".');
-            } else {
-                doc.save(); // SPEC.md §6.4 export step 1
-                exported = exportArtboards(doc, job, args.export_dir, result);
-            }
-        }
-    } finally {
-        try {
-            doc.close(SaveOptions.DONOTSAVECHANGES);
-        } catch (e) {
-            // already closed/invalid -- nothing more we can do
-        }
-        if (exported.length > 0) {
-            // A PDF export turned the in-memory doc into that PDF
-            // (SPEC.md §6.4 gotcha); reopen the saved .ai so
-            // Illustrator ends up showing the source file, not the export.
-            try { app.open(aiFile); } catch (e) { /* best effort */ }
-        }
+        checks = mode === "export" ? checkAndExport(aiFile, args, result, exported) : checkOnly(aiFile, args.job);
+    } catch (e) {
+        SH.addError(result, "EXCEPTION", SH.describeError(e), "");
+        checks = [];
     }
 
     result.data.checks = checks;
