@@ -126,8 +126,15 @@ def save_format(registry_path: Path, fmt: dict) -> Registry:
     """Appends `fmt` to the end of the `formats:` list in registry.yaml
     and re-validates the whole file; restores the original if the
     result doesn't load."""
+    return insert_entry_text(registry_path, _yaml_entry(fmt))
+
+
+def insert_entry_text(registry_path: Path, entry: str) -> Registry:
+    """Inserts one ready-made `  - id: ...` block (with any comments)
+    at the end of the `formats:` list, then re-validates; restores the
+    original file if the result doesn't load."""
     original = registry_path.read_text(encoding="utf-8")
-    entry = _yaml_entry(fmt)
+    entry = entry.rstrip("\n") + "\n"
 
     lines = original.splitlines(keepends=True)
     insert_at = len(lines)

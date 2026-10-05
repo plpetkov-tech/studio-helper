@@ -17,6 +17,7 @@ from pathlib import Path
 
 from studio_helper import config, instance, logging_setup, paths, updater
 from studio_helper.api.context import AppContext
+from studio_helper.core import default_formats
 from studio_helper.poller import Poller
 from studio_helper.server import create_server
 
@@ -51,6 +52,14 @@ def seed_user_registry() -> None:
     shutil.copyfile(src, dest)
 
 
+def merge_default_formats() -> list[str]:
+    """New default formats reach a registry she has edited too."""
+    return default_formats.merge_new_defaults(
+        paths.user_registry_path(), paths.bundled_registry_path(),
+        paths.app_data_dir() / "default_formats_seen.json",
+    )
+
+
 def run() -> int:
     logger = logging_setup.setup()
     logger.info("Studio Helper starting")
@@ -63,6 +72,12 @@ def run() -> int:
 
     instance.clear()
     seed_user_registry()
+    try:
+        added = merge_default_formats()
+        if added:
+            logger.info("Added new default formats to the registry: %s", ", ".join(added))
+    except OSError:
+        logger.exception("Could not add new default formats")
     try:
         for folder in updater.cleanup_old_installs(paths.bundled_root()):
             logger.info("Removed old install %s", folder)
