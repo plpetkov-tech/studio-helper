@@ -229,3 +229,20 @@ def test_add_format_endpoint(api):
     assert data["format"]["id"] == "business-card"
     _s, reg = api("GET", "/api/registry")
     assert "Small print" in reg["groups"]
+
+
+def test_edit_and_delete_format_endpoints(api):
+    status, data = api("POST", "/api/registry/formats/flyer-a5",
+                       {"notes": "Matte paper", "bleed_mm": "0", "w": "150", "h": "210",
+                        "exports": ["pdf", "tiff", "gif"]})
+    assert status == 200, data
+    f = data["format"]
+    assert (f["notes"], f["bleed_mm"], f["size"]["w"], f["exports"]) == \
+        ("Matte paper", 0, 150, ["pdf", "tiff"])
+
+    status, data = api("POST", "/api/registry/formats/ig-post", {"exports": ["tiff"]})
+    assert data["ok"] is False and "Pick at least one" in data["error"]
+
+    assert api("POST", "/api/registry/formats/ig-post/delete")[1]["ok"] is True
+    _s, reg = api("GET", "/api/registry")
+    assert [x["id"] for x in reg["formats"]] == ["flyer-a5"]

@@ -22,6 +22,7 @@ window.SHUI = (function () {
         '<div class="help">' +
           '<button class="icon-btn" id="help-btn" aria-haspopup="true" aria-expanded="false" aria-label="Help and settings">?<span class="dot" id="update-dot" hidden></span></button>' +
           '<div class="menu" id="help-menu" hidden>' +
+            '<a href="/formats.html">Edit formats</a>' +
             '<a href="/guide.html">Guide</a>' +
             '<a href="/setup-check.html">Setup check</a>' +
             '<button id="update-btn"><span>Check for updates</span><span class="sub" id="version-label"></span></button>' +

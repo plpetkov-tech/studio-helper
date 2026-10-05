@@ -169,7 +169,8 @@
   }
 
   function notesBlock(fmt) {
-    return fmt && fmt.notes ? '<div class="notes"><b>Print shop notes</b>' + esc(fmt.notes) + "</div>" : "";
+    return fmt && fmt.notes ? '<div class="notes"><b>Notes</b>' + esc(fmt.notes) +
+      '<br><a class="note" href="/formats.html?edit=' + encodeURIComponent(fmt.id) + '">Edit notes for new jobs</a></div>' : "";
   }
 
   function splitChecks(checks) {

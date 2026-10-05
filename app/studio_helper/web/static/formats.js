@@ -43,9 +43,90 @@
         '<div><div class="kind" style="--k:var(--k-' + esc(f.kind) + ')">' + esc(f.group) + '</div><div class="mono" style="font-size:15px;margin-top:4px">' + esc(UI.dims(f)) + "</div></div></div>" +
       (f.notes ? '<div class="notes"><b>Print shop notes</b>' + esc(f.notes) + "</div>" : "") +
       '<dl class="kv">' + facts + "</dl>" +
-      '<div class="acts"><a class="btn primary" href="/new-job.html?format=' + encodeURIComponent(f.id) + '">Use in a new job</a>' +
-      '<button class="btn" data-open-file>Edit in the file</button></div>' +
+      '<div class="acts"><button class="btn primary" data-edit="' + esc(f.id) + '">Edit</button>' +
+      '<a class="btn" href="/new-job.html?format=' + encodeURIComponent(f.id) + '">Use in a new job</a>' +
+      '<button class="btn ghost danger" data-delete="' + esc(f.id) + '">Delete…</button></div>' +
       '<p class="note">Changes affect new jobs only. Existing jobs keep the sizes they were created with.</p>');
+  }
+
+  var EXPORTS = {print: ["pdf", "tiff"], screen: ["jpg", "png", "mp4"], social: ["jpg", "png"], web: ["jpg", "png"]};
+
+  function editDrawer(id) {
+    var f = byId(id);
+    if (!f) return;
+    var print = f.kind === "print";
+    var groups = registry.groups.map(function (g) {
+      return "<option" + (g === f.group ? " selected" : "") + ">" + esc(g) + "</option>";
+    }).join("");
+    var allowed = EXPORTS[f.kind] || [];
+    var exportBoxes = allowed.map(function (e) {
+      return '<label style="display:inline-flex;gap:6px;align-items:center;margin-right:14px"><input type="checkbox" name="e-exports" value="' + e + '"' +
+        ((f.exports || []).indexOf(e) >= 0 ? " checked" : "") + ' style="accent-color:var(--accent)"> ' + e.toUpperCase() + "</label>";
+    }).join("");
+    var size = f.panels ? "" :
+      '<div class="row"><div class="field"><label for="e-w">Width (' + esc(f.size.unit) + ')</label><input class="input mono" id="e-w" type="number" min="1" value="' + esc(f.size.w) + '"></div>' +
+      '<div class="field"><label for="e-h">Height (' + esc(f.size.unit) + ')</label><input class="input mono" id="e-h" type="number" min="1" value="' + esc(f.size.h) + '"></div></div>';
+    UI.openDrawer("Edit " + f.name, '<span class="mono">' + esc(f.id) + "</span>",
+      '<form id="edit-form" class="stack" novalidate>' +
+        '<div class="field"><label for="e-name">Name</label><input class="input" id="e-name" value="' + esc(f.name) + '"></div>' +
+        '<div class="field"><label for="e-notes">Notes <span class="muted">(shown next to the artboard and on every job)</span></label>' +
+          '<textarea class="input" id="e-notes" rows="4" placeholder="e.g. With logo, no campaign terms. / 7 cm pocket at the top">' + esc(f.notes || "") + "</textarea></div>" +
+        '<div class="row"><div class="field"><label for="e-group">List under</label><select class="input" id="e-group">' + groups + '<option value="__new">New group…</option></select></div></div>' +
+        '<div class="field" id="e-newgroup-wrap" hidden><label for="e-newgroup">New group name</label><input class="input" id="e-newgroup"></div>' +
+        size +
+        (f.panels ? '<p class="note">' + f.panels.length + " panels. Panel sizes are changed in the file (Edit file).</p>" : "") +
+        (print ?
+          '<div class="row"><div class="field"><label for="e-bleed">Bleed (mm)</label><input class="input mono" id="e-bleed" type="number" min="0" value="' + esc(f.bleed_mm || 0) + '"></div>' +
+          '<div class="field"><label for="e-safe">Safe zone (mm)</label><input class="input mono" id="e-safe" type="number" min="0" value="' + esc(f.safe_mm || 0) + '"></div>' +
+          '<div class="field"><label for="e-ppi">TIFF ppi at full size</label><input class="input mono" id="e-ppi" type="number" min="1" value="' + esc(f.tiff_ppi || "") + '"></div></div>' : "") +
+        '<div class="field"><span class="lbl">Deliver as</span><div>' + exportBoxes + "</div></div>" +
+        '<p class="banner error" id="e-error" hidden></p>' +
+        '<div class="acts"><button class="btn primary" type="submit">Save changes</button><button class="btn ghost" type="button" data-close>Cancel</button></div>' +
+        '<p class="note">Changes apply to new jobs. Existing jobs keep the sizes they were created with.</p>' +
+      "</form>");
+    var form = document.getElementById("edit-form");
+    form.addEventListener("change", function () {
+      document.getElementById("e-newgroup-wrap").hidden = document.getElementById("e-group").value !== "__new";
+    });
+    document.getElementById("e-name").focus();
+    form.addEventListener("submit", function (e) {
+      e.preventDefault();
+      var v = function (eid) { var el = document.getElementById(eid); return el ? el.value.trim() : undefined; };
+      var body = {
+        name: v("e-name"), notes: v("e-notes"),
+        group: v("e-group") === "__new" ? v("e-newgroup") : v("e-group"),
+        exports: Array.prototype.map.call(form.querySelectorAll("[name=e-exports]:checked"), function (c) { return c.value; }),
+      };
+      if (!f.panels) { body.w = v("e-w"); body.h = v("e-h"); }
+      if (print) { body.bleed_mm = v("e-bleed"); body.safe_mm = v("e-safe"); body.tiff_ppi = v("e-ppi"); }
+      var err = document.getElementById("e-error");
+      SH.post("/api/registry/formats/" + encodeURIComponent(f.id), body).then(function (res) {
+        if (!res.data.ok) { err.textContent = res.data.error || "Couldn’t save."; err.hidden = false; return; }
+        UI.closeDrawer();
+        UI.toast("Saved “" + res.data.format.name + "”.");
+        load();
+      });
+    });
+  }
+
+  function deleteDrawer(id) {
+    var f = byId(id);
+    if (!f) return;
+    UI.openDrawer("Delete “" + f.name + "”?", "",
+      "<p>It disappears from Formats and New job. Jobs that already use it keep it.</p>" +
+      '<div class="acts"><button class="btn primary" id="del-format" style="background:var(--fail);border-color:var(--fail)">Delete format</button><button class="btn ghost" data-close>Keep it</button></div>');
+    document.getElementById("del-format").addEventListener("click", function () {
+      SH.post("/api/registry/formats/" + encodeURIComponent(f.id) + "/delete").then(function (res) {
+        UI.closeDrawer();
+        if (!res.data.ok) { SH.showError(errorEl, res.data.error || "Couldn’t delete it."); return; }
+        UI.toast("Deleted “" + f.name + "”.");
+        load();
+      });
+    });
+  }
+
+  function byId(id) {
+    return registry.formats.filter(function (x) { return x.id === id; })[0];
   }
 
   function addDrawer() {
@@ -103,8 +184,14 @@
     if (tr && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); detail(tr.dataset.id); }
   });
   document.addEventListener("click", function (e) {
-    if (e.target.closest("[data-open-file]")) { SH.post("/api/registry/open"); UI.toast("Opening the formats file…"); }
+    var t = e.target.closest("[data-edit], [data-delete], [data-open-file]");
+    if (!t) return;
+    if (t.dataset.edit) { editDrawer(t.dataset.edit); return; }
+    if (t.dataset.delete) { deleteDrawer(t.dataset.delete); return; }
+    SH.post("/api/registry/open");
+    UI.toast("Opening the formats file…");
   });
+  var editParam = new URLSearchParams(window.location.search).get("edit");
   document.getElementById("open-btn").addEventListener("click", function () {
     SH.post("/api/registry/open");
     UI.toast("Opening the formats file… Save it, then click Check file.");
@@ -130,6 +217,7 @@
       }
       registry = res.data;
       render();
+      if (editParam && byId(editParam)) { editDrawer(editParam); editParam = null; }
     }).catch(function () {
       SH.showError(errorEl, "Could not reach Studio Helper. Is it still running?");
     });

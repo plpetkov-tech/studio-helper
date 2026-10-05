@@ -10,7 +10,7 @@ from pathlib import Path
 
 from studio_helper import paths as app_paths
 from studio_helper.adobe import illustrator, photoshop
-from studio_helper.core import custom_formats
+from studio_helper.core import custom_formats, registry_edit
 from studio_helper.core import job as job_mod
 from studio_helper.core.registry import Registry, load_registry
 from studio_helper.core.scaffold import EXPORT_SUBDIR_BY_KIND
@@ -59,6 +59,77 @@ def add_format(ctx, body):
     fmt = _build_custom(body or {}, registry)
     registry = custom_formats.save_format(ctx.registry_path, fmt)
     return 200, {"ok": True, "format": registry.formats[fmt["id"]]}
+
+
+ALLOWED_EXPORTS = {
+    "print": ("pdf", "tiff"),
+    "screen": ("jpg", "png", "mp4"),
+    "social": ("jpg", "png"),
+    "web": ("jpg", "png"),
+}
+
+
+def _number(value, label: str, *, positive: bool = False):
+    if value in (None, ""):
+        return None
+    try:
+        n = float(value)
+    except (TypeError, ValueError) as exc:
+        raise job_mod.JobError(f"{label} must be a number.") from exc
+    if n < 0 or (positive and n == 0):
+        raise job_mod.JobError(f"{label} must be more than 0." if positive else
+                               f"{label} can't be negative.")
+    return int(n) if n == int(n) else n
+
+
+@route("POST", "/api/registry/formats/<format_id>")
+def edit_format(ctx, body, format_id):
+    """The Formats page's Edit form. Only the fields sent are changed."""
+    body = body or {}
+    registry = _load_registry(ctx)
+    fmt = registry.formats.get(format_id)
+    if fmt is None:
+        raise job_mod.JobError(f"No format '{format_id}'.")
+
+    changes: dict = {}
+    for key in ("name", "group", "notes"):
+        if key in body:
+            changes[key] = str(body[key] or "").strip()
+    if "w" in body or "h" in body:
+        if fmt.get("panels"):
+            raise job_mod.JobError("Panel sizes can only be changed in the file (Edit file).")
+        w = _number(body.get("w"), "Width", positive=True)
+        h = _number(body.get("h"), "Height", positive=True)
+        if w is None or h is None:
+            raise job_mod.JobError("Enter both the width and the height.")
+        changes["size"] = {"w": w, "h": h, "unit": fmt["size"]["unit"]}
+    if fmt["kind"] == "print":
+        for key, label in (("bleed_mm", "Bleed"), ("safe_mm", "Safe zone")):
+            if key in body:
+                changes[key] = _number(body[key], label)
+        if "tiff_ppi" in body:
+            changes["tiff_ppi"] = _number(body["tiff_ppi"], "TIFF resolution", positive=True)
+    if "exports" in body:
+        allowed = ALLOWED_EXPORTS.get(fmt["kind"], ())
+        exports = [e for e in (body["exports"] or []) if e in allowed]
+        if not exports:
+            raise job_mod.JobError("Pick at least one file type to deliver.")
+        changes["exports"] = exports
+
+    try:
+        registry = registry_edit.update_format(ctx.registry_path, format_id, changes)
+    except registry_edit.FormatEditError as exc:
+        raise job_mod.JobError(str(exc)) from exc
+    return 200, {"ok": True, "format": registry.formats[format_id]}
+
+
+@route("POST", "/api/registry/formats/<format_id>/delete")
+def delete_format(ctx, body, format_id):
+    try:
+        registry_edit.delete_format(ctx.registry_path, format_id)
+    except registry_edit.FormatEditError as exc:
+        raise job_mod.JobError(str(exc)) from exc
+    return 200, {"ok": True}
 
 
 def _build_custom(spec: dict, registry: Registry, taken: set[str] | None = None) -> dict:
