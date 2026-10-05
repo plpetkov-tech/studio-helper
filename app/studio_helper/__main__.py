@@ -31,6 +31,7 @@ PREVIOUS_DEFAULT_REGISTRY_HASHES = frozenset({
     "608fd2cad608d3060201e7d9d89b212d61d6d88f323eda28902e7d65ed3f87f7",  # v0.4.0 groups, notes
     "d4694699db88d25832b2c779896bfe33f96d1df82debeda3896e27556e953063",  # v0.4.2 built-in PDF/X-1a
     "dc75356771ba456d5e9408766049aaaa70e4b2467eaaee961c4c0d0d7a60b9ba",  # v0.4.3 banner pair
+    "eff0e7948427baf965787c2b646e3a0395b2e22226852780f555053e7e98c729",  # v0.4.5 60 ppi IDEA vinyls
 })
 
 

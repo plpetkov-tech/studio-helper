@@ -103,6 +103,9 @@
             (+s.bleed !== +(f.bleed_mm || 0) ? '<span class="muted">usually ' + esc(f.bleed_mm || 0) + " mm</span>" : '<span class="muted">as usual for this format</span>') +
             (f.scale && f.scale !== 1 ? '<span class="muted">drawn at 1:' + Math.round(1 / f.scale) + "</span>" : "") +
             (f.notes ? '<span class="has-note" title="' + esc(f.notes) + '">Has notes</span>' : "") + "</div>";
+        } else if (s && f.notes) {
+          // screens/web: short rules like "With logo, no campaign terms"
+          over = '<div class="override" data-stop><span class="has-note">' + esc(f.notes) + "</span></div>";
         }
         return '<label class="fmt' + (s ? " sel" : "") + '"><input type="checkbox" data-pick="' + esc(f.id) + '"' + (s ? " checked" : "") + ">" +
           UI.formatShape(f) +

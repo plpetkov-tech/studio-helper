@@ -321,6 +321,97 @@ formats:
     exports: [jpg, png]
     allow_alpha: false
 
+  # Web assets (marketing, 2026-10): logo / campaign-terms rules in the notes.
+  - id: web-1920x1080
+    name: Website banner (1920 × 1080 px)
+    group: Web
+    notes: "For the website. No logo, with the campaign terms."
+    kind: web
+    size: {w: 1920, h: 1080, unit: px}
+    safe_px: 0
+    exports: [jpg, png]
+    allow_alpha: false
+
+  - id: web-1240x280
+    name: Web strip (1240 × 280 px)
+    group: Web
+    notes: "No logo, no campaign terms."
+    kind: web
+    size: {w: 1240, h: 280, unit: px}
+    safe_px: 0
+    exports: [jpg, png]
+    allow_alpha: false
+
+  - id: web-408x215
+    name: Web small banner (408 × 215 px)
+    group: Web
+    notes: "No logo, no campaign terms."
+    kind: web
+    size: {w: 408, h: 215, unit: px}
+    safe_px: 0
+    exports: [jpg, png]
+    allow_alpha: false
+
+  - id: web-480x480
+    name: Web square, small (480 × 480 px)
+    group: Web
+    notes: "No logo, no campaign terms."
+    kind: web
+    size: {w: 480, h: 480, unit: px}
+    safe_px: 0
+    exports: [jpg, png]
+    allow_alpha: false
+
+  - id: web-580x730
+    name: Web portrait (580 × 730 px)
+    group: Web
+    notes: "With logo, no campaign terms."
+    kind: web
+    size: {w: 580, h: 730, unit: px}
+    safe_px: 0
+    exports: [jpg, png]
+    allow_alpha: false
+
+  - id: web-745x1322
+    name: Web tall (745 × 1322 px)
+    group: Web
+    notes: "With logo, no campaign terms."
+    kind: web
+    size: {w: 745, h: 1322, unit: px}
+    safe_px: 0
+    exports: [jpg, png]
+    allow_alpha: false
+
+  - id: web-800x1000
+    name: Web portrait, large (800 × 1000 px)
+    group: Web
+    notes: "With logo, no campaign terms."
+    kind: web
+    size: {w: 800, h: 1000, unit: px}
+    safe_px: 0
+    exports: [jpg, png]
+    allow_alpha: false
+
+  - id: web-1000x1000
+    name: Web square (1000 × 1000 px)
+    group: Web
+    notes: "With logo, with the campaign terms."
+    kind: web
+    size: {w: 1000, h: 1000, unit: px}
+    safe_px: 0
+    exports: [jpg, png]
+    allow_alpha: false
+
+  - id: web-1080x1080
+    name: Web square, large (1080 × 1080 px)
+    group: Web
+    notes: "With logo, with the campaign terms."
+    kind: web
+    size: {w: 1080, h: 1080, unit: px}
+    safe_px: 0
+    exports: [jpg, png]
+    allow_alpha: false
+
   - id: flyer-a5
     name: A5 flyer
     group: Small print
@@ -348,3 +439,4 @@ job_types:
   mall-print: ["mall-print-*"]
   mall-digital: ["mall-screen-*", "ig-*", "fb-*"]
   mall-campaign: ["mall-print-*", "mall-screen-*", "ig-*", "fb-*"]
+  web: ["web-*"]

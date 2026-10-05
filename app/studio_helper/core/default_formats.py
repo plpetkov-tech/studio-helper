@@ -22,7 +22,10 @@ from studio_helper.core.registry import RegistryError, load_registry
 # Defaults added after the last release that shipped the registry as a
 # whole file (v0.4.2). On the very first merge everything else counts as
 # already offered, so formats she removed back then stay removed.
-NEW_SINCE_FIRST_MERGE = frozenset({"banner-pair-stacked"})
+NEW_SINCE_FIRST_MERGE = frozenset({"banner-pair-stacked"}) | frozenset(
+    f"web-{w}x{h}" for w, h in [(1920, 1080), (1240, 280), (408, 215), (480, 480), (580, 730),
+                                (745, 1322), (800, 1000), (1000, 1000), (1080, 1080)]
+)
 
 # One-time changes to formats she already has. Each runs once (its name
 # is remembered with the offered ids) and only fills a field her entry
@@ -35,6 +38,10 @@ FIELD_PATCHES = [
         "mall-print-idea-vinyl-4100x3100",
     )),
 ]
+
+# Presets (job_types) added to the default after preset merging existed.
+# On the first merge the older ones count as already offered.
+NEW_JOB_TYPES_SINCE_FIRST_MERGE = frozenset({"web"})
 
 _ENTRY = re.compile(r"^  - id: (\S+)")
 _TOP_LEVEL = re.compile(r"^[A-Za-z_]")
@@ -95,6 +102,19 @@ def merge_new_defaults(user_path: Path, default_path: Path, seen_path: Path) -> 
             failed.add(fid)  # e.g. clashes with something of hers; offer it again next time
     seen |= set(entries) - failed
 
+    if not any(s.startswith("jobtype:") for s in seen):
+        seen |= {"jobtype:" + n for n in _default_job_types(default_path)
+                 if n not in NEW_JOB_TYPES_SINCE_FIRST_MERGE}
+    for name, line in _default_job_types(default_path).items():
+        if "jobtype:" + name in seen:
+            continue
+        try:
+            if _add_job_type(user_path, name, line):
+                added.append("preset " + name)
+        except RegistryError:
+            pass
+        seen.add("jobtype:" + name)
+
     for name, key, value, ids in FIELD_PATCHES:
         if "patch:" + name in seen:
             continue
@@ -126,6 +146,48 @@ def _set_missing_field(user_path: Path, fid: str, key: str, value) -> bool:
         i += 1
     lines.insert(head + 1, f"    {key}: {value}\n")
     user_path.write_text("".join(lines), encoding="utf-8")
+    try:
+        load_registry(user_path)
+    except RegistryError:
+        user_path.write_text(original, encoding="utf-8")
+        raise
+    return True
+
+
+def _default_job_types(default_path: Path) -> dict[str, str]:
+    """{preset name: its line} from the default's job_types section."""
+    out, inside = {}, False
+    for line in default_path.read_text(encoding="utf-8").splitlines():
+        if _TOP_LEVEL.match(line):
+            inside = line.startswith("job_types:")
+            continue
+        m = re.match(r"^  ([\w-]+)\s*:", line)
+        if inside and m:
+            out[m.group(1)] = line
+    return out
+
+
+def _add_job_type(user_path: Path, name: str, line: str) -> bool:
+    """Adds one preset line to her job_types (creating the section if
+    she has none), unless she already has a preset with that name."""
+    original = user_path.read_text(encoding="utf-8")
+    if name in load_registry(user_path).job_types:
+        return False
+    lines = original.splitlines(keepends=True)
+    start = next((i for i, ln in enumerate(lines) if ln.startswith("job_types:")), None)
+    if start is None:
+        text = original.rstrip("\n") + "\n\njob_types:\n" + line + "\n"
+    else:
+        end = next(
+            (i for i in range(start + 1, len(lines)) if _TOP_LEVEL.match(lines[i])), len(lines)
+        )
+        while end - 1 > start and not lines[end - 1].strip():
+            end -= 1
+        if not lines[end - 1].endswith("\n"):
+            lines[end - 1] += "\n"
+        lines.insert(end, line + "\n")
+        text = "".join(lines)
+    user_path.write_text(text, encoding="utf-8")
     try:
         load_registry(user_path)
     except RegistryError:

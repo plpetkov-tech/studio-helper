@@ -34,14 +34,18 @@ def test_first_merge_adds_only_new_defaults_and_keeps_her_file(tmp_path):
     user, seen = tmp_path / "registry.yaml", tmp_path / "seen.json"
     user.write_text(HERS, encoding="utf-8")
 
-    assert df.merge_new_defaults(user, DEFAULTS, seen) == ["banner-pair-stacked"]
+    added = df.merge_new_defaults(user, DEFAULTS, seen)
+    assert added[0] == "banner-pair-stacked"
+    assert set(added[1:]) == {f for f in df.NEW_SINCE_FIRST_MERGE if f.startswith("web-")} | {
+        "preset web"}
     text = user.read_text(encoding="utf-8")
     assert "name: My A5   # her own edit" in text
     reg = load_registry(user)
-    # old defaults she doesn't have stay out; only the new one comes in
-    assert list(reg.formats) == ["flyer-a5", "banner-pair-stacked"]
+    # old defaults she doesn't have stay out; only the new ones come in
+    assert list(reg.formats)[:2] == ["flyer-a5", "banner-pair-stacked"]
+    assert "mall-print-paradise-snap-frame" not in reg.formats
     assert reg.formats["banner-pair-stacked"]["panel_layout"] == "column"
-    assert reg.job_types == {"mine": ["flyer-a5"]}
+    assert reg.job_types == {"mine": ["flyer-a5"], "web": ["web-*"]}
 
     # nothing again on the next start, even after she deletes it
     user.write_text(HERS, encoding="utf-8")
@@ -92,3 +96,23 @@ def test_tiff_patch_never_overrides_her_own_value(tmp_path):
     user.write_text(_hers_with(mine), encoding="utf-8")
     df.merge_new_defaults(user, DEFAULTS, seen)
     assert load_registry(user).formats["mall-print-idea-vinyl-4100x3100"]["tiff_ppi"] == 45
+
+
+def test_new_web_formats_and_preset_reach_her_file(tmp_path):
+    user, seen = tmp_path / "registry.yaml", tmp_path / "seen.json"
+    user.write_text(HERS, encoding="utf-8")
+    added = df.merge_new_defaults(user, DEFAULTS, seen)
+    reg = load_registry(user)
+    assert "web-1920x1080" in reg.formats
+    notes = reg.formats["web-1920x1080"]["notes"]
+    assert notes == "For the website. No logo, with the campaign terms."
+    assert "preset web" in added
+    assert reg.job_types["web"] == ["web-*"]
+    assert reg.job_types["mine"] == ["flyer-a5"]
+    assert "mall-print" not in reg.job_types  # older presets she doesn't have stay out
+
+    # she deletes the preset: it stays deleted
+    user.write_text(user.read_text(encoding="utf-8").replace('  web: ["web-*"]\n', ""),
+                    encoding="utf-8")
+    df.merge_new_defaults(user, DEFAULTS, seen)
+    assert "web" not in load_registry(user).job_types
