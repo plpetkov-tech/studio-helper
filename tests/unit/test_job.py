@@ -293,3 +293,16 @@ def test_create_job_rejects_negative_bleed(jobs_root, registry):
     with pytest.raises(job_mod.JobError, match="negative"):
         job_mod.create_job(jobs_root, registry, "X", ["flyer-a5"], now=FIXED_NOW,
                            bleed_overrides={"flyer-a5": -1})
+
+
+def test_refresh_from_registry_updates_tiff_ppi_of_an_existing_job(jobs_root, registry, tmp_path):
+    job = job_mod.create_job(jobs_root, registry, "Old", ["flyer-a5"], now=FIXED_NOW)
+    assert job["formats"][0].get("tiff_ppi") != 60
+    path = tmp_path / "newer.yaml"
+    newer = REGISTRY_YAML.replace("  pdf_preset:", "  tiff_ppi: 60\n  pdf_preset:")
+    path.write_text(newer, encoding="utf-8")
+
+    refreshed = job_mod.refresh_from_registry(jobs_root, job["id"], load_registry(path))
+    assert refreshed["formats"][0]["tiff_ppi"] == 60
+    assert job_mod.load_job(jobs_root, job["id"])["formats"][0]["tiff_ppi"] == 60
+    assert refreshed["deliverables"] == job["deliverables"]

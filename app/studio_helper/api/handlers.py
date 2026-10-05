@@ -197,7 +197,7 @@ def export_illustrator_print(ctx, body, job_id):
     force = bool(body.get("force"))
     only_ai_path = body.get("ai_path")  # scopes an "export anyway" retry to one file
 
-    job = job_mod.load_job(ctx.jobs_root, job_id)
+    job = job_mod.refresh_from_registry(ctx.jobs_root, job_id, _load_registry(ctx))
     ai_paths = _print_ai_paths(ctx, job)
     if not ai_paths:
         raise job_mod.JobError(

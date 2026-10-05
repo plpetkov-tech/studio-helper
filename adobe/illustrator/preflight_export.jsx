@@ -434,6 +434,9 @@ function exportOneTiff(doc, artboardIndex, fmt, deliverable, exportDir) {
         opts.artBoardClipping = true;
         opts.saveMultipleArtboards = true;
         opts.artboardRange = String(artboardIndex + 1);
+        // Lossless LZW: same pixels, much smaller files for big flat
+        // artwork. Illustrator's own (misspelled) property name.
+        try { opts.IZWCompression = true; } catch (e) { /* older Illustrator */ }
 
         doc.exportFile(outFile, ExportType.TIFF, opts);
     } finally {

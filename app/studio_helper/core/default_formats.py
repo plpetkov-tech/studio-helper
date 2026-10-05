@@ -24,6 +24,18 @@ from studio_helper.core.registry import RegistryError, load_registry
 # already offered, so formats she removed back then stay removed.
 NEW_SINCE_FIRST_MERGE = frozenset({"banner-pair-stacked"})
 
+# One-time changes to formats she already has. Each runs once (its name
+# is remembered with the offered ids) and only fills a field her entry
+# doesn't set -- a value she chose herself always wins.
+FIELD_PATCHES = [
+    # The print shop asked for ~275 MB TIFFs; 150 ppi at 4 m made ~1.8 GB.
+    ("idea-vinyl-tiff-60ppi", "tiff_ppi", 60, (
+        "mall-print-idea-vinyl-4020x3050",
+        "mall-print-idea-vinyl-4000x3000",
+        "mall-print-idea-vinyl-4100x3100",
+    )),
+]
+
 _ENTRY = re.compile(r"^  - id: (\S+)")
 _TOP_LEVEL = re.compile(r"^[A-Za-z_]")
 
@@ -82,5 +94,41 @@ def merge_new_defaults(user_path: Path, default_path: Path, seen_path: Path) -> 
         except RegistryError:
             failed.add(fid)  # e.g. clashes with something of hers; offer it again next time
     seen |= set(entries) - failed
+
+    for name, key, value, ids in FIELD_PATCHES:
+        if "patch:" + name in seen:
+            continue
+        for fid in ids:
+            try:
+                if _set_missing_field(user_path, fid, key, value):
+                    added.append(f"{fid}.{key}")
+            except RegistryError:
+                pass  # leave her file as it was (restored), don't retry forever
+        seen.add("patch:" + name)
+
     seen_path.write_text(json.dumps(sorted(seen)), encoding="utf-8")
     return added
+
+
+def _set_missing_field(user_path: Path, fid: str, key: str, value) -> bool:
+    """Adds `key: value` to format `fid` in her file if that entry
+    doesn't set it. Re-validates; restores the file on failure."""
+    original = user_path.read_text(encoding="utf-8")
+    lines = original.splitlines(keepends=True)
+    pattern = re.compile(rf"^  - id: {re.escape(fid)}\s*$")
+    head = next((i for i, ln in enumerate(lines) if pattern.match(ln)), None)
+    if head is None:
+        return False
+    i = head + 1
+    while i < len(lines) and lines[i].startswith("    "):
+        if re.match(rf"^    {re.escape(key)}\s*:", lines[i]):
+            return False  # she set it herself
+        i += 1
+    lines.insert(head + 1, f"    {key}: {value}\n")
+    user_path.write_text("".join(lines), encoding="utf-8")
+    try:
+        load_registry(user_path)
+    except RegistryError:
+        user_path.write_text(original, encoding="utf-8")
+        raise
+    return True

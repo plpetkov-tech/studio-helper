@@ -96,6 +96,26 @@ def auto_scale_job(jobs_root: Path, job_id: str) -> dict:
     return job
 
 
+def refresh_from_registry(jobs_root: Path, job_id: str, registry: Registry,
+                          keys: tuple[str, ...] = ("tiff_ppi",)) -> dict:
+    """Export settings that don't change a job's sizes or file names
+    (TIFF resolution) follow the current registry, so a fix there
+    reaches jobs that already exist."""
+    job = load_job(jobs_root, job_id)
+    changed = False
+    for fmt in job["formats"]:
+        current = registry.formats.get(fmt["id"])
+        if not current:
+            continue
+        for key in keys:
+            if key in current and fmt.get(key) != current[key]:
+                fmt[key] = current[key]
+                changed = True
+    if changed:
+        _write_job(job_path(jobs_root, job_id), job)
+    return job
+
+
 def create_job(
     jobs_root: Path,
     registry: Registry,
