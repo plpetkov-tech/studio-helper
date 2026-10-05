@@ -34,6 +34,8 @@ export interface FrameSpec {
   widthPx: number;
   heightPx: number;
   safePx: number;
+  /** What Figma's Export should write: the first png/jpg the format allows. */
+  exportType: "PNG" | "JPG";
 }
 
 const GRID_GAP_PX = 100;
@@ -62,6 +64,7 @@ export function digitalFrameSpecs(job: Job): FrameSpec[] {
       widthPx: format.size.w,
       heightPx: format.size.h,
       safePx: format.safe_px || 0,
+      exportType: deliverable.type === "jpg" ? "JPG" : "PNG",
     });
   }
 

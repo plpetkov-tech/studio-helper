@@ -141,5 +141,8 @@ def start_setup_check(ctx, body):
 
 @route("POST", "/api/setup-check/open-figma-folder")
 def open_figma_folder(ctx, body):
-    open_path(paths.bundled_root() / "figma-plugin", reveal=True)
+    folder = paths.figma_plugin_dir()
+    if not (folder / "manifest.json").exists():  # dev checkout / first start
+        folder = paths.bundled_root() / "figma-plugin"
+    open_path(folder, reveal=True)
     return 200, {"ok": True}

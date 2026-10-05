@@ -67,6 +67,13 @@ def bundled_registry_path() -> Path:
     return bundled_root() / "defaults" / "registry.yaml"
 
 
+def figma_plugin_dir() -> Path:
+    """Where Figma imports the plugin from. A fixed folder, refreshed
+    from the install on every start: the install folder's name changes
+    with each update, which would break Figma's link to the plugin."""
+    return app_data_dir() / "figma-plugin"
+
+
 def ensure_app_data_dirs() -> None:
     app_data_dir().mkdir(parents=True, exist_ok=True)
     logs_dir().mkdir(parents=True, exist_ok=True)

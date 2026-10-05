@@ -148,3 +148,23 @@ describe("bumpFrameName", () => {
     expect(bumpFrameName("no-version-here")).toBe("no-version-here");
   });
 });
+
+
+describe("export type", () => {
+  it("presets each frame to the format's first png/jpg export", () => {
+    const job: Job = {
+      id: "2026-10-05_web", name: "Web", slug: "web", created: "", version: 1,
+      formats: [
+        { id: "web-1920x1080", kind: "web", size: { w: 1920, h: 1080, unit: "px" } },
+        { id: "ig-post", kind: "social", size: { w: 1080, h: 1350, unit: "px" } },
+      ],
+      deliverables: [
+        { format_id: "web-1920x1080", type: "jpg", panel: null, expected_stem: "a" },
+        { format_id: "web-1920x1080", type: "png", panel: null, expected_stem: "a" },
+        { format_id: "ig-post", type: "png", panel: null, expected_stem: "b" },
+      ],
+    };
+    const specs = digitalFrameSpecs(job);
+    expect(specs.map((s) => [s.stem, s.exportType])).toEqual([["a", "JPG"], ["b", "PNG"]]);
+  });
+});

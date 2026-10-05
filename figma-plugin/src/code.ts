@@ -49,6 +49,15 @@ async function createFrames(job: Job): Promise<string> {
   // the page, by name -- never touch existing content.
   const existingNames = new Set(page.children.map((n) => n.name));
   const toCreate = specs.filter((s) => !existingNames.has(s.stem));
+
+  // Frames made by an older plugin version had no export setting: add
+  // one (only where there's none) so "Export" works on them too.
+  for (const node of page.children) {
+    const spec = specs.find((s) => s.stem === node.name);
+    if (spec && "exportSettings" in node && node.exportSettings.length === 0) {
+      node.exportSettings = [exportSetting(spec.exportType)];
+    }
+  }
   const positions = layoutGrid(toCreate);
 
   for (const pos of positions) {
@@ -58,6 +67,9 @@ async function createFrames(job: Job): Promise<string> {
     frame.x = pos.x;
     frame.y = pos.y;
     frame.fills = [{ type: "SOLID", color: { r: 1, g: 1, b: 1 } }];
+    // Export is preset: select the frames, Export, pick the job's
+    // 04_export folder -- file names and pixel sizes come out exact.
+    frame.exportSettings = [exportSetting(pos.item.exportType)];
 
     if (pos.item.safePx > 0) {
       frame.layoutGrids = [
@@ -88,6 +100,10 @@ async function createFrames(job: Job): Promise<string> {
   return parts.length > 0
     ? `${parts.join(", ")} ${prefix}.`
     : `All frames already exist ${prefix} -- nothing to add.`;
+}
+
+function exportSetting(format: "PNG" | "JPG"): ExportSettingsImage {
+  return { format, suffix: "", constraint: { type: "SCALE", value: 1 } };
 }
 
 function bumpVersion(): string {

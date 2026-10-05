@@ -37,3 +37,19 @@ def test_user_edited_registry_is_left_alone(tmp_path, monkeypatch):
     entry.seed_user_registry()
     assert user.read_text().endswith("# mine\n")
     assert not user.with_suffix(".yaml.bak").exists()
+
+
+def test_figma_plugin_is_copied_to_a_fixed_folder(tmp_path, monkeypatch):
+    install = tmp_path / "StudioHelper-v9.9.9"
+    (install / "figma-plugin" / "dist").mkdir(parents=True)
+    for rel in ("manifest.json", "ui.html", "dist/code.js"):
+        (install / "figma-plugin" / rel).write_text(rel)
+    monkeypatch.setattr(paths, "bundled_root", lambda: install)
+    monkeypatch.setattr(paths, "figma_plugin_dir", lambda: tmp_path / "appdata" / "figma-plugin")
+
+    entry.sync_figma_plugin()
+    entry.sync_figma_plugin()  # every start: overwrites, no error
+
+    copied = tmp_path / "appdata" / "figma-plugin"
+    assert (copied / "manifest.json").read_text() == "manifest.json"
+    assert (copied / "dist" / "code.js").read_text() == "dist/code.js"

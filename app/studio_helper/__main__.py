@@ -54,6 +54,17 @@ def seed_user_registry() -> None:
     shutil.copyfile(src, dest)
 
 
+def sync_figma_plugin() -> None:
+    src = paths.bundled_root() / "figma-plugin"
+    if not (src / "manifest.json").exists():
+        return
+    dest = paths.figma_plugin_dir()
+    for rel in ("manifest.json", "ui.html", "dist/code.js"):
+        if (src / rel).exists():
+            (dest / rel).parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(src / rel, dest / rel)
+
+
 def merge_default_formats() -> list[str]:
     """New default formats reach a registry she has edited too."""
     return default_formats.merge_new_defaults(
@@ -74,6 +85,10 @@ def run() -> int:
 
     instance.clear()
     seed_user_registry()
+    try:
+        sync_figma_plugin()
+    except OSError:
+        logger.exception("Could not copy the Figma plugin")
     try:
         added = merge_default_formats()
         if added:
