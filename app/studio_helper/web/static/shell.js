@@ -25,6 +25,7 @@ window.SHUI = (function () {
             '<a href="/formats.html">Edit formats</a>' +
             '<a href="/guide.html">Guide</a>' +
             '<a href="/setup-check.html">Setup check</a>' +
+            '<a href="/settings.html">Settings</a>' +
             '<button id="update-btn"><span>Check for updates</span><span class="sub" id="version-label"></span></button>' +
             "<hr>" +
             '<button id="quit-btn">Quit Studio Helper</button>' +

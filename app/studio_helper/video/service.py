@@ -225,6 +225,8 @@ def overview(job: dict) -> list[dict]:
                "w": fmt["size"]["w"], "h": fmt["size"]["h"], "mode": st["mode"],
                "fill": st["fill"], "master": (st["master"] or {}).get("id"),
                "max_duration_s": fmt.get("max_duration_s"),
+               "band": fmt.get("ui_safe_px") or None, "repeat": st["repeat"],
+               "kind": fmt["kind"], "own_fill": v["screens"].get(fmt["id"], {}).get("fill"),
                "rendered": v["renders"].get(fmt["id"])}
         m = st["master"]
         if st["mode"] == "fit" and m:

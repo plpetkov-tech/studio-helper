@@ -374,3 +374,4 @@ def test_added_sizes_get_an_add_on_file_at_the_print_set_version(api, monkeypatc
     _s, job_data = call("GET", f"/api/jobs/{job_id}")
     assert job_data["print_files"] == [
         f"03_working/{job_id}_print_v01.ai", f"03_working/{job_id}_print_add01_v01.ai"]
+    assert job_data["job"]["added"][0]["applied"] == ["print"]

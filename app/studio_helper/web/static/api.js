@@ -91,10 +91,29 @@ window.StudioHelper = (function () {
     });
   }
 
+  // Drag-and-drop uploads: the raw file, streamed to the server (v1.0).
+  function upload(path, file) {
+    return fetch(path, {
+      method: "POST",
+      headers: {"X-Studio-Helper-Token": token || "", "Content-Type": "application/octet-stream"},
+      body: file,
+    }).then(function (resp) {
+      return resp.json().then(function (data) { return {status: resp.status, data: data}; });
+    });
+  }
+
+  // A job's asset or export, for <video>/<img> (they can't send headers).
+  function fileUrl(jobId, rel) {
+    return "/api/jobs/" + encodeURIComponent(jobId) + "/file?rel=" + encodeURIComponent(rel) +
+      "&t=" + encodeURIComponent(token || "");
+  }
+
   return {
     token: token,
     get: apiGet,
     post: apiPost,
+    upload: upload,
+    fileUrl: fileUrl,
     escapeHtml: escapeHtml,
     fmtDate: fmtDate,
     showError: showError,

@@ -8,14 +8,26 @@
 </head>
 <body data-page="jobs">
   <main>
-    <a class="crumb" href="/index.html">‹ Jobs</a>
     <div id="error-banner" class="banner error page-banner" hidden></div>
     <div id="job-head" class="job-head"><p class="muted">Loading…</p></div>
-    <div id="steps" class="steps"></div>
-    <div class="card" id="deliverables"></div>
+    <div class="tabs" role="tablist" aria-label="Job" id="tabs">
+      <button role="tab" id="tab-files" aria-selected="true" aria-controls="pane-files"><b>1 · Files &amp; export</b><span id="tabsub-files">Set up, design, check</span></button>
+      <button role="tab" id="tab-video" aria-selected="false" aria-controls="pane-video"><b>2 · Video</b><span id="tabsub-video">This job’s video sizes</span></button>
+      <button role="tab" id="tab-deliver" aria-selected="false" aria-controls="pane-deliver"><b>3 · Deliver</b><span>Package for your manager</span></button>
+    </div>
+    <div id="pane-files" role="tabpanel" aria-labelledby="tab-files" class="stepbody">
+      <div>
+        <div id="steps" class="steps"></div>
+        <div class="card" id="deliverables"></div>
+      </div>
+    </div>
+    <div id="pane-video" role="tabpanel" aria-labelledby="tab-video" class="stepbody" hidden></div>
+    <div id="pane-deliver" role="tabpanel" aria-labelledby="tab-deliver" class="stepbody" hidden></div>
   </main>
   <script src="/static/api.js"></script>
   <script src="/static/shell.js"></script>
   <script src="/static/job.js"></script>
+  <script src="/static/video.js"></script>
+  <script src="/static/deliver.js"></script>
 </body>
 </html>

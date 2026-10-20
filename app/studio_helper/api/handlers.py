@@ -45,6 +45,14 @@ def get_config(ctx, body):
     }
 
 
+@route("POST", "/api/settings/open-launcher")
+def open_launcher_folder(ctx, body):
+    from studio_helper import launcher
+    launcher.write_launchers(app_paths.bundled_root())
+    open_path(launcher.launcher_dir())
+    return 200, {"ok": True}
+
+
 @route("POST", "/api/settings")
 def save_settings(ctx, body):
     """Settings: assistant access, Concat's location, the desktop shortcut."""
@@ -454,6 +462,8 @@ def create_illustrator_print_doc(ctx, body, job_id):
         if result.get("ok"):
             paths = [d["path"] for d in result.get("data", {}).get("documents", [])]
             job_mod.record_print_files(ctx.jobs_root, job_id, paths)
+            if extra is not None:
+                job_mod.mark_batch_applied(ctx.jobs_root, job_id, int(batch_no), "print")
         return result
 
     task_id = ctx.tasks.start(work)
@@ -546,6 +556,8 @@ def create_photoshop_digital_doc(ctx, body, job_id):
             path = result.get("data", {}).get("path")
             if path:
                 job_mod.record_digital_file(ctx.jobs_root, job_id, path)
+            if extra is not None:
+                job_mod.mark_batch_applied(ctx.jobs_root, job_id, int(batch_no), "digital")
         return result
 
     task_id = ctx.tasks.start(work)

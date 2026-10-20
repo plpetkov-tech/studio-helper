@@ -570,3 +570,13 @@ def next_due(job: dict, today: str | None = None) -> dict | None:
     upcoming = sorted((d, k.split("_")[0]) for k, d in dates.items()
                       if k.endswith("_due") and d >= today)
     return {"what": upcoming[0][1], "date": upcoming[0][0]} if upcoming else None
+
+
+def mark_batch_applied(jobs_root: Path, job_id: str, batch: int, app: str) -> dict:
+    """Remembers that a batch of added sizes is now in her print or
+    digital files, so the job page stops offering to add it."""
+    def change(job):
+        b = add_batch(job, batch)
+        if b is not None and app not in b.setdefault("applied", []):
+            b["applied"].append(app)
+    return update_job(jobs_root, job_id, change)

@@ -56,6 +56,7 @@ PAGES = {
     "/registry.html": "formats.html",  # old bookmark
     "/setup-check.html": "setup-check.html",
     "/guide.html": "guide.html",
+    "/settings.html": "settings.html",
 }
 
 

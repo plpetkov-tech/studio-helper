@@ -160,7 +160,7 @@
     var print = kind === "print";
     document.getElementById("c-unit").textContent = print ? "mm" : "px";
     customSlot.querySelectorAll(".print-only").forEach(function (el) { el.hidden = !print; });
-    document.getElementById("c-export").innerHTML = (print ? ["tiff", "pdf"] : kind === "web" ? ["jpg", "png"] : ["png", "jpg"]).map(function (e) {
+    document.getElementById("c-export").innerHTML = (print ? ["tiff", "pdf"] : kind === "web" ? ["jpg", "png"] : ["png", "jpg", "mp4"]).map(function (e) {
       return '<option value="' + e + '">' + e.toUpperCase() + "</option>";
     }).join("");
     var groupSel = document.getElementById("c-group");
@@ -290,6 +290,8 @@
       format_ids: Object.keys(state.sel),
       bleed_overrides: overrides,
       custom_formats: state.custom,
+      dates: {print_due: document.getElementById("nj-print-due").value,
+              digital_due: document.getElementById("nj-digital-due").value},
     }).then(function (res) {
       if (!res.data.ok) throw new Error(res.data.error || "Could not create the job.");
       window.location.href = "/job.html?id=" + encodeURIComponent(res.data.job.id) + "&new=1";

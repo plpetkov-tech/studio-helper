@@ -18,7 +18,8 @@
         '</span> <span class="muted" style="font-weight:500">· ' + fs.length + "</span></td></tr>" +
         fs.map(function (f) {
           return '<tr class="f" tabindex="0" data-id="' + esc(f.id) + '"><td><div class="nm-cell">' + UI.formatShape(f) + "<span>" + esc(f.name) +
-            (f.notes ? '<br><span class="has-note">Notes</span>' : "") + '</span></div></td><td class="mono">' + esc(UI.dims(f)) + "</td><td>" +
+            (f.notes ? '<br><span class="has-note">Notes</span>' : "") + (f.estimated ? ' <span class="chip est">Estimated</span>' : "") +
+            (f.source_file ? ' <span class="chip ok">Spec sheet</span>' : "") + '</span></div></td><td class="mono">' + esc(UI.dims(f)) + "</td><td>" +
             (f.exports || []).map(function (e) { return '<span class="out">' + esc(e) + "</span>"; }).join(" ") + '</td><td class="mono">' +
             (f.kind === "print" ? esc(f.bleed_mm || 0) + " mm" : "—") + "</td><td>" +
             (f.scale && f.scale !== 1 ? '<span class="mono">1:' + Math.round(1 / f.scale) + "</span>" : '<span class="muted">1:1</span>') + "</td></tr>";
@@ -36,8 +37,16 @@
         "<dt>Drawn at</dt><dd>" + (f.scale && f.scale !== 1 ? "1:" + Math.round(1 / f.scale) : "Full size") + "</dd>" +
         (f.tiff_ppi ? "<dt>TIFF resolution</dt><dd>" + esc(f.tiff_ppi) + " ppi at full size</dd>" : "");
     } else {
-      facts += "<dt>Colour</dt><dd>RGB, sRGB</dd>";
+      facts += "<dt>Colour</dt><dd>RGB, sRGB</dd>" +
+        (f.max_duration_s ? "<dt>Longest video</dt><dd>" + esc(f.max_duration_s) + " s</dd>" : "") +
+        (f.max_kb ? "<dt>Largest file</dt><dd>" + esc(Math.round(f.max_kb / 1024)) + " MB</dd>" : "") +
+        (f.wrap_panels ? "<dt>Wraps around</dt><dd>" + esc(f.wrap_panels.join(" or ")) + " panels (video repeats " + esc(Math.max.apply(null, f.wrap_panels)) + "×)</dd>" : "");
     }
+    facts += "<dt>Size</dt><dd>" + (f.estimated ? '<span class="chip est">Estimated</span> not confirmed by the operator' : "Confirmed") + "</dd>" +
+      (f.source ? "<dt>Source</dt><dd>" + esc(f.source) + "</dd>" : "") +
+      "<dt>Spec sheet</dt><dd>" + (f.source_file ? '<button class="btn" data-spec-open="' + esc(f.id) + '">' + esc(f.source_file.split(/[\\/]/).pop()) + "</button> " : "") +
+        '<label class="btn ghost" style="cursor:pointer">' + (f.source_file ? "Replace" : "Attach the operator’s sheet") +
+        '<input type="file" accept=".pdf,.jpg,.jpeg,.png,.webp" hidden data-spec-upload="' + esc(f.id) + '"></label></dd>';
     UI.openDrawer(f.name, '<span class="mono">' + esc(f.id) + "</span>",
       '<div style="display:flex;gap:14px;align-items:center">' + UI.formatShape(f, 56).replace('class="shape', 'style="width:64px;height:64px" class="shape') +
         '<div><div class="kind" style="--k:var(--k-' + esc(f.kind) + ')">' + esc(f.group) + '</div><div class="mono" style="font-size:15px;margin-top:4px">' + esc(UI.dims(f)) + "</div></div></div>" +
@@ -49,7 +58,7 @@
       '<p class="note">Changes affect new jobs only. Existing jobs keep the sizes they were created with.</p>');
   }
 
-  var EXPORTS = {print: ["pdf", "tiff"], screen: ["jpg", "png", "mp4"], social: ["jpg", "png"], web: ["jpg", "png"]};
+  var EXPORTS = {print: ["pdf", "tiff"], screen: ["jpg", "png", "mp4"], social: ["jpg", "png", "mp4"], web: ["jpg", "png", "mp4"]};
 
   function editDrawer(id) {
     var f = byId(id);
@@ -80,6 +89,10 @@
           '<div class="field"><label for="e-safe">Safe zone (mm)</label><input class="input mono" id="e-safe" type="number" min="0" value="' + esc(f.safe_mm || 0) + '"></div>' +
           '<div class="field"><label for="e-ppi">TIFF ppi at full size</label><input class="input mono" id="e-ppi" type="number" min="1" value="' + esc(f.tiff_ppi || "") + '"></div></div>' : "") +
         '<div class="field"><span class="lbl">Deliver as</span><div>' + exportBoxes + "</div></div>" +
+        (!print ? '<div class="row"><div class="field"><label for="e-dur">Longest video (s)</label><input class="input mono" id="e-dur" type="number" min="1" value="' + esc(f.max_duration_s || "") + '"></div>' +
+          '<div class="field"><label for="e-mb">Largest file (MB)</label><input class="input mono" id="e-mb" type="number" min="1" value="' + esc(f.max_kb ? Math.round(f.max_kb / 1024) : "") + '"></div></div>' : "") +
+        '<div class="field"><label for="e-source">Where the spec came from</label><input class="input" id="e-source" placeholder="e.g. JCDecaux sheet, Trello Oct 2026" value="' + esc(f.source || "") + '"></div>' +
+        '<label class="toggle"><input type="checkbox" id="e-est"' + (f.estimated ? " checked" : "") + '><span><b>Size is still an estimate</b><br><span class="note">Shows an “Estimated” badge until the operator confirms it.</span></span></label>' +
         '<p class="banner error" id="e-error" hidden></p>' +
         '<div class="acts"><button class="btn primary" type="submit">Save changes</button><button class="btn ghost" type="button" data-close>Cancel</button></div>' +
         '<p class="note">Changes apply to new jobs. Existing jobs keep the sizes they were created with.</p>' +
@@ -99,6 +112,9 @@
       };
       if (!f.panels) { body.w = v("e-w"); body.h = v("e-h"); }
       if (print) { body.bleed_mm = v("e-bleed"); body.safe_mm = v("e-safe"); body.tiff_ppi = v("e-ppi"); }
+      else { body.max_duration_s = v("e-dur") || null; body.max_mb = v("e-mb") || null; }
+      body.source = v("e-source");
+      body.estimated = document.getElementById("e-est").checked;
       var err = document.getElementById("e-error");
       SH.post("/api/registry/formats/" + encodeURIComponent(f.id), body).then(function (res) {
         if (!res.data.ok) { err.textContent = res.data.error || "Couldn’t save."; err.hidden = false; return; }
@@ -151,7 +167,7 @@
       var print = document.getElementById("a-kind").value === "print";
       document.getElementById("a-unit").textContent = print ? "mm" : "px";
       form.querySelector(".print-only").hidden = !print;
-      document.getElementById("a-export").innerHTML = (print ? ["tiff", "pdf"] : document.getElementById("a-kind").value === "web" ? ["jpg", "png"] : ["png", "jpg"]).map(function (e) {
+      document.getElementById("a-export").innerHTML = (print ? ["tiff", "pdf"] : document.getElementById("a-kind").value === "web" ? ["jpg", "png"] : ["png", "jpg", "mp4"]).map(function (e) {
         return '<option value="' + e + '">' + e.toUpperCase() + "</option>";
       }).join("");
       document.getElementById("a-newgroup-wrap").hidden = document.getElementById("a-group").value !== "__new";
@@ -208,6 +224,23 @@
     UI.toast("Opening the formats file… Save it, then click Check file.");
   });
   document.getElementById("add-btn").addEventListener("click", function () { if (registry) addDrawer(); });
+  // spec sheets live in the detail drawer, which is outside tableEl
+  document.addEventListener("change", function (e) {
+    var id = e.target.dataset && e.target.dataset.specUpload;
+    if (!id || !e.target.files.length) return;
+    var file = e.target.files[0];
+    SH.upload("/api/registry/formats/" + encodeURIComponent(id) + "/spec?name=" + encodeURIComponent(file.name), file).then(function (res) {
+      if (!res.data.ok) { UI.toast(res.data.error || "Couldn’t attach the sheet."); return; }
+      UI.toast("Spec sheet kept with " + res.data.format.name + ".");
+      load(); detail(id);
+    });
+  });
+  document.addEventListener("click", function (e) {
+    var b = e.target.closest("[data-spec-open]");
+    if (b) SH.post("/api/registry/formats/" + encodeURIComponent(b.dataset.specOpen) + "/spec/open").then(function (res) {
+      if (!res.data.ok) UI.toast(res.data.error);
+    });
+  });
   document.getElementById("validate-btn").addEventListener("click", function () {
     noticeEl.hidden = true;
     errorEl.hidden = true;

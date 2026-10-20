@@ -22,8 +22,20 @@
     return (c.ok + c.warn) + " of " + n + " delivered" + (c.fail ? " · " + c.fail + " failing" : "");
   }
 
+  // The nearest deadline from the brief, for the badge and the order (R11).
+  function dueBadge(j) {
+    if (!j.next_due || isDone(j)) return "";
+    var days = Math.round((new Date(j.next_due.date) - new Date(new Date().toISOString().slice(0, 10))) / 86400000);
+    var when = days === 0 ? "today" : days === 1 ? "tomorrow" : days <= 14 ? "in " + days + " days" : SH.fmtDate(j.next_due.date);
+    return ' <span class="chip due">' + (j.next_due.what === "print" ? "Print" : "Digital") + " due " + esc(when) + "</span>";
+  }
+
   function render() {
     var q = searchEl.value.trim().toLowerCase();
+    jobs.sort(function (a, b) {
+      var da = a.next_due && !isDone(a) ? a.next_due.date : "9999", db = b.next_due && !isDone(b) ? b.next_due.date : "9999";
+      return da < db ? -1 : da > db ? 1 : (a.created < b.created ? 1 : -1);
+    });
     var shown = jobs.filter(function (j) {
       if (filter === "active" && isDone(j)) return false;
       if (filter === "done" && !isDone(j)) return false;
@@ -43,7 +55,7 @@
         return j.counts[s] ? '<span style="width:' + (j.counts[s] / n * 100) + "%;background:var(--" + s + ')"></span>' : "";
       }).join("");
       return '<a class="job-row" href="/job.html?id=' + encodeURIComponent(j.id) + '">' +
-        '<div><div class="name">' + esc(j.name) + '</div><div class="sub">' + esc(SH.fmtDate(j.created)) +
+        '<div><div class="name">' + esc(j.name) + dueBadge(j) + '</div><div class="sub">' + esc(SH.fmtDate(j.created)) +
           " · v" + (j.version < 10 ? "0" : "") + j.version + " · " + j.deliverables_total + " file" + (j.deliverables_total === 1 ? "" : "s") + "</div></div>" +
         '<div class="shapes-strip">' + j.shapes.map(function (s) { return UI.shape(s, 16); }).join("") + "</div>" +
         '<div class="progress"><span>' + esc(progressLabel(j)) + '</span><div class="bar">' + bar + "</div></div>" +

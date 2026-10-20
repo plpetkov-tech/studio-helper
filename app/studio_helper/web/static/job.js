@@ -35,6 +35,24 @@
   function baseName(p) { return p.split(/[\\/]/).pop(); }
   function vv(n) { return "v" + (n < 10 ? "0" : "") + n; }
 
+  // Sizes added after her files existed, not yet in those files (R2).
+  function pendingBatches() {
+    var out = [];
+    (job.added || []).forEach(function (b) {
+      var applied = b.applied || [];
+      var kinds = b.format_ids.map(function (id) { var f = fmtById(id); return f ? f.kind : null; });
+      var print = printFiles.length > 0 && applied.indexOf("print") < 0 && kinds.indexOf("print") >= 0;
+      var digital = !!job.files.psd && applied.indexOf("digital") < 0 && kinds.some(function (k) { return k && k !== "print"; });
+      if (print || digital) out.push({batch: b.batch, print: print, digital: digital});
+    });
+    return out;
+  }
+  function batchOf(formatId) {
+    var hit = null;
+    (job.added || []).forEach(function (b) { if (b.format_ids.indexOf(formatId) >= 0) hit = b; });
+    return hit;
+  }
+
   // -- derived state --------------------------------------------------------
   function facts() {
     var hasPrint = job.formats.some(function (f) { return f.kind === "print"; });
@@ -51,13 +69,31 @@
   }
 
   // -- rendering ---------------------------------------------------------------
+  var DATE_LABEL = {print_due: "Print due", digital_due: "Digital due"};
+  function dueChips() {
+    var d = job.dates || {}, today = new Date().toISOString().slice(0, 10), out = "";
+    ["print_due", "digital_due"].forEach(function (k) {
+      if (!d[k]) return;
+      var days = Math.round((new Date(d[k]) - new Date(today)) / 86400000);
+      var when = days < 0 ? SH.fmtDate(d[k]) : days === 0 ? "today" : days === 1 ? "tomorrow" : "in " + days + " days";
+      out += '<span class="chip ' + (days < 0 ? "missing" : "due") + '">' + DATE_LABEL[k] + " " + esc(when) + "</span>";
+    });
+    if (d.live_from || d.live_to) out += '<span class="note">Runs ' + esc(d.live_from ? SH.fmtDate(d.live_from) : "…") + " – " + esc(d.live_to ? SH.fmtDate(d.live_to) : "…") + "</span>";
+    return out;
+  }
+
   function renderHead() {
     document.title = job.name + " · Studio Helper";
     headEl.innerHTML =
-      '<div><h1>' + esc(job.name) + '</h1><div class="meta"><span>Created ' + esc(SH.fmtDate(job.created)) +
-        "</span><span>Version " + vv(job.version) + '</span><span class="mono">' + esc(job.id) + "</span></div></div>" +
+      '<div><div class="crumbs"><a href="/index.html">Jobs</a><span>›</span><span>' + esc(job.name) + '</span><span class="chip missing">' + vv(job.version) + "</span></div>" +
+        "<h1>" + esc(job.name) + '</h1><div class="meta">' + dueChips() +
+        '<button class="btn ghost" data-act="dates" style="padding:2px 8px;font-size:13px">' + (job.dates && Object.keys(job.dates).length ? "Edit dates" : "Add dates from the brief") + "</button>" +
+        (job.source_job ? '<span class="note">Based on <a href="/job.html?id=' + encodeURIComponent(job.source_job) + '">' + esc(job.source_job) + "</a></span>" : "") +
+        "</div></div>" +
       '<div class="head-actions">' +
+        '<button class="btn" data-act="reuse">Reuse as new job</button>' +
         '<button class="btn" id="revision-btn">Start revision</button>' +
+        '<button class="btn primary" data-act="add-sizes">+ Add sizes</button>' +
         '<button class="btn ghost" id="more-btn" aria-haspopup="true" aria-expanded="false">More ▾</button>' +
         '<div class="menu" id="more-menu" hidden>' +
           '<button data-act="open-folder">Open job folder</button>' +
@@ -85,6 +121,10 @@
     if (f.hasPrint) setupActs += btn("create-print", f.printReady ? "Illustrator ✓" : "Create Illustrator file", !f.printReady && f.current === 0);
     if (f.hasDigital) setupActs += btn("create-psd", f.psdReady ? "Photoshop ✓" : "Create Photoshop file", !f.psdReady && f.current === 0 && f.printReady);
     if (f.hasDigital) setupActs += btn("figma", "Figma…", false, "ghost");
+    pendingBatches().forEach(function (b) {
+      if (b.print) setupActs += btn("batch-print-" + b.batch, "Add new sizes to Illustrator", true);
+      if (b.digital) setupActs += btn("batch-psd-" + b.batch, "Add new sizes to Photoshop", true);
+    });
 
     var exportActs = "";
     if (f.hasPrint) exportActs += btn("export-print", "Check &amp; export print", f.current === 2 || f.current === 1) + btn("check-print", "Check only", false, "ghost");
@@ -130,11 +170,21 @@
           var alts = r.d.alternatives || [];
           return '<button class="dl" data-deliv="' + r.i + '">' + UI.formatShape(r.fmt) +
             '<span><span class="fn">' + esc(r.d.expected_stem + "." + ext) + (alts.length ? '<span class="muted"> or .' + esc(alts.join(" / .")) + "</span>" : "") +
-            '</span><br><span class="fmtname">' + esc(r.fmt.name) +
+            '</span><br><span class="fmtname">' + (batchOf(r.fmt.id) ? '<span class="chip new">added ' + esc(SH.fmtDate(batchOf(r.fmt.id).at)) + "</span> " : "") + esc(r.fmt.name) +
             (r.d.panel ? " · panel " + r.d.panel : "") + (r.fmt.notes ? ' · <span class="has-note">notes</span>' : "") + "</span></span>" +
             '<span class="fmtcol"><span class="out">' + esc([r.d.type].concat(alts).join(" / ")) + '</span></span><span class="st">' + UI.chip(r.d.status) + "</span></button>";
         }).join("") + "</div>";
-      }).join("");
+      }).join("") + removedList();
+  }
+
+  function removedList() {
+    var removed = job.removed || [];
+    if (!removed.length) return "";
+    return '<div class="deliv-group"><div class="eyebrow">Removed from this job</div>' + removed.map(function (r) {
+      return '<div class="dl removed">' + UI.formatShape(r.format) + '<span><span class="fn">' + esc(r.format.name) +
+        '</span><br><span class="fmtname">Removed ' + esc(SH.fmtDate(r.at)) + ". Your files weren’t touched.</span></span><span></span>" +
+        '<span class="st"><button class="btn ghost" data-restore="' + esc(r.format.id) + '">Restore</button></span></div>';
+    }).join("") + "</div>";
   }
 
   function renderAll() {
@@ -156,6 +206,7 @@
       printFiles = res.data.print_files || [];
       if (first || versionChanged) renderHead();
       renderAll();
+      document.dispatchEvent(new CustomEvent("job:updated"));
     }).catch(function () {
       SH.showError(errorEl, "Could not reach Studio Helper. Is it still running?");
     });
@@ -200,7 +251,17 @@
       '<div class="file">' + esc(d.expected_stem + "." + ext) + "</div>" +
       (d.alternatives && d.alternatives.length ? '<p class="note">Or deliver it as ' + esc(d.alternatives.map(function (a) { return "." + a; }).join(" or ")) + " with the same name. Any one of them counts.</p>" : "") +
       (d.found_file && d.found_file !== d.expected_stem + "." + ext ? '<p class="note">Found as ' + esc(d.found_file) + "</p>" : "") +
-      splitChecks(d.checks) + notesBlock(fmt) + (fmt ? formatFacts(fmt) : ""));
+      splitChecks(d.checks) + notesBlock(fmt) + (fmt ? formatFacts(fmt) : "") +
+      '<div class="acts" style="border-top:1px solid var(--line);padding-top:14px"><button class="btn danger" id="remove-size">Stop expecting this size</button></div>' +
+      '<p class="note">For a cancelled placement. Your artboards and exported files stay; you can restore it.</p>');
+    document.getElementById("remove-size").addEventListener("click", function () {
+      SH.post(api("/formats/" + encodeURIComponent(d.format_id) + "/remove")).then(function (res) {
+        UI.closeDrawer();
+        if (!res.data.ok) { SH.showError(errorEl, res.data.error || "Couldn’t remove that size."); return; }
+        UI.toast("Removed " + (fmt ? fmt.name : d.format_id) + ". Restore it at the bottom of the list.");
+        load();
+      });
+    });
   }
 
   function preflightDrawer(files, title) {
@@ -297,6 +358,21 @@
     }).finally(function () { load(); });
   }
 
+  function addBatch(app, batch) {
+    var isPrint = app === "print";
+    status.setup = {text: "Adding the new sizes… " + (isPrint ? "Illustrator" : "Photoshop") + " can take a minute to start."};
+    startTask("batch-" + (isPrint ? "print-" : "psd-") + batch,
+      isPrint ? "/illustrator/new-print-doc" : "/photoshop/new-digital-doc", {batch: batch}).then(function (result) {
+      if (!result.ok) { status.setup = {cls: "fail", text: errText(result, "Couldn’t add the new sizes.")}; return; }
+      var warnings = (result.warnings || []).map(function (w) { return w.message; }).join(" ");
+      status.setup = {cls: warnings ? "" : "ok", text: (isPrint ? "Added a new Illustrator file with the new sizes." :
+        "Added the new artboards at the bottom of your Photoshop file.") +
+        " Each starts from your closest artwork on a “Starting point - adjust me” layer." + (warnings ? " " + warnings : "")};
+    }).catch(function (err) {
+      status.setup = {cls: "fail", text: (isPrint ? "Illustrator" : "Photoshop") + " didn’t respond. " + (err.message || "")};
+    }).finally(function () { load(); });
+  }
+
   function createPsd() {
     status.setup = {text: "Working… Photoshop can take a minute to start."};
     startTask("create-psd", "/photoshop/new-digital-doc").then(function (result) {
@@ -377,6 +453,106 @@
     });
   }
 
+  var registry = null;
+  function withRegistry(fn) {
+    if (registry) return fn(registry);
+    SH.get("/api/registry").then(function (res) {
+      if (!res.data.ok) { SH.showError(errorEl, res.data.error || "Couldn’t read the formats."); return; }
+      registry = res.data; fn(registry);
+    });
+  }
+
+  function pickList(prefix, checkedIds, lockIds) {
+    return registry.groups.map(function (g) {
+      var list = registry.formats.filter(function (f) { return (f.group || "Other") === g; });
+      return '<div class="eyebrow">' + esc(g) + "</div>" + list.map(function (f) {
+        var locked = lockIds.indexOf(f.id) >= 0, on = locked || checkedIds.indexOf(f.id) >= 0;
+        return '<label class="' + (locked ? "have" : "") + '" data-name="' + esc((f.name + " " + f.id).toLowerCase()) + '">' +
+          '<input type="checkbox" name="' + prefix + '" value="' + esc(f.id) + '"' + (on ? " checked" : "") + (locked ? " disabled" : "") + ">" +
+          UI.formatShape(f) + "<span>" + esc(f.name) + (f.estimated ? ' <span class="chip est">estimated</span>' : "") +
+          '</span><span class="note mono">' + esc(UI.dims(f)) + "</span></label>";
+      }).join("");
+    }).join("");
+  }
+
+  function addSizesDrawer() {
+    withRegistry(function () {
+      var have = job.formats.map(function (f) { return f.id; });
+      UI.openDrawer("Add sizes to " + job.name, "For a new mall or placement. Nothing already delivered changes.",
+        '<input class="search" id="pick-search" placeholder="Search formats" style="max-width:none">' +
+        '<div class="pick" id="pick">' + pickList("add", [], have) + "</div>" +
+        '<a class="note" href="/formats.html">Need a size that isn’t in Formats yet? Add it on the Formats page first.</a>' +
+        '<label class="toggle"><input type="checkbox" id="seed" checked><span><b>Start each new size from my closest artwork</b><br><span class="note">A scaled copy on a “Starting point - adjust me” layer. Your own files aren’t changed.</span></span></label>' +
+        '<div class="acts"><button class="btn primary" id="add-go">Add sizes</button><span class="note" id="pick-count">0 sizes</span></div>');
+      var body = document.getElementById("drawer-body");
+      body.querySelector("#pick-search").addEventListener("input", function (e) {
+        var q = e.target.value.toLowerCase();
+        body.querySelectorAll("#pick label").forEach(function (l) { l.hidden = q && l.dataset.name.indexOf(q) < 0; });
+      });
+      body.addEventListener("change", function () {
+        var n = body.querySelectorAll('input[name="add"]:checked:not(:disabled)').length;
+        body.querySelector("#pick-count").textContent = n + (n === 1 ? " size" : " sizes");
+      });
+      body.querySelector("#add-go").addEventListener("click", function () {
+        var ids = Array.prototype.map.call(body.querySelectorAll('input[name="add"]:checked:not(:disabled)'), function (i) { return i.value; });
+        if (!ids.length) { UI.toast("Pick at least one size."); return; }
+        seedNewSizes = body.querySelector("#seed").checked;
+        SH.post(api("/formats"), {format_ids: ids}).then(function (res) {
+          if (!res.data.ok) { UI.toast(res.data.error || "Couldn’t add those sizes."); return; }
+          UI.closeDrawer();
+          UI.toast("Added " + ids.length + " size" + (ids.length === 1 ? "" : "s") + ". Next: add them to your files.");
+          load(true);
+        });
+      });
+    });
+  }
+  var seedNewSizes = true;
+
+  function reuseDrawer() {
+    withRegistry(function () {
+      var ids = job.formats.map(function (f) { return f.id; });
+      UI.openDrawer("Reuse as new job", "Same campaign, new offer. Starts from copies of this job’s files.",
+        '<div class="field"><label for="reuse-name">New job name</label><input class="input" id="reuse-name" value="' + esc(job.name) + ' – copy"></div>' +
+        '<div class="dates"><div class="field"><label for="r-print">Print due</label><input class="input" type="date" id="r-print"></div>' +
+        '<div class="field"><label for="r-digital">Digital due</label><input class="input" type="date" id="r-digital"></div></div>' +
+        '<div class="eyebrow">Sizes to carry over</div><div class="pick">' + job.formats.map(function (f) {
+          return '<label><input type="checkbox" name="keep" value="' + esc(f.id) + '" checked>' + UI.formatShape(f) + "<span>" + esc(f.name) +
+            '</span><span class="note mono">' + esc(UI.dims(f)) + "</span></label>";
+        }).join("") + "</div>" +
+        '<div class="callout"><span>●</span><p>Copies the Illustrator set, the Photoshop file, the Higgsfield videos with their boxes, and the brand pieces. ' + esc(job.name) + " stays exactly as it is.</p></div>" +
+        '<div class="acts"><button class="btn primary" id="reuse-go">Create job</button></div>');
+      document.getElementById("reuse-go").addEventListener("click", function () {
+        var body = document.getElementById("drawer-body");
+        var keep = Array.prototype.map.call(body.querySelectorAll('input[name="keep"]:checked'), function (i) { return i.value; });
+        SH.post(api("/reuse"), {name: body.querySelector("#reuse-name").value, keep: keep}).then(function (res) {
+          if (!res.data.ok) { UI.toast(res.data.error || "Couldn’t create the job."); return Promise.reject(); }
+          var dates = {print_due: body.querySelector("#r-print").value, digital_due: body.querySelector("#r-digital").value};
+          return SH.post("/api/jobs/" + encodeURIComponent(res.data.job.id) + "/dates", dates).then(function () {
+            window.location.href = "/job.html?id=" + encodeURIComponent(res.data.job.id) + "&new=1";
+          });
+        }).catch(function () {});
+      });
+    });
+  }
+
+  function datesDrawer() {
+    var d = job.dates || {};
+    function f(id, label) {
+      return '<div class="field"><label for="d-' + id + '">' + label + '</label><input class="input" type="date" id="d-' + id + '" value="' + esc(d[id] || "") + '"></div>';
+    }
+    UI.openDrawer("Dates from the brief", "Shown on the Jobs list so the next deadline is never missed.",
+      '<div class="dates">' + f("print_due", "Print ready by") + f("digital_due", "Digital ready by") + f("live_from", "Runs from") + f("live_to", "Runs until") + "</div>" +
+      '<div class="acts"><button class="btn primary" id="dates-go">Save</button></div>');
+    document.getElementById("dates-go").addEventListener("click", function () {
+      var body = {};
+      ["print_due", "digital_due", "live_from", "live_to"].forEach(function (k) { body[k] = document.getElementById("d-" + k).value; });
+      SH.post(api("/dates"), body).then(function (res) {
+        if (!res.data.ok) { UI.toast(res.data.error || "Couldn’t save the dates."); return; }
+        UI.closeDrawer(); UI.toast("Dates saved."); load(true);
+      });
+    });
+  }
+
   function deleteDrawer() {
     UI.openDrawer("Delete “" + job.name + "”?", "",
       "<p>The job folder moves to <span class=\"mono\">Studio Jobs\\_Deleted Jobs</span>. Nothing is erased: move it back to restore the job.</p>" +
@@ -398,8 +574,26 @@
   document.addEventListener("click", function (e) {
     var more = document.getElementById("more-menu");
     if (more && !e.target.closest("#more-btn")) more.hidden = true;
+    var restore = e.target.closest("[data-restore]");
+    if (restore) {
+      SH.post(api("/formats/" + encodeURIComponent(restore.dataset.restore) + "/restore")).then(function (res) {
+        UI.toast(res.data.ok ? "Restored." : res.data.error || "Couldn’t restore it."); load();
+      });
+      return;
+    }
     var t = e.target.closest("[data-act], #revision-btn, #more-btn, [data-deliv]");
     if (!t) return;
+    var m = /^batch-(print|psd)-(\d+)$/.exec(t.dataset.act || "");
+    if (m) {
+      if (!seedNewSizes) {
+        // the toggle in the Add sizes drawer: send it with the action
+        startTask(t.dataset.act, m[1] === "print" ? "/illustrator/new-print-doc" : "/photoshop/new-digital-doc",
+          {batch: +m[2], start_from_closest: false}).finally(function () { load(); });
+        return;
+      }
+      addBatch(m[1] === "print" ? "print" : "psd", +m[2]);
+      return;
+    }
     if (t.id === "more-btn") { more.hidden = !more.hidden; t.setAttribute("aria-expanded", String(!more.hidden)); return; }
     if (t.id === "revision-btn") { revisionDrawer(); return; }
     if (t.dataset.deliv !== undefined) { deliverableDrawer(+t.dataset.deliv); return; }
@@ -413,12 +607,43 @@
       case "export-print": runPrint("export-print", {force: false}); break;
       case "check-print": runPrint("check-print"); break;
       case "export-psd": exportPsd(); break;
+      case "add-sizes": addSizesDrawer(); break;
+      case "reuse": reuseDrawer(); break;
+      case "dates": datesDrawer(); break;
     }
   });
+
+  // -- tabs (Files & export / Video / Deliver) ----------------------------------
+  var TABS = ["files", "video", "deliver"];
+  function showTab(name) {
+    TABS.forEach(function (t) {
+      document.getElementById("tab-" + t).setAttribute("aria-selected", String(t === name));
+      document.getElementById("pane-" + t).hidden = t !== name;
+    });
+    try { sessionStorage.setItem("sh_tab_" + jobId, name); } catch (e) { /* fine */ }
+    document.dispatchEvent(new CustomEvent("job:tab", {detail: name}));
+  }
+  TABS.forEach(function (t) {
+    document.getElementById("tab-" + t).addEventListener("click", function () { showTab(t); });
+  });
+
+  // Shared with video.js and deliver.js.
+  window.JobPage = {
+    id: jobId,
+    api: api,
+    job: function () { return job; },
+    deliverables: function () { return deliverables; },
+    reload: function () { return load(); },
+    errorEl: errorEl,
+  };
 
   SH.get("/api/config").then(function (res) { if (res.data.ok) jobsRoot = res.data.jobs_root; });
   load(true).then(function () {
     if (params.get("new") && job) UI.toast("Created “" + job.name + "”. Next: set up the files.");
+    var tab = params.get("tab");
+    try { tab = tab || sessionStorage.getItem("sh_tab_" + jobId); } catch (e) { /* fine */ }
+    if (TABS.indexOf(tab) > 0) showTab(tab);
+    document.dispatchEvent(new CustomEvent("job:loaded"));
   });
   // The poller settles a new file within ~4-5 s; refresh so the list
   // catches up without a reload (SPEC.md M2 acceptance).

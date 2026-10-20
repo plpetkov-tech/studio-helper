@@ -96,3 +96,36 @@ def test_turned_off_in_settings(running_app, monkeypatch):
     replies = rpc(monkeypatch, call(1, "jobs_list"))
     assert replies[0]["result"]["isError"] and "turned off" in \
         replies[0]["result"]["content"][0]["text"]
+
+
+def test_settings_toggle_assistant_and_check_concat_path(tmp_path, monkeypatch):
+    import json as _json
+    import urllib.request
+
+    from studio_helper import paths
+
+    monkeypatch.setattr(paths, "app_data_dir", lambda: tmp_path / "appdata")
+    ctx = AppContext(Config(jobs_root=str(tmp_path), registry_path=str(tmp_path / "r.yaml")))
+    server = create_server(ctx=ctx)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    port = server.server_address[1]
+
+    def post(body):
+        req = urllib.request.Request(
+            f"http://127.0.0.1:{port}/api/settings", data=_json.dumps(body).encode(), method="POST",
+            headers={"Host": f"127.0.0.1:{port}", "X-Studio-Helper-Token": server.token,
+                     "Content-Type": "application/json"})
+        try:
+            with urllib.request.urlopen(req) as resp:
+                return _json.loads(resp.read())
+        except urllib.error.HTTPError as exc:
+            return _json.loads(exc.read())
+
+    import urllib.error
+    data = post({"assistants_enabled": False})
+    assert data["assistants_enabled"] is False
+    assert data["mcp_command"].endswith("studio-helper-mcp.cmd")
+    assert Config.load().assistants_enabled is False  # saved
+    assert "no Concat program" in post({"concat_path": str(tmp_path / "nope.exe")})["error"]
+    server.shutdown()
+    server.server_close()
