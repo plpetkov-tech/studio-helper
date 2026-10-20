@@ -38,11 +38,14 @@ ONE-TIME FIGMA SETUP
 ----------------------
 If you use Figma for digital work:
 
-  1. Open Figma desktop.
-  2. Go to Plugins -> Development -> Import plugin from manifest...
-  3. Pick the file: figma-plugin\manifest.json (inside this folder).
+  1. In Studio Helper, open ? -> Setup check and click the button in
+     the Figma section. It opens the folder the plugin lives in.
+  2. Open Figma desktop.
+  3. Go to Plugins -> Development -> Import plugin from manifest...
+  4. Pick manifest.json in the folder from step 1.
 
-You only need to do this once.
+You only need to do this once. Updates keep the plugin in that same
+folder, so Figma keeps finding it.
 
 
 IF ILLUSTRATOR AUTOMATION FAILS
@@ -63,8 +66,8 @@ one button in the browser" part is skipped.
 
 UPDATING
 ---------
-Easiest: on the Home page, click "Check for updates", then "Download
-& install" if one is available. Studio Helper downloads the new
+Easiest: click "?" at the top right, then "Check for updates", then
+"Download & install" if one is available. Studio Helper downloads the new
 version from GitHub, verifies it, and restarts itself into it - no
 browser, no manual zip/unzip. This is the only thing in Studio Helper
 that ever goes out to the internet, and only when you click it.
@@ -73,9 +76,20 @@ Manual alternative: extract the new zip (anywhere) and start it from
 there. Your jobs, settings and job history are kept safely in your
 Windows user profile and are not affected by updating either way.
 
+Don't save your own files inside the Studio Helper folder. Old
+versions' folders are cleaned up after an update; one that has your
+files in it is left alone, but it's simpler to keep them elsewhere.
+
+
+YOUR OPEN FILES ARE SAFE
+--------------------------
+You can keep your Illustrator or Photoshop file open while you use
+Studio Helper. "Check only" never saves or closes it. Export saves
+your unsaved changes first, then exports, and leaves the file open.
+
 
 QUESTIONS OR SOMETHING LOOKS WRONG
 -------------------------------------
-Use the "Copy diagnostics" button inside Studio Helper (on the Job
-page) and send the file it creates. It contains no client artwork -
-just logs and the job's own settings.
+Take a screenshot of the message Studio Helper shows (error messages
+include the script name and line, which is enough to find the
+problem), and send it along with the job's name.

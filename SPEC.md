@@ -213,7 +213,7 @@ Registry rules:
 **Naming.**
 - Pattern: `{date}_{slug}_{format-id}_{W}x{H}{unit}[_p{n}]_v{NN}.{ext}`.
 - The date is the job creation date. The slug is ASCII kebab-case, max 40 characters, transliterated (she may type Bulgarian Cyrillic, so `Есенна разпродажба` becomes `esenna-razprodazhba`).
-- "Start revision" in the UI increments `version`. New exports get `v02`. Older files are kept.
+- "Start revision" in the UI increments `version`. New exports get `v02`. Older files are kept. She keeps working in the same Illustrator/Photoshop files; print check/export use the newest set of `.ai` files (highest `_vNN`), never older ones (2026-10-05).
 
 **Folder scaffold.**
 
@@ -356,7 +356,7 @@ The environment is ES3: no `let`/`const`, no arrow functions, no `Array.prototyp
   4. Convert to sRGB.
   5. Export PNG or JPG to `04_export/<kind-dir>/<expected_stem>.<ext>`.
   6. Close the duplicate without saving.
-- Never modifies the source PSD.
+- Never modifies the source PSD. If it's already open with unsaved changes, it's saved first; an open PSD is never closed (2026-10-05).
 
 ### 6.6 Figma plugin (TypeScript → `figma-plugin/`)
 
@@ -405,7 +405,7 @@ Every validator returns `FileResult{path, format_id, deliverable, status, checks
 **MP4:** a stub that returns `warn: "Video checks not available yet."`
 
 **Poller.**
-- Scans `04_export/**` of jobs opened in the last 14 days, every 2 s.
+- Scans `04_export/**` of jobs with activity in the last 14 days (job.json or 04_export folder changes, or the job page opened since start), every 2 s (2026-10-05; previously by creation date).
 - A file counts only once its size is unchanged for 2 consecutive scans.
 - Re-validates on mtime change.
 - Writes `report.html` (static, self-contained) in the job root and pushes status to the UI.
@@ -540,13 +540,15 @@ SPEC.md  README.md  README.txt(template)  requirements.in  requirements.lock  re
 
 ## 13. Open items (owner fills these in; implementer uses placeholders until then)
 
-- [ ] Print department spec: bleed (mm), safe zone, trim/crop marks yes/no, color profile / OutputIntent, exact PDF/X-1a settings (to build the `.joboptions`), TIFF threshold and TIFF ppi, vinyl requirements
-- [ ] Full list of LED screens (id, name, px size, PNG/MP4, fps if video)
-- [ ] 9 web banner sizes, any file size limits
-- [ ] IG sizes used (e.g. 1080×1350 post, 1080×1920 story; confirm)
-- [ ] Elevator sticker panel sizes and door gap, per location
+Status as of 2026-10-20, from the decision log (§15):
+
+- [x] Print department spec: there is no house standard. Print shops give bleed and specs per job (per-job bleed override, format `notes`); mall print is TIFF; PDFs use Illustrator's built-in `[PDF/X-1a:2001]`. No `.joboptions` will be built.
+- [~] LED screens: six `mall-screen-*` formats ship; one is still marked estimated in its id/name.
+- [x] Web banner sizes: nine `kind: web` formats from marketing's list (2026-10-05). File size limits: none given.
+- [x] IG sizes: `ig-post` 1080×1350 and `ig-story` 1080×1920 ship, plus Facebook formats.
+- [~] Elevator door sizes: shipped per mall where known (e.g. Burgas Galleria); not every location.
 - [ ] A previously rejected print file (for `tests/fixtures/real/`)
-- [ ] Standard job types she wants in the dropdown
+- [x] Standard job types: presets ship (full campaign, shop promo, mall print/digital/campaign, web).
 
 ## 14. Implementer notes
 

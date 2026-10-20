@@ -17,8 +17,8 @@ ship inside the zip.
 app/studio_helper/   the Python package (stdlib HTTP server + local web UI)
 adobe/                Illustrator/Photoshop ExtendScript adapters (ES3)
 figma-plugin/         Figma plugin (TypeScript)
-defaults/registry.yaml default format registry (placeholders until §13 is filled in)
-tests/                 pytest suite; tests/adobe requires STUDIO_HELPER_ADOBE=1
+defaults/registry.yaml default format registry (the studio's real formats; some sizes marked estimated)
+tests/                 pytest suite; tests/adobe/check_*.js run the JSX adapters in Node with mocked apps
 packaging/             release assembly (build_release.ps1) and lock-file tooling
 .github/workflows/     ci.yml (every push/PR), release.yml (on tag v*)
 ```
@@ -43,7 +43,8 @@ PYTHONPATH=app python -m studio_helper
 Run the test suite:
 
 ```sh
-pytest -q
+pytest -q -m "not adobe"
+for f in tests/adobe/check_*.js; do node "$f"; done   # JSX adapters, mocked apps
 ```
 
 Lint:
@@ -88,11 +89,18 @@ Produces `dist/StudioHelper-v0.1.0.zip`, `dist/SBOM.cdx.json`, and
 `dist/SHA256SUMS`, and smoke-tests the extracted zip with
 `--selftest` before finishing.
 
+## Releasing
+
+1. Commit with the version in the title, e.g. `... (v0.5.1)`, and
+   bump `__version__` in `app/studio_helper/__init__.py` to match.
+   (The release build stamps the tag's version into the zip either way.)
+2. Push `main` and wait for CI to pass. Pushes that change
+   `.github/workflows/` need a token with the `workflow` scope, or SSH.
+3. Push the annotated tag `vX.Y.Z`. `release.yml` builds and publishes
+   the zip, `SHA256SUMS` and the SBOM; it doesn't wait for CI itself.
+4. The designer installs it with ? → Check for updates.
+
 ## Status
 
-Building one milestone at a time (SPEC.md §12), each as its own PR.
-See SPEC.md §15 for what's been decided along the way, and §13 for
-the open items still waiting on values from the studio (bleed,
-LED/web/IG sizes, panel gaps, a rejected print sample, etc.) — the
-print and digital generators stay on placeholder values until those
-land.
+In daily use. The milestones in SPEC.md §12 are built; changes since
+then come from real use and are logged, newest last, in SPEC.md §15.
