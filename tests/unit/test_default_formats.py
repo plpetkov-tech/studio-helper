@@ -37,7 +37,7 @@ def test_first_merge_adds_only_new_defaults_and_keeps_her_file(tmp_path):
     added = df.merge_new_defaults(user, DEFAULTS, seen)
     assert added[0] == "banner-pair-stacked"
     assert set(added[1:]) == {f for f in df.NEW_SINCE_FIRST_MERGE if f.startswith("web-")} | {
-        "preset web"}
+        "mall-screen-paradise-led-column", "preset web"}
     text = user.read_text(encoding="utf-8")
     assert "name: My A5   # her own edit" in text
     reg = load_registry(user)
@@ -96,6 +96,119 @@ def test_tiff_patch_never_overrides_her_own_value(tmp_path):
     user.write_text(_hers_with(mine), encoding="utf-8")
     df.merge_new_defaults(user, DEFAULTS, seen)
     assert load_registry(user).formats["mall-print-idea-vinyl-4100x3100"]["tiff_ppi"] == 45
+
+
+SCREENS = """\
+  - id: mall-print-idea-scroller-3410x2430
+    name: IDEA Comm 9 m² scroller (3410 x 2430 mm, artwork at 1:10)
+    kind: print
+    size: {w: 3410, h: 2430, unit: mm}
+    safe_mm: 100
+    scale: 0.1
+    exports: [tiff]
+
+  - id: mall-screen-paradise-led-column-estimated
+    name: Paradise Center LED column - estimated 4 mm pitch (960 x 720 px)
+    kind: screen
+    size: {w: 960, h: 720, unit: px}
+    exports: [jpg, mp4]
+
+  - id: mall-screen-veliko-turnovo-led
+    name: Veliko Turnovo Mall LED screen (512 x 3968 px; reused for later listings)
+    kind: screen
+    size: {w: 512, h: 3968, unit: px}
+    exports: [jpg, mp4]
+    max_kb: 30720
+
+  - id: led-screen-1
+    name: LED Screen 1
+    group: Screens
+    kind: screen
+    size: {w: 1600, h: 2560, unit: px}
+    exports: [png]
+"""
+
+
+def test_her_october_registry_gets_real_screen_specs(tmp_path):
+    # Shape of her registry backup from 2026-10: CRLF, older entries, her own LED screens.
+    user, seen = tmp_path / "registry.yaml", tmp_path / "seen.json"
+    user.write_bytes(_hers_with(SCREENS).replace("\n", "\r\n").encode("utf-8"))
+    seen.write_text('["banner-pair-stacked"]', encoding="utf-8")
+
+    added = df.merge_new_defaults(user, DEFAULTS, seen)
+    reg = load_registry(user)
+    column = reg.formats["mall-screen-paradise-led-column"]
+    assert (column["size"]["w"], column["size"]["h"]) == (1920, 1440)
+    assert column["exports"] == ["png", "mp4"]
+    assert reg.formats["mall-print-idea-scroller-3410x2430"]["tiff_ppi"] == 30
+    assert reg.formats["mall-screen-veliko-turnovo-led"]["notes"].startswith("Vertical.")
+    assert "led-screen-1" not in added  # hers already
+    # the estimate is swapped for the real spec in place, not listed twice
+    assert "mall-screen-paradise-led-column-estimated" not in reg.formats
+    ids = list(reg.formats)
+    column, veliko = "mall-screen-paradise-led-column", "mall-screen-veliko-turnovo-led"
+    assert ids.index(column) < ids.index(veliko)  # same place as the old entry
+    assert user.read_bytes().count(b"mall-screen-paradise-led-column") == 1
+
+    # nothing more on the next start
+    assert df.merge_new_defaults(user, DEFAULTS, seen) == []
+
+
+MALL_PRINT = """\
+  - id: mall-print-burgas-galleria-poster
+    name: Burgas Galleria corridor poster (500 x 700 mm)
+    kind: print
+    size: {w: 500, h: 700, unit: mm}
+    exports: [pdf]
+
+  - id: mall-print-plovdiv-entrance-door
+    name: Plovdiv Mall entrance door
+    kind: print
+    size: {w: 1090, h: 2300, unit: mm}
+    scale: 0.1
+    exports: [pdf, tiff]
+
+  - id: mall-print-xo-park-raketa
+    name: XO Park Raketa   # she switched this one back herself
+    kind: print
+    size: {w: 1185, h: 1750, unit: mm}
+    exports: [tiff, pdf]
+"""
+
+
+def test_her_old_pdf_mall_print_becomes_tiff_once(tmp_path):
+    user, seen = tmp_path / "registry.yaml", tmp_path / "seen.json"
+    user.write_text(_hers_with(MALL_PRINT), encoding="utf-8")
+    seen.write_text('["banner-pair-stacked"]', encoding="utf-8")
+
+    added = df.merge_new_defaults(user, DEFAULTS, seen)
+    reg = load_registry(user)
+    assert reg.formats["mall-print-burgas-galleria-poster"]["exports"] == ["tiff"]
+    assert reg.formats["mall-print-plovdiv-entrance-door"]["exports"] == ["tiff"]
+    assert reg.formats["mall-print-xo-park-raketa"]["exports"] == ["tiff", "pdf"]  # not a default
+    assert reg.formats["flyer-a5"]["exports"] == ["pdf"]  # small print stays PDF
+    assert "mall-print-burgas-galleria-poster.exports" in added
+    assert "name: XO Park Raketa   # she switched this one back herself" in user.read_text(
+        encoding="utf-8")
+
+    # she sets one back to PDF: it stays
+    user.write_text(user.read_text(encoding="utf-8").replace(
+        "size: {w: 500, h: 700, unit: mm}\n    exports: [tiff]",
+        "size: {w: 500, h: 700, unit: mm}\n    exports: [pdf]"), encoding="utf-8")
+    df.merge_new_defaults(user, DEFAULTS, seen)
+    assert load_registry(user).formats["mall-print-burgas-galleria-poster"]["exports"] == ["pdf"]
+
+
+def test_paradise_column_she_resized_herself_is_kept_and_not_duplicated(tmp_path):
+    user, seen = tmp_path / "registry.yaml", tmp_path / "seen.json"
+    mine = SCREENS.replace("{w: 960, h: 720, unit: px}", "{w: 1920, h: 1440, unit: px}")
+    user.write_text(_hers_with(mine), encoding="utf-8")
+    seen.write_text('["banner-pair-stacked"]', encoding="utf-8")
+
+    df.merge_new_defaults(user, DEFAULTS, seen)
+    reg = load_registry(user)
+    assert reg.formats["mall-screen-paradise-led-column-estimated"]["size"]["w"] == 1920
+    assert "mall-screen-paradise-led-column" not in reg.formats
 
 
 def test_new_web_formats_and_preset_reach_her_file(tmp_path):

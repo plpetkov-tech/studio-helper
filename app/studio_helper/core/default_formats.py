@@ -12,17 +12,21 @@ she deletes on purpose isn't added back by the next start.
 
 from __future__ import annotations
 
+import fnmatch
 import json
 import re
 from pathlib import Path
 
 from studio_helper.core.custom_formats import insert_entry_text
 from studio_helper.core.registry import RegistryError, load_registry
+from studio_helper.core.registry_edit import FormatEditError, _entry_span, update_format
 
 # Defaults added after the last release that shipped the registry as a
 # whole file (v0.4.2). On the very first merge everything else counts as
 # already offered, so formats she removed back then stay removed.
-NEW_SINCE_FIRST_MERGE = frozenset({"banner-pair-stacked"}) | frozenset(
+NEW_SINCE_FIRST_MERGE = frozenset({
+    "banner-pair-stacked", "mall-screen-paradise-led-column",
+}) | frozenset(
     f"web-{w}x{h}" for w, h in [(1920, 1080), (1240, 280), (408, 215), (480, 480), (580, 730),
                                 (745, 1322), (800, 1000), (1000, 1000), (1080, 1080)]
 )
@@ -37,6 +41,31 @@ FIELD_PATCHES = [
         "mall-print-idea-vinyl-4000x3000",
         "mall-print-idea-vinyl-4100x3100",
     )),
+    # Supplier's 300 dpi on the 1:10 file; at the 150 default her scroller
+    # TIFF came out 25x the pixels.
+    ("idea-scroller-tiff-30ppi", "tiff_ppi", 30, ("mall-print-idea-scroller-3410x2430",)),
+    # The mall's own spec sheet (2026-10).
+    ("veliko-turnovo-led-notes", "notes",
+     '"Vertical. MP4 or JPEG. Video up to 20 s. Max 30 MB."',
+     ("mall-screen-veliko-turnovo-led",)),
+]
+
+# One-time changes to a value she already has, made only while it still
+# equals an old shipped default (so a value she picked herself stays).
+# (patch name, field, old default values, new value, id pattern)
+VALUE_PATCHES = [
+    # Mall print is always TIFF; PDF is for small print (2026-09-26). Her
+    # registry predates that and still had the old PDF defaults.
+    ("mall-print-tiff", "exports", (["pdf"], ["pdf", "tiff"]), ["tiff"], "mall-print-*"),
+]
+
+# Default formats replaced by a corrected one under a new id. Her old
+# entry is swapped for the new one in place, but only while it still has
+# the old default size; if she resized it herself she keeps hers. Either
+# way the new one is never added next to it.
+REPLACED_DEFAULTS = [
+    # JCDecaux's spec sheet replaced our 4 mm pitch guess (2026-10).
+    ("mall-screen-paradise-led-column-estimated", "mall-screen-paradise-led-column", (960, 720)),
 ]
 
 # Presets (job_types) added to the default after preset merging existed.
@@ -87,11 +116,26 @@ def merge_new_defaults(user_path: Path, default_path: Path, seen_path: Path) -> 
     except (OSError, ValueError):
         seen = set(entries) - NEW_SINCE_FIRST_MERGE
     try:
-        have = set(load_registry(user_path).formats)
+        formats = load_registry(user_path).formats
     except RegistryError:
         return []
+    have = set(formats)
 
     added, failed = [], set()
+    for old, new, size in REPLACED_DEFAULTS:
+        if old not in have or new in have or new not in entries:
+            continue
+        seen.add(new)
+        her_size = formats[old].get("size") or {}
+        if (her_size.get("w"), her_size.get("h")) != size:
+            continue
+        try:
+            _replace_entry(user_path, old, entries[new])
+            added.append(new)
+            have.add(new)
+        except RegistryError:
+            pass  # her file is restored; she keeps the old entry
+
     for fid, block in entries.items():
         if fid in seen or fid in have:
             continue
@@ -126,8 +170,38 @@ def merge_new_defaults(user_path: Path, default_path: Path, seen_path: Path) -> 
                 pass  # leave her file as it was (restored), don't retry forever
         seen.add("patch:" + name)
 
+    for name, key, olds, value, pattern in VALUE_PATCHES:
+        if "patch:" + name in seen:
+            continue
+        for fid, fmt in formats.items():
+            if not fnmatch.fnmatchcase(fid, pattern) or fmt.get(key) not in olds:
+                continue
+            try:
+                update_format(user_path, fid, {key: value})
+                added.append(f"{fid}.{key}")
+            except (RegistryError, FormatEditError):
+                pass  # her file is restored; leave it
+        seen.add("patch:" + name)
+
     seen_path.write_text(json.dumps(sorted(seen)), encoding="utf-8")
     return added
+
+
+def _replace_entry(user_path: Path, fid: str, block: str) -> None:
+    """Swaps format `fid` (and the comment lines right above it) for
+    `block`, in the same place. Re-validates; restores on failure."""
+    original = user_path.read_text(encoding="utf-8")
+    lines = original.splitlines(keepends=True)
+    start, end = _entry_span(lines, fid)
+    while start > 0 and lines[start - 1].startswith("  #"):
+        start -= 1
+    lines[start:end] = [block.rstrip("\n") + "\n"]
+    user_path.write_text("".join(lines), encoding="utf-8")
+    try:
+        load_registry(user_path)
+    except RegistryError:
+        user_path.write_text(original, encoding="utf-8")
+        raise
 
 
 def _set_missing_field(user_path: Path, fid: str, key: str, value) -> bool:

@@ -263,27 +263,76 @@ formats:
     exports: [jpg, png]
     allow_alpha: false
 
-  # The workbook supplies only a physical LED size of 3.84 x 2.88 m.
-  # Best-effort estimate uses a common 4 mm indoor LED pixel pitch: 960 x 720 px.
-  - id: mall-screen-paradise-led-column-estimated
-    name: Paradise Center LED column - estimated 4 mm pitch (960 x 720 px)
+  # JCDecaux Image spec sheet (LED_COLUMN_Paradise_+2_DIGITAL_FILES_BG.pdf,
+  # Trello, 2026-10): replaces the earlier 960 x 720 px estimate.
+  - id: mall-screen-paradise-led-column
+    name: Paradise Center LED column, floor 2 (1920 x 1440 px)
     group: Mall screens
-    notes: "Only the physical size is known (3.84 × 2.88 m). Pixels assume a common 4 mm indoor LED pitch."
+    notes: "Wraps all the way round the column (384 cm around, 288 cm high). One file covering the full 1920 × 1440 px: a 360° design, or 2–3 vertical designs split by a thin pixel frame. Video up to 10 s (MP4/H.264). Stills as PNG, not JPG. Max 250 MB. Up to 2 designs per slot, shown in turn."
     kind: screen
-    size: {w: 960, h: 720, unit: px}
+    size: {w: 1920, h: 1440, unit: px}
     safe_px: 0
-    exports: [jpg, mp4]
+    exports: [png, mp4]
     allow_alpha: false
+    max_kb: 256000
 
+  # Mall V.Tyrnovo spec sheet (LED screen V.Tarnovo.jpg, Trello, 2026-10).
   - id: mall-screen-veliko-turnovo-led
     name: Veliko Turnovo Mall LED screen (512 x 3968 px; reused for later listings)
     group: Mall screens
+    notes: "Vertical. MP4 or JPEG. Video up to 20 s. Max 30 MB."
     kind: screen
     size: {w: 512, h: 3968, unit: px}
     safe_px: 0
     exports: [jpg, mp4]
     allow_alpha: false
     max_kb: 30720
+
+  # LED screens she added herself (her registry, 2026-10).
+  - id: led-screen-1
+    name: LED Screen 1
+    group: Screens
+    kind: screen
+    size: {w: 1600, h: 2560, unit: px}
+    safe_px: 0
+    allow_alpha: false
+    exports: [png]
+
+  - id: led-screen-2
+    name: LED Screen 2
+    group: Screens
+    kind: screen
+    size: {w: 1280, h: 2400, unit: px}
+    safe_px: 0
+    allow_alpha: false
+    exports: [png]
+
+  - id: led-screen-3
+    name: LED Screen 3
+    group: Screens
+    kind: screen
+    size: {w: 960, h: 2880, unit: px}
+    safe_px: 0
+    allow_alpha: false
+    exports: [png]
+
+  - id: led-screen-4
+    name: LED Screen 4
+    group: Screens
+    kind: screen
+    size: {w: 960, h: 2720, unit: px}
+    safe_px: 0
+    allow_alpha: false
+    exports: [png]
+
+  - id: led-screen-5
+    name: LED Screen 5
+    group: Screens
+    kind: screen
+    size: {w: 1872, h: 2184, unit: px}
+    safe_px: 0
+    allow_alpha: false
+    exports: [png]
 
   - id: ig-post
     name: Instagram post
@@ -437,6 +486,6 @@ job_types:
   full-campaign: [flyer-a4, flyer-a5, flyer-a6, "ig-*", "fb-*"]
   shop-promo: [flyer-a4, "ig-story", "fb-story"]
   mall-print: ["mall-print-*"]
-  mall-digital: ["mall-screen-*", "ig-*", "fb-*"]
-  mall-campaign: ["mall-print-*", "mall-screen-*", "ig-*", "fb-*"]
+  mall-digital: ["mall-screen-*", "led-screen-*", "ig-*", "fb-*"]
+  mall-campaign: ["mall-print-*", "mall-screen-*", "led-screen-*", "ig-*", "fb-*"]
   web: ["web-*"]
