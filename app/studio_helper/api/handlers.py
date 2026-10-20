@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from studio_helper import delivery
 from studio_helper import paths as app_paths
 from studio_helper.adobe import illustrator, photoshop
 from studio_helper.core import custom_formats, registry_edit, seeds
@@ -267,6 +268,33 @@ def make_video_reference_pack(ctx, body, job_id):
     if (body or {}).get("open", True):
         open_path(folder)
     return 200, {"ok": True, "folder": str(folder), "copied": copied}
+
+
+@route("GET", "/api/jobs/<job_id>/delivery")
+def get_delivery(ctx, body, job_id):
+    """What a package for the manager would hold right now (R10)."""
+    job = job_mod.load_job(ctx.jobs_root, job_id)
+    root = job_mod.job_path(ctx.jobs_root, job_id)
+    rows = delivery.candidates(job, _deliverable_status(job, ctx), root, include_warn=True)
+    return 200, {"ok": True, "items": [
+        {"file": c["path"].name, "name": c["name"], "group": c["group"],
+         "status": c["row"]["status"], "ready": c["include"], "why": c["why"],
+         "format_id": c["row"]["format_id"]} for c in rows],
+        "deliveries": job.get("deliveries", []), "batches": job.get("added", [])}
+
+
+@route("POST", "/api/jobs/<job_id>/delivery/package")
+def make_delivery_package(ctx, body, job_id):
+    """Zips the passed current files for the manager and opens the folder."""
+    body = body or {}
+    job = job_mod.load_job(ctx.jobs_root, job_id)
+    batch = body.get("batch")
+    record = delivery.make_package(ctx.jobs_root, job_id, _deliverable_status(job, ctx),
+                                   int(batch) if batch is not None else None,
+                                   bool(body.get("include_warnings")))
+    if body.get("open", True):
+        open_path(job_mod.job_path(ctx.jobs_root, job_id) / delivery.DELIVERY_DIR)
+    return 200, {"ok": True, "delivery": record}
 
 
 @route("GET", "/api/jobs/<job_id>")
