@@ -268,3 +268,16 @@ def test_add_custom_size_then_remove_and_restore(api):
     assert status == 200 and "ig-post" not in [f["id"] for f in data["job"]["formats"]]
     status, data = api("POST", f"/api/jobs/{job_id}/formats/ig-post/restore")
     assert status == 200 and "ig-post" in [f["id"] for f in data["job"]["formats"]]
+
+
+def test_video_plan_and_reference_pack(api, monkeypatch):
+    from studio_helper.api import handlers
+
+    monkeypatch.setattr(handlers, "open_path", lambda p: None)
+    _, data = api("POST", "/api/jobs", {"name": "Video", "format_ids": ["ig-post"]})
+    job_id = data["job"]["id"]
+    status, data = api("GET", f"/api/jobs/{job_id}/video/plan")
+    # ig-post is PNG-only in this registry, so there is nothing to plan
+    assert status == 200 and data["plan"] == {"masters": [], "strips": []}
+    status, data = api("POST", f"/api/jobs/{job_id}/video/reference-pack", {})
+    assert status == 200 and data["folder"].endswith("higgsfield") and data["copied"] == []

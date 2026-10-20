@@ -15,6 +15,7 @@ from studio_helper.core import job as job_mod
 from studio_helper.core.registry import Registry, RegistryError, load_registry
 from studio_helper.core.scaffold import EXPORT_SUBDIR_BY_KIND
 from studio_helper.deliverables import collapse_alternatives, deliverables_table
+from studio_helper.video import plan as video_plan
 
 from .dispatch import route
 from .openers import open_path
@@ -231,6 +232,24 @@ def remove_job_format(ctx, body, job_id, format_id):
 @route("POST", "/api/jobs/<job_id>/formats/<format_id>/restore")
 def restore_job_format(ctx, body, job_id, format_id):
     return 200, {"ok": True, "job": job_mod.restore_format(ctx.jobs_root, job_id, format_id)}
+
+
+@route("GET", "/api/jobs/<job_id>/video/plan")
+def get_video_plan(ctx, body, job_id):
+    """Which Higgsfield masters to generate for this job (R4)."""
+    job = job_mod.load_job(ctx.jobs_root, job_id)
+    return 200, {"ok": True, "plan": video_plan.video_plan(job)}
+
+
+@route("POST", "/api/jobs/<job_id>/video/reference-pack")
+def make_video_reference_pack(ctx, body, job_id):
+    """Copies the statics and brand pieces for Higgsfield into
+    02_assets/higgsfield with the plan, and opens the folder (R4)."""
+    job = job_mod.load_job(ctx.jobs_root, job_id)
+    folder, copied = video_plan.make_reference_pack(job, job_mod.job_path(ctx.jobs_root, job_id))
+    if (body or {}).get("open", True):
+        open_path(folder)
+    return 200, {"ok": True, "folder": str(folder), "copied": copied}
 
 
 @route("GET", "/api/jobs/<job_id>")
