@@ -12,7 +12,7 @@ from studio_helper import paths as app_paths
 from studio_helper.adobe import illustrator, photoshop
 from studio_helper.core import custom_formats, registry_edit
 from studio_helper.core import job as job_mod
-from studio_helper.core.registry import Registry, load_registry
+from studio_helper.core.registry import Registry, RegistryError, load_registry
 from studio_helper.core.scaffold import EXPORT_SUBDIR_BY_KIND
 from studio_helper.deliverables import collapse_alternatives, deliverables_table
 
@@ -202,7 +202,11 @@ def create_job(ctx, body):
 
 @route("GET", "/api/jobs/<job_id>")
 def get_job(ctx, body, job_id):
-    job = job_mod.load_job(ctx.jobs_root, job_id)
+    try:
+        # limits like a screen's max video length reach jobs made before them
+        job = job_mod.refresh_from_registry(ctx.jobs_root, job_id, _load_registry(ctx))
+    except RegistryError:
+        job = job_mod.load_job(ctx.jobs_root, job_id)
     if ctx.poller is not None:
         ctx.poller.touch(job_id)
     return 200, {

@@ -48,6 +48,11 @@ FIELD_PATCHES = [
     ("veliko-turnovo-led-notes", "notes",
      '"Vertical. MP4 or JPEG. Video up to 20 s. Max 30 MB."',
      ("mall-screen-veliko-turnovo-led",)),
+    # Video checks (v1.0): the screens' own maximum lengths.
+    ("veliko-turnovo-max-duration", "max_duration_s", 20, ("mall-screen-veliko-turnovo-led",)),
+    ("paradise-column-max-duration", "max_duration_s", 10, ("mall-screen-paradise-led-column",)),
+    # Instagram/Facebook cover the top and bottom of stories with their UI.
+    ("story-ui-safe", "ui_safe_px", "{top: 250, bottom: 340}", ("ig-story", "fb-story")),
 ]
 
 # One-time changes to a value she already has, made only while it still
@@ -57,6 +62,11 @@ VALUE_PATCHES = [
     # Mall print is always TIFF; PDF is for small print (2026-09-26). Her
     # registry predates that and still had the old PDF defaults.
     ("mall-print-tiff", "exports", (["pdf"], ["pdf", "tiff"]), ["tiff"], "mall-print-*"),
+    # Video is for social too (v1.0): stories and posts may be delivered as MP4.
+    ("ig-story-mp4", "exports", (["png"],), ["png", "mp4"], "ig-story"),
+    ("ig-post-mp4", "exports", (["png"],), ["png", "mp4"], "ig-post"),
+    ("fb-story-mp4", "exports", (["jpg", "png"],), ["jpg", "png", "mp4"], "fb-story"),
+    ("fb-post-mp4", "exports", (["jpg", "png"],), ["jpg", "png", "mp4"], "fb-post"),
 ]
 
 # Default formats replaced by a corrected one under a new id. Her old

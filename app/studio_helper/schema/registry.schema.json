@@ -119,7 +119,26 @@
           "items": { "type": "string", "enum": ["pdf", "tiff", "png", "jpg", "mp4"] }
         },
         "allow_alpha": { "type": "boolean" },
-        "max_kb": { "type": "number", "exclusiveMinimum": 0 }
+        "max_kb": { "type": "number", "exclusiveMinimum": 0 },
+        "max_duration_s": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "longest video the screen accepts, in seconds"
+        },
+        "fps": { "type": "number", "exclusiveMinimum": 0, "description": "required video frame rate" },
+        "audio": {
+          "type": "boolean",
+          "description": "video may carry sound (default: yes for social, no otherwise)"
+        },
+        "ui_safe_px": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "top": { "type": "number", "minimum": 0 },
+            "bottom": { "type": "number", "minimum": 0 }
+          },
+          "description": "bands the platform covers with its own UI (stories/reels)"
+        }
       }
     }
   }

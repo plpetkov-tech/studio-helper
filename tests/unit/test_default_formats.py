@@ -229,3 +229,34 @@ def test_new_web_formats_and_preset_reach_her_file(tmp_path):
                     encoding="utf-8")
     df.merge_new_defaults(user, DEFAULTS, seen)
     assert "web" not in load_registry(user).job_types
+
+
+SOCIAL = """\
+  - id: ig-story
+    name: Instagram story
+    kind: social
+    size: {w: 1080, h: 1920, unit: px}
+    exports: [png]
+
+  - id: fb-post
+    name: Facebook post (square)
+    kind: social
+    size: {w: 1080, h: 1080, unit: px}
+    exports: [png]   # she narrowed this one herself
+"""
+
+
+def test_social_formats_get_video_and_story_safe_zones_once(tmp_path):
+    user, seen = tmp_path / "registry.yaml", tmp_path / "seen.json"
+    user.write_text(_hers_with(SOCIAL + "\n" + SCREENS), encoding="utf-8")
+    seen.write_text('["banner-pair-stacked"]', encoding="utf-8")
+
+    df.merge_new_defaults(user, DEFAULTS, seen)
+    reg = load_registry(user)
+    story = reg.formats["ig-story"]
+    assert story["exports"] == ["png", "mp4"]
+    assert story["ui_safe_px"] == {"top": 250, "bottom": 340}
+    assert reg.formats["fb-post"]["exports"] == ["png"]  # not the old default: hers
+    assert reg.formats["mall-screen-veliko-turnovo-led"]["max_duration_s"] == 20
+    assert reg.formats["mall-screen-paradise-led-column"]["max_duration_s"] == 10
+    assert df.merge_new_defaults(user, DEFAULTS, seen) == []

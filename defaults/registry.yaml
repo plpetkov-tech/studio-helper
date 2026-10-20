@@ -275,6 +275,7 @@ formats:
     exports: [png, mp4]
     allow_alpha: false
     max_kb: 256000
+    max_duration_s: 10
 
   # Mall V.Tyrnovo spec sheet (LED screen V.Tarnovo.jpg, Trello, 2026-10).
   - id: mall-screen-veliko-turnovo-led
@@ -287,6 +288,7 @@ formats:
     exports: [jpg, mp4]
     allow_alpha: false
     max_kb: 30720
+    max_duration_s: 20
 
   # LED screens she added herself (her registry, 2026-10).
   - id: led-screen-1
@@ -340,16 +342,18 @@ formats:
     kind: social
     size: {w: 1080, h: 1350, unit: px}
     safe_px: 0
-    exports: [png]
+    exports: [png, mp4]
     allow_alpha: false
 
+  # Instagram/Facebook draw their own UI over the top and bottom of stories.
   - id: ig-story
     name: Instagram story
     group: Social
     kind: social
     size: {w: 1080, h: 1920, unit: px}
     safe_px: 0
-    exports: [png]
+    ui_safe_px: {top: 250, bottom: 340}
+    exports: [png, mp4]
     allow_alpha: false
 
   - id: fb-post
@@ -358,7 +362,7 @@ formats:
     kind: social
     size: {w: 1080, h: 1080, unit: px}
     safe_px: 0
-    exports: [jpg, png]
+    exports: [jpg, png, mp4]
     allow_alpha: false
 
   - id: fb-story
@@ -367,7 +371,8 @@ formats:
     kind: social
     size: {w: 1080, h: 1920, unit: px}
     safe_px: 0
-    exports: [jpg, png]
+    ui_safe_px: {top: 250, bottom: 340}
+    exports: [jpg, png, mp4]
     allow_alpha: false
 
   # Web assets (marketing, 2026-10): logo / campaign-terms rules in the notes.

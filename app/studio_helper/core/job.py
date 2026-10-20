@@ -115,12 +115,17 @@ def auto_scale_job(jobs_root: Path, job_id: str) -> dict:
     return job
 
 
+# Format fields that change no size or file name, so existing jobs follow
+# the registry for them.
+REFRESHED_KEYS = ("tiff_ppi", "max_kb", "max_duration_s", "fps", "audio", "ui_safe_px")
+
+
 @_locked
 def refresh_from_registry(jobs_root: Path, job_id: str, registry: Registry,
-                          keys: tuple[str, ...] = ("tiff_ppi",)) -> dict:
-    """Export settings that don't change a job's sizes or file names
-    (TIFF resolution) follow the current registry, so a fix there
-    reaches jobs that already exist."""
+                          keys: tuple[str, ...] = REFRESHED_KEYS) -> dict:
+    """Export and check settings that don't change a job's sizes or
+    file names (TIFF resolution, video limits) follow the current
+    registry, so a fix there reaches jobs that already exist."""
     job = load_job(jobs_root, job_id)
     changed = False
     for fmt in job["formats"]:
