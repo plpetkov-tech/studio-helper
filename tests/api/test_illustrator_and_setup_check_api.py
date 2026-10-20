@@ -25,6 +25,11 @@ formats:
     kind: print
     size: {w: 148, h: 210, unit: mm}
     exports: [pdf]
+  - id: mall-x-door
+    name: Mall X door
+    kind: print
+    size: {w: 850, h: 2000, unit: mm}
+    exports: [tiff]
 """
 
 
@@ -334,3 +339,32 @@ def test_setup_check_open_figma_folder_does_not_error(api, monkeypatch):
     status, data = call("POST", "/api/setup-check/open-figma-folder")
     assert status == 200
     assert data["ok"] is True
+
+
+def test_added_sizes_get_an_add_on_file_at_the_print_set_version(api, monkeypatch):
+    call, poll = api
+    seen = []
+
+    def fake_create_print_doc(job, output_dir, extra=None):
+        seen.append(([f["id"] for f in job["formats"]], extra))
+        tag = "_" + extra["name_tag"] if extra else ""
+        version = extra["version"] if extra else job["version"]
+        ai_path = str(output_dir / f"{job['id']}_print{tag}_v{version:02d}.ai")
+        return {"ok": True, "data": {"documents": [{"path": ai_path, "artboards": []}]},
+                "errors": [], "warnings": []}
+
+    monkeypatch.setattr(handlers.illustrator, "create_print_doc", fake_create_print_doc)
+    _s, created = call("POST", "/api/jobs", {"name": "Black November", "format_ids": ["flyer-a5"]})
+    job_id = created["job"]["id"]
+    _s, data = call("POST", f"/api/jobs/{job_id}/illustrator/new-print-doc")
+    assert poll(data["task_id"])["status"] == "done"
+    call("POST", f"/api/jobs/{job_id}/revision")  # she keeps working in the v01 file
+
+    _s, data = call("POST", f"/api/jobs/{job_id}/formats", {"format_ids": ["mall-x-door"]})
+    _s, data = call("POST", f"/api/jobs/{job_id}/illustrator/new-print-doc", {"batch": 1})
+    assert poll(data["task_id"])["status"] == "done"
+
+    assert seen[1] == (["mall-x-door"], {"name_tag": "add01", "version": 1})
+    _s, job_data = call("GET", f"/api/jobs/{job_id}")
+    assert job_data["print_files"] == [
+        f"03_working/{job_id}_print_v01.ai", f"03_working/{job_id}_print_add01_v01.ai"]

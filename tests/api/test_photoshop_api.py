@@ -173,3 +173,26 @@ def test_export_digital_passes_per_kind_export_dirs(api, monkeypatch, tmp_path):
     assert captured["export_dirs"]["social"].name == "social"
     assert captured["export_dirs"]["screen"].name == "led"
     assert captured["psd_path"].name == f"{job_id}_digital_v01.psd"
+
+
+def test_added_digital_sizes_go_into_her_existing_psd(api, monkeypatch):
+    call, poll = api
+    seen = []
+
+    def fake_create_digital_doc(job, output_dir, extra=None):
+        seen.append(([f["id"] for f in job["formats"]], extra))
+        return {"ok": True, "data": {"path": str(output_dir / f"{job['id']}_digital_v01.psd"),
+                                     "artboards": []}, "errors": [], "warnings": []}
+
+    monkeypatch.setattr(handlers.photoshop, "create_digital_doc", fake_create_digital_doc)
+    _s, created = call("POST", "/api/jobs", {"name": "Campaign", "format_ids": ["ig-post"]})
+    job_id = created["job"]["id"]
+    _s, data = call("POST", f"/api/jobs/{job_id}/photoshop/new-digital-doc")
+    assert poll(data["task_id"])["status"] == "done"
+
+    call("POST", f"/api/jobs/{job_id}/formats", {"format_ids": ["led-mall-entrance"]})
+    _s, data = call("POST", f"/api/jobs/{job_id}/photoshop/new-digital-doc", {"batch": 1})
+    assert poll(data["task_id"])["status"] == "done"
+    ids, extra = seen[1]
+    assert ids == ["led-mall-entrance"]
+    assert extra["add_to"].endswith(f"{job_id}_digital_v01.psd")

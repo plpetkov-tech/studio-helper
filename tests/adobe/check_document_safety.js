@@ -186,6 +186,54 @@ function runPhotoshop(openDocs, opts) {
   return {result, app};
 }
 
+// Adding sizes to her existing PSD (new_digital_doc.jsx, add mode, ROADMAP R2).
+function runPhotoshopAdd(openDocs, opts) {
+  opts = opts || {};
+  const fsys = makeFs([PSD]);
+  const placed = [];
+  function decorate(doc) {
+    doc.width = {as: () => opts.width || 2000};
+    doc.height = {as: () => opts.height || 1500};
+    doc.layerSets = (opts.existing || ["ig-post"]).map((name) => ({name}));
+    doc.resizeCanvas = function (w, h) { this.log.push("resize"); };
+    return doc;
+  }
+  openDocs.forEach(decorate);
+  const app = {
+    documents: openDocs.slice(),
+    opened: [],
+    activeDocument: openDocs[0] || null,
+    open(file) {
+      const doc = decorate(photoshopDoc(file.fsName, opts));
+      this.opened.push(doc);
+      this.documents.push(doc);
+      this.activeDocument = doc;
+      return doc;
+    },
+  };
+  const ctx = {
+    app, File: fsys.File, console,
+    SaveOptions: {DONOTSAVECHANGES: "DONOTSAVECHANGES"},
+    AnchorPosition: {TOPLEFT: "TOPLEFT"},
+    UnitValue: function (v) { return v; },
+  };
+  vm.createContext(ctx);
+  vm.runInContext(source("photoshop/lib/common.jsx"), ctx, {filename: "common.jsx"});
+  vm.runInContext(source("photoshop/new_digital_doc.jsx").replace(/^SH\.run\(main,.*$/m, ""), ctx,
+    {filename: "new_digital_doc.jsx"});
+  ctx.makeArtboard = function (name, x, y, w, h) {
+    placed.push({name, x, y, w, h});
+    return {left: x, top: y, right: x + w, bottom: y + h};
+  };
+  ctx.addNoteLabel = function () {};
+  const job = {id: "job1", version: 4, formats: [
+    {id: "ig-post", kind: "social", size: {w: 1080, h: 1350}},
+    {id: "ig-story", kind: "social", size: {w: 1080, h: 1920}},
+  ]};
+  const result = ctx.main({job, output_dir: "C:\\Jobs\\job1\\03_working", add_to: PSD});
+  return {result, app, placed};
+}
+
 // -- checks -------------------------------------------------------------------
 
 function run() {
@@ -313,6 +361,33 @@ function run() {
     const {app} = runPhotoshop([other]);
     assert.deepStrictEqual(other.log, []);
     assert.strictEqual(app.opened.length, 1);
+  });
+
+  check("Adding sizes to an open, unsaved PSD saves it with the new artboards, never closes it", () => {
+    const mine = photoshopDoc(PSD, {saved: false});
+    const {result, app, placed} = runPhotoshopAdd([mine]);
+    assert.deepStrictEqual(placed.map((p) => p.name), ["ig-story"]); // ig-post already there
+    assert.ok(placed[0].y > 1500, "new artboards go below what's already in the file");
+    assert.ok(mine.log.indexOf("save") >= 0 && !mine.closed);
+    assert.strictEqual(app.opened.length, 0);
+    assert.strictEqual(result.data.saved_source, "job1_digital_v01.psd");
+    assert.strictEqual(result.data.added, 1);
+  });
+
+  check("Adding sizes to a closed PSD opens, saves and closes it", () => {
+    const {app} = runPhotoshopAdd([]);
+    assert.strictEqual(app.opened.length, 1);
+    const doc = app.opened[0];
+    assert.ok(doc.log.indexOf("save") >= 0 && doc.closed);
+  });
+
+  check("Adding sizes that would pass 30,000 px changes nothing", () => {
+    const mine = photoshopDoc(PSD, {saved: true});
+    const {result, placed} = runPhotoshopAdd([mine], {height: 29000});
+    assert.strictEqual(result.ok, false);
+    assert.strictEqual(result.errors[0].code, "TOO_LARGE");
+    assert.strictEqual(placed.length, 0);
+    assert.deepStrictEqual(mine.log, []);
   });
 
   console.log("\n" + passed + " document-safety checks passed.");

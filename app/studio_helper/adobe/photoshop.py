@@ -22,9 +22,13 @@ def is_running() -> bool:
     return bridge.is_running(PROGID)
 
 
-def create_digital_doc(job: dict, output_dir: Path) -> dict:
+def create_digital_doc(job: dict, output_dir: Path, extra: dict | None = None) -> dict:
+    """`extra` {"add_to": psd path} adds the job's digital formats that
+    aren't in her PSD yet as new artboards (sizes added later, R2)."""
     app = bridge.connect(PROGID)
-    return bridge.run_jsx(app, NEW_DIGITAL_DOC_JSX, {"job": job, "output_dir": str(output_dir)})
+    args = {"job": job, "output_dir": str(output_dir)}
+    args.update(extra or {})
+    return bridge.run_jsx(app, NEW_DIGITAL_DOC_JSX, args)
 
 
 def export_digital(job: dict, psd_path: Path, export_dirs: dict[str, Path]) -> dict:

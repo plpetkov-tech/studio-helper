@@ -66,6 +66,8 @@ module.exports = [
         Extension: "readonly",
         Units: "readonly",
         TypeUnits: "readonly",
+        UnitValue: "readonly",
+        AnchorPosition: "readonly",
         // Provided by lib/json2.js via #include (stripped above, so
         // ESLint needs these declared instead of inferring them).
         JSON: "readonly",

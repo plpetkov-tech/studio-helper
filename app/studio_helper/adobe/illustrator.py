@@ -26,9 +26,21 @@ def is_running() -> bool:
     return bridge.is_running(PROGID)
 
 
-def create_print_doc(job: dict, output_dir: Path) -> dict:
+def create_print_doc(job: dict, output_dir: Path, extra: dict | None = None) -> dict:
+    """`extra` carries add-on settings (name_tag, version, seeds) for
+    sizes added to the job later; see print_doc_args."""
     app = bridge.connect(PROGID)
-    return bridge.run_jsx(app, NEW_PRINT_DOC_JSX, {"job": job, "output_dir": str(output_dir)})
+    args = {"job": job, "output_dir": str(output_dir)}
+    args.update(extra or {})
+    return bridge.run_jsx(app, NEW_PRINT_DOC_JSX, args)
+
+
+def add_on_job(job: dict, format_ids: list[str]) -> dict:
+    """The job as new_print_doc.jsx should see it for an add-on file:
+    only the added print formats."""
+    view = dict(job)
+    view["formats"] = [f for f in job["formats"] if f["id"] in format_ids]
+    return view
 
 
 def inspect(ai_path: Path | None = None) -> dict:

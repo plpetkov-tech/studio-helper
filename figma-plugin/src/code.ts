@@ -2,7 +2,7 @@
 // sandboxed plugin environment; talks to ui.html only via postMessage
 // (no disk access, no network -- see manifest.json's networkAccess).
 
-import { NOTE_SPACE_PX, bumpFrameName, digitalFrameSpecs, layoutGrid, pageName } from "./layout";
+import { NOTE_SPACE_PX, bumpFrameName, digitalFrameSpecs, layoutGrid, pageName, startBelow } from "./layout";
 import type { Job } from "./layout";
 
 figma.showUI(__html__, { width: 360, height: 460 });
@@ -64,11 +64,11 @@ async function createFrames(job: Job): Promise<string> {
   // Frames with notes get a label above them, so leave room for it.
   const hasNotes = toCreate.some((s) => s.notes);
   const positions = layoutGrid(toCreate, hasNotes ? 100 + NOTE_SPACE_PX : undefined);
-  if (hasNotes) {
-    await figma.loadFontAsync(NOTE_FONT);
-    // keep the first row's labels clear of anything already above y=0
-    for (const pos of positions) pos.y += NOTE_SPACE_PX;
-  }
+  // Below whatever is already on the page (sizes added later), and with
+  // room for the first row's note labels.
+  const top = startBelow(page.children) + (hasNotes ? NOTE_SPACE_PX : 0);
+  if (hasNotes) await figma.loadFontAsync(NOTE_FONT);
+  for (const pos of positions) pos.y += top;
 
   for (const pos of positions) {
     const frame = figma.createFrame();

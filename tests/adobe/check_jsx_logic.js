@@ -240,6 +240,19 @@ function run() {
     );
   });
 
+  check("printFileNames marks add-on files for sizes added later (_add01)", () => {
+    assert.deepStrictEqual(
+      Array.from(ctx.printFileNames("job", [{bleedMm: 3}], [{sheets: [[]]}], "_v01", "add01")),
+      ["job_print_add01_v01.ai"]
+    );
+    assert.deepStrictEqual(
+      Array.from(ctx.printFileNames("job", [{bleedMm: 3}, {bleedMm: 50}],
+        [{sheets: [[]]}, {sheets: [[], []]}], "_v02", "add02")),
+      ["job_print_add02_bleed3mm_v02.ai", "job_print_add02_bleed50mm_part1_v02.ai",
+        "job_print_add02_bleed50mm_part2_v02.ai"]
+    );
+  });
+
   check("wrapNotes wraps on words; artboards carry notes (first panel only)", () => {
     assert.deepStrictEqual(Array.from(ctx.wrapNotes("Text 20 cm from every edge", 12)),
       ["Text 20 cm", "from every", "edge"]);

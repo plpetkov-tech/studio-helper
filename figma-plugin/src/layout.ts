@@ -128,6 +128,17 @@ export function layoutGrid<T extends Sized>(items: T[], rowGapPx = GRID_GAP_PX):
   return positions;
 }
 
+/** Where new frames start on a page that already has content: below
+ * everything on it, so sizes added to a job later never land on top of
+ * her existing frames (ROADMAP R2). 0 on an empty page. */
+export function startBelow(
+  existing: readonly { y: number; height: number }[],
+  gapPx = GRID_GAP_PX,
+): number {
+  if (existing.length === 0) return 0;
+  return Math.max(...existing.map((n) => n.y + n.height)) + gapPx;
+}
+
 const VERSION_SUFFIX = /_v(\d+)$/;
 
 /** "_vNN" -> "_vNN+1", padded back to the same width (SPEC.md §6.6

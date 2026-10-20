@@ -55,6 +55,14 @@ function run() {
     assert.strictEqual(plan[1].heightPx, 1920);
   });
 
+  check("layoutBelow puts added sizes in rows under the existing canvas", () => {
+    const plan = [{name: "a", widthPx: 100, heightPx: 200}, {name: "b", widthPx: 300, heightPx: 50}];
+    const pos = newDoc.layoutBelow(plan, 100, 1500, 0);
+    assert.strictEqual(JSON.stringify(pos.map((p) => [p.x, p.y])), "[[0,1600],[200,1600]]");
+    const ext = newDoc.extentOf(pos, 2000, 1500);
+    assert.deepStrictEqual([ext.width, ext.height], [2000, 1800]);
+  });
+
   check("layoutGrid places items left to right then wraps (2 cols for 3 items)", () => {
     const plan = [
       {name: "a", widthPx: 100, heightPx: 100},

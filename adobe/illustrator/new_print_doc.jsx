@@ -423,12 +423,14 @@ function createDocumentForSheet(sheet, bleedMm, filePath) {
         notes_failed: notesFailed}};
 }
 
-// "<id>_print[_bleed3mm][_part2]_v01.ai", one per sheet, in order.
-function printFileNames(jobId, groups, planned, versionSuffix) {
+// "<id>_print[_add01][_bleed3mm][_part2]_v01.ai", one per sheet, in order.
+// nameTag ("add01") marks an add-on file for sizes added to the job later.
+function printFileNames(jobId, groups, planned, versionSuffix, nameTag) {
     var names = [];
     var i, s, suffix;
+    var base = "_print" + (nameTag ? "_" + nameTag : "");
     for (i = 0; i < groups.length; i++) {
-        suffix = groups.length > 1 ? "_print_bleed" + groups[i].bleedMm + "mm" : "_print";
+        suffix = groups.length > 1 ? base + "_bleed" + groups[i].bleedMm + "mm" : base;
         for (s = 0; s < planned[i].sheets.length; s++) {
             names.push(jobId + suffix +
                 (planned[i].sheets.length > 1 ? "_part" + (s + 1) : "") + versionSuffix + ".ai");
@@ -454,7 +456,9 @@ function main(args) {
     }
 
     var groups = groupByBleed(printFormats);
-    var versionSuffix = "_v" + zeroPad2(job.version || 1);
+    // An add-on file (sizes added later) carries the version of the set
+    // she works in, which Python passes in; see job.print_set_version.
+    var versionSuffix = "_v" + zeroPad2(args.version || job.version || 1);
     var documents = [];
 
     var planned = [];
@@ -467,7 +471,7 @@ function main(args) {
     }
     if (!result.ok) { return result; }
 
-    var names = printFileNames(job.id, groups, planned, versionSuffix);
+    var names = printFileNames(job.id, groups, planned, versionSuffix, args.name_tag || "");
     var s, n = 0;
     for (i = 0; i < groups.length; i++) {
         for (s = 0; s < planned[i].sheets.length; s++) {

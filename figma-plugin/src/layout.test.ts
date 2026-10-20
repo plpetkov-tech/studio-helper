@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { bumpFrameName, digitalFrameSpecs, gridColumns, layoutGrid, pageName } from "./layout";
+import { bumpFrameName, digitalFrameSpecs, gridColumns, layoutGrid, pageName, startBelow } from "./layout";
 import type { Job } from "./layout";
 
 const JOB: Job = {
@@ -190,5 +190,14 @@ describe("notes", () => {
   it("rows can be spaced wider to leave room for labels", () => {
     const items = [1, 2, 3].map(() => ({ widthPx: 100, heightPx: 100 }));
     expect(layoutGrid(items, 320)[2].y).toBe(420);
+  });
+});
+
+describe("startBelow", () => {
+  it("starts at 0 on an empty page", () => {
+    expect(startBelow([])).toBe(0);
+  });
+  it("starts below the lowest thing already on the page", () => {
+    expect(startBelow([{ y: 0, height: 1350 }, { y: 1450, height: 1920 }], 100)).toBe(3470);
   });
 });

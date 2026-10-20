@@ -141,6 +141,26 @@ def refresh_from_registry(jobs_root: Path, job_id: str, registry: Registry,
     return job
 
 
+def _resolve_formats(registry: Registry, format_ids: list[str],
+                     bleed_overrides: dict | None, custom_formats: list[dict]) -> list[dict]:
+    """Fully resolved copies (incl. defaults) so a job stays stable even
+    if registry.yaml changes later (SPEC.md §6.1 job.json), with the
+    print shop's per-job bleed applied and oversize print auto-scaled."""
+    formats_resolved = [dict(registry.formats[fid]) for fid in format_ids]
+    formats_resolved += [dict(f) for f in custom_formats]
+    for fmt in formats_resolved:
+        override = (bleed_overrides or {}).get(fmt["id"])
+        if override is not None and fmt["kind"] == "print":
+            try:
+                bleed = float(override)
+            except (TypeError, ValueError) as exc:
+                raise JobError(f"Bleed for '{fmt['name']}' must be a number.") from exc
+            if bleed < 0:
+                raise JobError(f"Bleed for '{fmt['name']}' can't be negative.")
+            fmt["bleed_mm"] = int(bleed) if bleed == int(bleed) else bleed
+    return [_auto_scale(f) for f in formats_resolved]
+
+
 def create_job(
     jobs_root: Path,
     registry: Registry,
@@ -162,6 +182,9 @@ def create_job(
     unknown = [fid for fid in format_ids if fid not in registry.formats]
     if unknown:
         raise JobError(f"Unknown format id(s): {', '.join(unknown)}")
+    # Everything is checked before the folder is made, so a bad bleed
+    # value can't leave a half-made job behind.
+    formats_resolved = _resolve_formats(registry, format_ids, bleed_overrides, custom_formats)
 
     now = now or _now_local()
     date_str = now.strftime("%Y-%m-%d")
@@ -183,21 +206,6 @@ def create_job(
     scaffold.create_job_folder(job_root)
 
     version = 1
-    # Fully resolved copies (incl. defaults) so the job stays stable
-    # even if registry.yaml changes later (SPEC.md §6.1 job.json).
-    formats_resolved = [dict(registry.formats[fid]) for fid in format_ids]
-    formats_resolved += [dict(f) for f in custom_formats]
-    for fmt in formats_resolved:
-        override = (bleed_overrides or {}).get(fmt["id"])
-        if override is not None and fmt["kind"] == "print":
-            try:
-                bleed = float(override)
-            except (TypeError, ValueError) as exc:
-                raise JobError(f"Bleed for '{fmt['name']}' must be a number.") from exc
-            if bleed < 0:
-                raise JobError(f"Bleed for '{fmt['name']}' can't be negative.")
-            fmt["bleed_mm"] = int(bleed) if bleed == int(bleed) else bleed
-    formats_resolved = [_auto_scale(f) for f in formats_resolved]
     deliverables = []
     for fmt in formats_resolved:
         deliverables.extend(_deliverables_for(date_str, slug, fmt, version))
@@ -363,3 +371,107 @@ def bump_version(jobs_root: Path, job_id: str) -> dict:
 
     _write_job(job_path(jobs_root, job_id), job)
     return job
+
+
+def _job_date(job: dict) -> str:
+    return datetime.fromisoformat(job["created"]).strftime("%Y-%m-%d")
+
+
+@_locked
+def add_formats(
+    jobs_root: Path,
+    job_id: str,
+    registry: Registry,
+    format_ids: list[str],
+    bleed_overrides: dict[str, float] | None = None,
+    custom_formats: list[dict] | None = None,
+    now: datetime | None = None,
+) -> dict:
+    """'Add sizes' (ROADMAP R2): a campaign gets extended to a new mall
+    after it was made, often after delivery. The new formats join the
+    job at its current version -- this isn't a revision -- and what was
+    already delivered is left as it is. Recorded as a numbered batch,
+    which names the add-on Illustrator file and the "added" label."""
+    custom_formats = custom_formats or []
+    job = load_job(jobs_root, job_id)
+    have = {f["id"] for f in job["formats"]}
+    if not format_ids and not custom_formats:
+        raise JobError("Select at least one size to add.")
+    already = [fid for fid in format_ids if fid in have]
+    if already:
+        names = ", ".join(registry.formats[f]["name"] if f in registry.formats else f
+                          for f in already)
+        raise JobError(f"Already in this job: {names}.")
+    unknown = [fid for fid in format_ids if fid not in registry.formats]
+    if unknown:
+        raise JobError(f"Unknown format id(s): {', '.join(unknown)}")
+    clash = [f["id"] for f in custom_formats if f["id"] in have]
+    if clash:
+        raise JobError(f"A size with this id is already in the job: {', '.join(clash)}")
+
+    added = _resolve_formats(registry, format_ids, bleed_overrides, custom_formats)
+    date_str = _job_date(job)
+    for fmt in added:
+        job["formats"].append(fmt)
+        job["deliverables"].extend(_deliverables_for(date_str, job["slug"], fmt, job["version"]))
+    ids = [f["id"] for f in added]
+    batches = job.setdefault("added", [])
+    batches.append({
+        "batch": len(batches) + 1,
+        "at": (now or _now_local()).isoformat(timespec="seconds"),
+        "format_ids": ids,
+    })
+    # adding back something removed earlier: it's no longer "removed"
+    job["removed"] = [r for r in job.get("removed", []) if r["format"]["id"] not in ids]
+    _write_job(job_path(jobs_root, job_id), job)
+    return job
+
+
+@_locked
+def remove_format(jobs_root: Path, job_id: str, format_id: str,
+                  now: datetime | None = None) -> dict:
+    """A placement was cancelled: the format stops being expected. Only
+    job.json changes -- her artboards and exported files stay where
+    they are, and restore_format brings it back."""
+    job = load_job(jobs_root, job_id)
+    fmt = next((f for f in job["formats"] if f["id"] == format_id), None)
+    if fmt is None:
+        raise JobError("That size isn't in this job.")
+    if len(job["formats"]) == 1:
+        raise JobError("A job needs at least one size. Delete the job instead.")
+    job["formats"] = [f for f in job["formats"] if f["id"] != format_id]
+    job["deliverables"] = [d for d in job["deliverables"] if d["format_id"] != format_id]
+    job.setdefault("removed", []).append({
+        "at": (now or _now_local()).isoformat(timespec="seconds"),
+        "format": fmt,
+    })
+    _write_job(job_path(jobs_root, job_id), job)
+    return job
+
+
+@_locked
+def restore_format(jobs_root: Path, job_id: str, format_id: str) -> dict:
+    job = load_job(jobs_root, job_id)
+    entry = next((r for r in job.get("removed", []) if r["format"]["id"] == format_id), None)
+    if entry is None:
+        raise JobError("Nothing to restore for that size.")
+    fmt = entry["format"]
+    job["formats"].append(fmt)
+    job["deliverables"].extend(_deliverables_for(_job_date(job), job["slug"], fmt, job["version"]))
+    job["removed"] = [r for r in job["removed"] if r is not entry]
+    _write_job(job_path(jobs_root, job_id), job)
+    return job
+
+
+def print_set_version(job: dict) -> int:
+    """The _vNN of the Illustrator set she works in now, which can be
+    older than the job's version (she keeps working in the same file
+    across revisions). An add-on file must carry this number, not the
+    job's: with a higher one, current_print_files would pick only the
+    add-on and check/export would skip her real artwork."""
+    versions = [v for v in (file_version(f) for f in current_print_files(job)) if v is not None]
+    return max(versions) if versions else job["version"]
+
+
+def add_batch(job: dict, batch: int) -> dict | None:
+    return next((b for b in job.get("added", []) if b["batch"] == batch), None)

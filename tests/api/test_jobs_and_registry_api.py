@@ -246,3 +246,25 @@ def test_edit_and_delete_format_endpoints(api):
     assert api("POST", "/api/registry/formats/ig-post/delete")[1]["ok"] is True
     _s, reg = api("GET", "/api/registry")
     assert [x["id"] for x in reg["formats"]] == ["flyer-a5"]
+
+
+def test_add_custom_size_then_remove_and_restore(api):
+    _, data = api("POST", "/api/jobs", {"name": "Campaign", "format_ids": ["flyer-a5"]})
+    job_id = data["job"]["id"]
+
+    status, data = api("POST", f"/api/jobs/{job_id}/formats", {
+        "format_ids": ["ig-post"],
+        "custom_formats": [{"name": "Mall X door", "kind": "print", "w": 850, "h": 2000}],
+    })
+    assert status == 200, data
+    ids = [f["id"] for f in data["job"]["formats"]]
+    assert ids[:2] == ["flyer-a5", "ig-post"] and len(ids) == 3
+    assert data["batch"]["batch"] == 1 and len(data["batch"]["format_ids"]) == 2
+
+    status, data = api("POST", f"/api/jobs/{job_id}/formats", {"format_ids": ["ig-post"]})
+    assert status == 400 and "Already in this job" in data["error"]
+
+    status, data = api("POST", f"/api/jobs/{job_id}/formats/ig-post/remove")
+    assert status == 200 and "ig-post" not in [f["id"] for f in data["job"]["formats"]]
+    status, data = api("POST", f"/api/jobs/{job_id}/formats/ig-post/restore")
+    assert status == 200 and "ig-post" in [f["id"] for f in data["job"]["formats"]]

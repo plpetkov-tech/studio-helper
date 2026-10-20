@@ -78,6 +78,25 @@ function layoutGrid(plan, gapPx) {
     return positions;
 }
 
+// Sizes added to the job later go in a new row below what the PSD
+// already holds, so nothing she laid out moves (ROADMAP R2).
+function layoutBelow(plan, gapPx, existingHeight, notesSpace) {
+    var positions = layoutGrid(plan, gapPx);
+    var top = existingHeight + gapPx + notesSpace;
+    var i;
+    for (i = 0; i < positions.length; i++) { positions[i].y += top; }
+    return positions;
+}
+
+function extentOf(positions, minW, minH) {
+    var w = minW, h = minH, i;
+    for (i = 0; i < positions.length; i++) {
+        w = Math.max(w, positions[i].x + positions[i].plan.widthPx);
+        h = Math.max(h, positions[i].y + positions[i].plan.heightPx);
+    }
+    return {width: w, height: h};
+}
+
 // -- Photoshop-touching glue ---------------------------------------------
 
 // Creates a Photoshop Artboard via Action Manager (there is no DOM
@@ -142,6 +161,103 @@ function addNoteLabel(doc, plan, x, y) {
     layer.allLocked = true;
 }
 
+function topLevelNames(doc) {
+    var names = {}, i;
+    for (i = 0; i < doc.layerSets.length; i++) { names[doc.layerSets[i].name] = true; }
+    return names;
+}
+
+// Adds the job's (newly added) digital formats as artboards to her
+// existing PSD. Follows the document-safety rules: an open PSD is used
+// as it is, saved, and never closed; one we open ourselves is closed.
+function addToExisting(args, digitalFormats, result) {
+    var file = new File(args.add_to);
+    if (!file.exists) {
+        SH.addError(result, "NO_PSD", "The Photoshop file for this job isn't there anymore: " +
+            file.fsName + ".", "Create the Photoshop file again from the job page.");
+        return result;
+    }
+    var doc = SH.findOpenDocument(file);
+    var openedHere = false;
+    if (!doc) {
+        doc = app.open(file);
+        openedHere = true;
+    }
+    app.activeDocument = doc;
+    var wasDirty = !doc.saved;
+
+    var have = topLevelNames(doc);
+    var plan = [], all = artboardPlan(digitalFormats), i;
+    for (i = 0; i < all.length; i++) { if (!have[all[i].name]) { plan.push(all[i]); } }
+    if (plan.length === 0) {
+        result.data = {path: file.fsName, artboards: [], added: 0};
+        if (openedHere) { doc.close(SaveOptions.DONOTSAVECHANGES); }
+        return result;
+    }
+
+    var hasNotes = false;
+    for (i = 0; i < plan.length; i++) { if (plan[i].notes) { hasNotes = true; } }
+    var existingW = doc.width.as("px"), existingH = doc.height.as("px");
+    var positions = layoutBelow(plan, GRID_GAP_PX + (hasNotes ? NOTE_SPACE_PX : 0), existingH,
+        hasNotes ? NOTE_SPACE_PX : 0);
+    var extent = extentOf(positions, existingW, existingH);
+    if (extent.width > PSD_MAX_PX || extent.height > PSD_MAX_PX) {
+        SH.addError(result, "TOO_LARGE",
+            "Adding these sizes would make the Photoshop file " + extent.width + "×" +
+                extent.height + "px, over the " + PSD_MAX_PX + "px limit for a .psd file.",
+            "Put the new sizes in a separate job, or remove unused artboards from the file.");
+        if (openedHere) { doc.close(SaveOptions.DONOTSAVECHANGES); }
+        return result;
+    }
+    if (extent.width > existingW || extent.height > existingH) {
+        doc.resizeCanvas(UnitValue(extent.width, "px"), UnitValue(extent.height, "px"),
+            AnchorPosition.TOPLEFT);
+    }
+
+    var artboardsData = placeArtboards(positions, result);
+    app.activeDocument.save();
+    if (openedHere) {
+        app.activeDocument.close(SaveOptions.DONOTSAVECHANGES);
+    } else if (wasDirty) {
+        result.data = {saved_source: doc.name};
+    }
+    result.data = result.data || {};
+    result.data.path = file.fsName;
+    result.data.artboards = artboardsData;
+    result.data.added = artboardsData.length;
+    return result;
+}
+
+function placeArtboards(positions, result) {
+    var artboardsData = [], i;
+    for (i = 0; i < positions.length; i++) {
+        var pos = positions[i];
+        var actual = makeArtboard(pos.plan.name, pos.x, pos.y, pos.plan.widthPx, pos.plan.heightPx);
+        if (!SH.sameRect(actual, pos.x, pos.y, pos.plan.widthPx, pos.plan.heightPx)) {
+            SH.addWarning(result, "ARTBOARD_SIZE",
+                "Artboard '" + pos.plan.name + "' came out " +
+                    (actual ? Math.round(actual.right - actual.left) + "×" +
+                        Math.round(actual.bottom - actual.top) : "an unknown size") +
+                    "px instead of " + pos.plan.widthPx + "×" + pos.plan.heightPx + "px.",
+                "Resize it with the Artboard tool, and tell whoever maintains Studio Helper.");
+        }
+        if (pos.plan.notes) {
+            try {
+                addNoteLabel(app.activeDocument, pos.plan, pos.x, pos.y);
+            } catch (e) {
+                SH.addWarning(result, "NOTES_LABEL",
+                    "Couldn't add the notes label for '" + pos.plan.name + "': " +
+                        String(e.message || e), "");
+            }
+        }
+        artboardsData.push({
+            name: pos.plan.name, format_id: pos.plan.formatId,
+            x: pos.x, y: pos.y, width: pos.plan.widthPx, height: pos.plan.heightPx
+        });
+    }
+    return artboardsData;
+}
+
 function main(args) {
     var result = SH.makeResult();
     var job = args.job;
@@ -156,6 +272,9 @@ function main(args) {
         SH.addError(result, "NO_DIGITAL_FORMATS", "This job has no digital formats.",
             "Add a digital format to the job first.");
         return result;
+    }
+    if (args.add_to) {
+        return addToExisting(args, digitalFormats, result);
     }
 
     var versionSuffix = "_v" + zeroPad2(job.version || 1);
@@ -194,31 +313,7 @@ function main(args) {
         "sRGB IEC61966-2.1"
     );
 
-    var artboardsData = [];
-    for (i = 0; i < positions.length; i++) {
-        var pos = positions[i];
-        var actual = makeArtboard(pos.plan.name, pos.x, pos.y, pos.plan.widthPx, pos.plan.heightPx);
-        if (!SH.sameRect(actual, pos.x, pos.y, pos.plan.widthPx, pos.plan.heightPx)) {
-            SH.addWarning(result, "ARTBOARD_SIZE",
-                "Artboard '" + pos.plan.name + "' came out " +
-                    (actual ? Math.round(actual.right - actual.left) + "×" +
-                        Math.round(actual.bottom - actual.top) : "an unknown size") +
-                    "px instead of " + pos.plan.widthPx + "×" + pos.plan.heightPx + "px.",
-                "Resize it with the Artboard tool, and tell whoever maintains Studio Helper.");
-        }
-        if (pos.plan.notes) {
-            try {
-                addNoteLabel(app.activeDocument, pos.plan, pos.x, pos.y);
-            } catch (e) {
-                SH.addWarning(result, "NOTES_LABEL",
-                    "Couldn't add the notes label for '" + pos.plan.name + "': " + String(e.message || e), "");
-            }
-        }
-        artboardsData.push({
-            name: pos.plan.name, format_id: pos.plan.formatId,
-            x: pos.x, y: pos.y, width: pos.plan.widthPx, height: pos.plan.heightPx
-        });
-    }
+    var artboardsData = placeArtboards(positions, result);
 
     saveDigitalDoc(doc, outFile);
 

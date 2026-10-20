@@ -176,21 +176,8 @@ def create_job(ctx, body):
     if not str(name).strip():
         raise job_mod.JobError("Job name cannot be empty.")
 
-    # "Custom size" entries: validate them all before saving any, so a
-    # typo in the second one doesn't leave the first half-saved.
-    specs = body.get("custom_formats") or []
-    built, taken = [], set()
-    for spec in specs:
-        fmt = _build_custom(spec, registry, taken)
-        taken.add(fmt["id"])
-        built.append((spec, fmt))
-    one_off = []
-    for spec, fmt in built:
-        if spec.get("save"):
-            registry = custom_formats.save_format(ctx.registry_path, fmt)
-            format_ids.append(fmt["id"])
-        else:
-            one_off.append(custom_formats.resolve_custom(fmt, registry))
+    registry, saved_ids, one_off = _custom_sizes(ctx, body, registry)
+    format_ids += saved_ids
 
     job = job_mod.create_job(
         ctx.jobs_root, registry, name, format_ids,
@@ -198,6 +185,52 @@ def create_job(ctx, body):
         custom_formats=one_off,
     )
     return 200, {"ok": True, "job": job}
+
+
+def _custom_sizes(ctx, body: dict, registry: Registry, taken: set[str] | None = None):
+    """"Custom size" entries from a request: (registry, ids saved to
+    Formats, one-off resolved formats). All are validated before any is
+    saved, so a typo in the second doesn't leave the first half-saved."""
+    built, taken = [], set(taken or ())
+    for spec in body.get("custom_formats") or []:
+        fmt = _build_custom(spec, registry, taken)
+        taken.add(fmt["id"])
+        built.append((spec, fmt))
+    saved, one_off = [], []
+    for spec, fmt in built:
+        if spec.get("save"):
+            registry = custom_formats.save_format(ctx.registry_path, fmt)
+            saved.append(fmt["id"])
+        else:
+            one_off.append(custom_formats.resolve_custom(fmt, registry))
+    return registry, saved, one_off
+
+
+@route("POST", "/api/jobs/<job_id>/formats")
+def add_job_formats(ctx, body, job_id):
+    """Add sizes to an existing job (ROADMAP R2)."""
+    body = body or {}
+    job = job_mod.load_job(ctx.jobs_root, job_id)
+    registry = _load_registry(ctx)
+    format_ids = list(body.get("format_ids") or [])
+    taken = {f["id"] for f in job["formats"]}
+    registry, saved_ids, one_off = _custom_sizes(ctx, body, registry, taken)
+    job = job_mod.add_formats(
+        ctx.jobs_root, job_id, registry, format_ids + saved_ids,
+        bleed_overrides=body.get("bleed_overrides") or {},
+        custom_formats=one_off,
+    )
+    return 200, {"ok": True, "job": job, "batch": job["added"][-1]}
+
+
+@route("POST", "/api/jobs/<job_id>/formats/<format_id>/remove")
+def remove_job_format(ctx, body, job_id, format_id):
+    return 200, {"ok": True, "job": job_mod.remove_format(ctx.jobs_root, job_id, format_id)}
+
+
+@route("POST", "/api/jobs/<job_id>/formats/<format_id>/restore")
+def restore_job_format(ctx, body, job_id, format_id):
+    return 200, {"ok": True, "job": job_mod.restore_format(ctx.jobs_root, job_id, format_id)}
 
 
 @route("GET", "/api/jobs/<job_id>")
@@ -238,11 +271,26 @@ def open_job_folder(ctx, body, job_id):
 
 @route("POST", "/api/jobs/<job_id>/illustrator/new-print-doc")
 def create_illustrator_print_doc(ctx, body, job_id):
+    """Creates the job's Illustrator files, or with {"batch": n} an
+    add-on file holding only the sizes added in that batch (R2)."""
     job = job_mod.auto_scale_job(ctx.jobs_root, job_id)
     working_dir = job_mod.job_path(ctx.jobs_root, job_id) / "03_working"
+    view, extra = job, None
+    batch_no = (body or {}).get("batch")
+    if batch_no is not None and job["files"].get("print"):
+        batch = job_mod.add_batch(job, int(batch_no))
+        if batch is None:
+            raise job_mod.JobError("Those added sizes aren't in this job anymore.")
+        view = illustrator.add_on_job(job, batch["format_ids"])
+        if not any(f["kind"] == "print" for f in view["formats"]):
+            raise job_mod.JobError("None of the added sizes are print sizes.")
+        extra = {"name_tag": f"add{int(batch_no):02d}", "version": job_mod.print_set_version(job)}
 
     def work() -> dict:
-        result = illustrator.create_print_doc(job, working_dir)
+        if extra is None:
+            result = illustrator.create_print_doc(view, working_dir)
+        else:
+            result = illustrator.create_print_doc(view, working_dir, extra)
         if result.get("ok"):
             paths = [d["path"] for d in result.get("data", {}).get("documents", [])]
             job_mod.record_print_files(ctx.jobs_root, job_id, paths)
@@ -309,11 +357,27 @@ def export_illustrator_print(ctx, body, job_id):
 
 @route("POST", "/api/jobs/<job_id>/photoshop/new-digital-doc")
 def create_photoshop_digital_doc(ctx, body, job_id):
+    """Creates the job's PSD, or with {"batch": n} adds that batch's
+    digital sizes to her existing PSD as new artboards (R2)."""
     job = job_mod.load_job(ctx.jobs_root, job_id)
-    working_dir = job_mod.job_path(ctx.jobs_root, job_id) / "03_working"
+    root = job_mod.job_path(ctx.jobs_root, job_id)
+    working_dir = root / "03_working"
+    view, extra = job, None
+    batch_no = (body or {}).get("batch")
+    if batch_no is not None and job["files"].get("psd"):
+        batch = job_mod.add_batch(job, int(batch_no))
+        if batch is None:
+            raise job_mod.JobError("Those added sizes aren't in this job anymore.")
+        view = dict(job, formats=[f for f in job["formats"] if f["id"] in batch["format_ids"]])
+        if not any(f["kind"] != "print" for f in view["formats"]):
+            raise job_mod.JobError("None of the added sizes are digital sizes.")
+        extra = {"add_to": str(root / job["files"]["psd"])}
 
     def work() -> dict:
-        result = photoshop.create_digital_doc(job, working_dir)
+        if extra is None:
+            result = photoshop.create_digital_doc(view, working_dir)
+        else:
+            result = photoshop.create_digital_doc(view, working_dir, extra)
         if result.get("ok"):
             path = result.get("data", {}).get("path")
             if path:
