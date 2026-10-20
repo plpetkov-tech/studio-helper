@@ -130,6 +130,11 @@
           "type": "boolean",
           "description": "video may carry sound (default: yes for social, no otherwise)"
         },
+        "wrap_panels": {
+          "type": "array",
+          "items": { "type": "integer", "minimum": 2, "maximum": 4 },
+          "description": "a wrap-around screen (LED column): the panel counts the operator accepts"
+        },
         "ui_safe_px": {
           "type": "object",
           "additionalProperties": false,

@@ -57,3 +57,13 @@ def test_concat_units_match_its_definition():
 
 def test_panel_widths():
     assert F.panel_widths(1920, 3, 4) == [(1920 - 8) / 3] * 3
+
+
+def test_repeat_panels_cover_each_column_and_stay_in_it():
+    panels = F.repeat_panels(1080, 1920, 1920, 1440, 3, 4)
+    pw = (1920 - 8) / 3
+    for i, p in enumerate(panels):
+        centre_px = 960 + p.offset_x * 1920
+        assert i * (pw + 4) <= centre_px <= i * (pw + 4) + pw
+        assert p.fill_fraction == 0  # a 9:16 master covers a 637x1440 column
+        assert 0 <= p.crop["left"] < 1 - p.crop["right"] <= 1

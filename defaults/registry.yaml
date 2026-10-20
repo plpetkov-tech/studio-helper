@@ -276,6 +276,7 @@ formats:
     allow_alpha: false
     max_kb: 256000
     max_duration_s: 10
+    wrap_panels: [2, 3]
 
   # Mall V.Tyrnovo spec sheet (LED screen V.Tarnovo.jpg, Trello, 2026-10).
   - id: mall-screen-veliko-turnovo-led

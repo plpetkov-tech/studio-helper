@@ -202,7 +202,9 @@ def screen_settings(job: dict, fmt: dict) -> dict:
     master = (next((m for m in masters if m["id"] == s.get("master")), None)
               or _best_master(fmt, masters))
     juice = s.get("juice") or (master or {}).get("juice") or []
+    wraps = fmt.get("wrap_panels") or []
     return {
+        "repeat": s.get("repeat", max(wraps) if wraps else 0),
         "mode": s.get("mode") or ("fit" if master else "motion"),
         "master": master,
         "fill": s.get("fill") or v["fill"],
@@ -316,6 +318,11 @@ def _plan_for(job: dict, fmt: dict, root: Path) -> tuple[R.RenderPlan, dict]:
         m = st["master"]
         if not m:
             raise VideoError("Add a Higgsfield video first, or use motion from statics.")
+        if st["repeat"] and st["repeat"] > 1:
+            plan = R.repeat_plan(fmt, m, str(root / m["file"]), st["repeat"], st["brand_color"],
+                                 st["juice"])
+            recipes.add_pieces(plan, recipes.piece_layers(job, fmt, root, end_s=plan.duration))
+            return plan, {"mode": "fit", "master": m["id"], "repeat": st["repeat"]}
         plan, _fits = R.fitter_plan(fmt, m, str(root / m["file"]), st["fill"], st["brand_color"],
                                     st["juice"])
         # brand pieces arrive as an end card over the video

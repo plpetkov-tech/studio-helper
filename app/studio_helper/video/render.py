@@ -35,6 +35,7 @@ class Layer:
     fade_in: float = 0.0
     fade_out: float = 0.0
     muted: bool = False
+    crop: dict | None = None       # fractions off each edge; Concat refits the rest
 
 
 @dataclass
@@ -65,6 +66,31 @@ def background_for(fill: str, brand_color: str | None = None) -> dict:
     if fill == "color" and brand_color:
         return {"kind": "color", "color": brand_color}
     return {"kind": "none"}  # black
+
+
+REPEAT_FRAME_PX = 4
+
+
+def repeat_plan(fmt: dict, master: dict, master_path: str, n: int,
+                brand_color: str | None = None, juice_keys: list[dict] | None = None
+                ) -> RenderPlan:
+    """The same fitted video in n columns with thin frame lines between
+    them (the frame lines are the background: black or brand colour)."""
+    sw, sh = master["w"], master["h"]
+    dw, dh = fmt["size"]["w"], fmt["size"]["h"]
+    juice = F.juice_box(juice_keys[0]["box"], sw, sh) if juice_keys else None
+    duration = master["duration_s"]
+    if fmt.get("max_duration_s"):
+        duration = min(duration, fmt["max_duration_s"])
+    layers = [Layer(file=master_path, duration=duration, scale=pl.concat_scale,
+                    offset_x=pl.offset_x, offset_y=pl.offset_y, crop=pl.crop,
+                    muted=not audio_allowed(fmt) or i > 0)
+              for i, pl in enumerate(F.repeat_panels(sw, sh, dw, dh, n, REPEAT_FRAME_PX, juice))]
+    return RenderPlan(width=dw, height=dh, fps=conform_fps(master.get("fps"), fmt.get("fps")),
+                      duration=duration, layers=layers,
+                      background=background_for("color" if brand_color else "black",
+                                                brand_color),
+                      max_kb=fmt.get("max_kb"))
 
 
 def fitter_plan(fmt: dict, master: dict, master_path: str, fill: str,
@@ -149,6 +175,8 @@ def _shape_clip(c, path, clip_id, layer: Layer, plan: RenderPlan) -> None:
     c.call("clip_transform", path=path, clipId=clip_id, scale=layer.scale,
            offsetX=layer.offset_x, offsetY=layer.offset_y)
     patch = {}
+    if layer.crop:
+        patch["crop"] = layer.crop
     if layer.muted:
         patch["muted"] = True
     if layer.fade_in:

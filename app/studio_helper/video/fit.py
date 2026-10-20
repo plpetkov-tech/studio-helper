@@ -109,3 +109,42 @@ def panel_widths(dw: float, n: int, frame_px: float) -> list[float]:
     columns with frame lines between them."""
     usable = dw - frame_px * (n - 1)
     return [usable / n] * n
+
+
+@dataclass(frozen=True)
+class PanelPlacement:
+    """One column of a Repeat layout, in Concat terms: the master cropped
+    to what the column shows (Concat then treats the crop as the
+    picture), scaled and centred in its column."""
+    crop: dict
+    concat_scale: float
+    offset_x: float
+    offset_y: float
+    fill_fraction: float
+
+
+def repeat_panels(sw, sh, dw, dh, n: int, frame_px: float, juice: Box | None = None
+                  ) -> list[PanelPlacement]:
+    """Repeat mode for wrap-around screens (the Paradise column: one
+    picture only shows from one side): the same fitted picture in n
+    columns with frame lines between them, delivered as one file."""
+    juice = juice or juice_box(None, sw, sh)
+    out = []
+    pw = panel_widths(dw, n, frame_px)[0]
+    for i in range(n):
+        f = fit(sw, sh, pw, dh, juice)
+        s = f.scale
+        x0, x1 = max(0.0, -f.left / s), min(sw, (pw - f.left) / s)
+        y0, y1 = max(0.0, -f.top / s), min(sh, (dh - f.top) / s)
+        cw, ch = x1 - x0, y1 - y0
+        panel_x = i * (pw + frame_px)
+        cx = panel_x + f.left + (x0 + cw / 2) * s
+        cy = f.top + (y0 + ch / 2) * s
+        out.append(PanelPlacement(
+            crop={"left": x0 / sw, "right": 1 - x1 / sw, "top": y0 / sh, "bottom": 1 - y1 / sh},
+            concat_scale=s / min(dw / cw, dh / ch),
+            offset_x=(cx - dw / 2) / dw,
+            offset_y=(cy - dh / 2) / dh,
+            fill_fraction=f.fill_fraction,
+        ))
+    return out

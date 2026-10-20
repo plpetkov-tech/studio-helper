@@ -112,9 +112,11 @@ def set_screen(ctx, body, job_id):
     fid = body.pop("format_id", None)
     if not fid:
         raise job_mod.JobError("Which size?")
-    allowed = {k: body[k] for k in ("mode", "master") if k in body}
+    allowed = {k: body[k] for k in ("mode", "master", "repeat") if k in body}
     if allowed.get("mode") not in (None, "fit", "motion"):
         raise service.VideoError("Mode must be fit or motion.")
+    if allowed.get("repeat") not in (None, 0, 1, 2, 3, 4):
+        raise service.VideoError("Repeat 1 to 4 times.")
     service.set_screen(ctx.jobs_root, job_id, fid, **allowed)
     return get_video(ctx, None, job_id)
 

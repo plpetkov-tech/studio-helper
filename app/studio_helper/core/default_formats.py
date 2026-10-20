@@ -51,6 +51,7 @@ FIELD_PATCHES = [
     # Video checks (v1.0): the screens' own maximum lengths.
     ("veliko-turnovo-max-duration", "max_duration_s", 20, ("mall-screen-veliko-turnovo-led",)),
     ("paradise-column-max-duration", "max_duration_s", 10, ("mall-screen-paradise-led-column",)),
+    ("paradise-column-wrap", "wrap_panels", "[2, 3]", ("mall-screen-paradise-led-column",)),
     # Instagram/Facebook cover the top and bottom of stories with their UI.
     ("story-ui-safe", "ui_safe_px", "{top: 250, bottom: 340}", ("ig-story", "fb-story")),
 ]
