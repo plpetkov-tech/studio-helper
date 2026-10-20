@@ -543,3 +543,30 @@ def reuse_job(jobs_root: Path, registry: Registry, source_id: str, name: str,
             j["video"]["renders"] = {}
 
     return update_job(jobs_root, job["id"], change)
+
+
+DATE_KEYS = ("print_due", "digital_due", "live_from", "live_to")
+
+
+def clean_dates(raw: dict) -> dict:
+    """Campaign dates from her brief (R11) as ISO dates; empty ones dropped."""
+    out = {}
+    for key in DATE_KEYS:
+        value = str(raw.get(key) or "").strip()
+        if not value:
+            continue
+        try:
+            out[key] = datetime.fromisoformat(value).date().isoformat()
+        except ValueError as exc:
+            raise JobError(f"'{value}' isn't a date (use YYYY-MM-DD).") from exc
+    return out
+
+
+def next_due(job: dict, today: str | None = None) -> dict | None:
+    """The nearest print/digital due date still ahead (or today), for the
+    Jobs list badge: {"what": "print", "date": "..."}."""
+    today = today or datetime.now().date().isoformat()
+    dates = job.get("dates") or {}
+    upcoming = sorted((d, k.split("_")[0]) for k, d in dates.items()
+                      if k.endswith("_due") and d >= today)
+    return {"what": upcoming[0][1], "date": upcoming[0][0]} if upcoming else None

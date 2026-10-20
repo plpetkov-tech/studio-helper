@@ -136,3 +136,25 @@ def test_upload_rejects_wrong_types_and_never_uses_browser_paths(api, tmp_path):
                            raw=png.read_bytes())
     assert status == 200
     assert json.loads(body)["pieces"][0]["file"] == "02_assets/pieces/escape.png"
+
+
+def test_spec_sheet_is_kept_with_the_format(api, tmp_path, monkeypatch):
+    call, jcall, _token, _jobs = api
+    import studio_helper.paths as paths
+
+    monkeypatch.setattr(paths, "app_data_dir", lambda: tmp_path / "appdata")
+    registry = tmp_path / "registry.yaml"
+    registry.write_text(DEFAULTS.read_text(encoding="utf-8"), encoding="utf-8")
+    from studio_helper.api import handlers
+    monkeypatch.setattr(handlers, "_load_registry",
+                        lambda ctx: handlers.load_registry(registry))
+    monkeypatch.setattr(handlers.registry_edit, "update_format",
+                        lambda _p, fid, ch, real=handlers.registry_edit.update_format:
+                        real(registry, fid, ch))
+    status, body, _ = call(
+        "POST", "/api/registry/formats/mall-screen-veliko-turnovo-led/spec?name=VT%20sheet.jpg",
+        raw=b"\xff\xd8\xff jpeg")
+    assert status == 200, body
+    fmt = json.loads(body)["format"]
+    assert fmt["source_file"].endswith("specs/mall-screen-veliko-turnovo-led/VT sheet.jpg")
+    assert Path(fmt["source_file"]).read_bytes() == b"\xff\xd8\xff jpeg"

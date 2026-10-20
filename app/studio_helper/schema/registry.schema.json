@@ -130,6 +130,12 @@
           "type": "boolean",
           "description": "video may carry sound (default: yes for social, no otherwise)"
         },
+        "estimated": {
+          "type": "boolean",
+          "description": "the size is a best guess until the operator confirms it"
+        },
+        "source": { "type": "string", "description": "where the spec came from" },
+        "source_file": { "type": "string", "description": "the operator's spec sheet, kept locally" },
         "wrap_panels": {
           "type": "array",
           "items": { "type": "integer", "minimum": 2, "maximum": 4 },

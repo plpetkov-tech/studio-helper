@@ -6,6 +6,7 @@ with a plain message.
 
 from __future__ import annotations
 
+import shutil
 from pathlib import Path
 
 from studio_helper import delivery
@@ -66,8 +67,8 @@ def add_format(ctx, body):
 ALLOWED_EXPORTS = {
     "print": ("pdf", "tiff"),
     "screen": ("jpg", "png", "mp4"),
-    "social": ("jpg", "png"),
-    "web": ("jpg", "png"),
+    "social": ("jpg", "png", "mp4"),
+    "web": ("jpg", "png", "mp4"),
 }
 
 
@@ -94,9 +95,19 @@ def edit_format(ctx, body, format_id):
         raise job_mod.JobError(f"No format '{format_id}'.")
 
     changes: dict = {}
-    for key in ("name", "group", "notes"):
+    for key in ("name", "group", "notes", "source"):
         if key in body:
             changes[key] = str(body[key] or "").strip()
+    if "estimated" in body:
+        # an estimated size shows a badge until the operator confirms it (R11)
+        changes["estimated"] = True if body["estimated"] else None
+    if fmt["kind"] != "print":
+        if "max_duration_s" in body:
+            changes["max_duration_s"] = _number(body["max_duration_s"], "Longest video",
+                                                positive=True)
+        if "max_mb" in body:
+            mb = _number(body["max_mb"], "Largest file", positive=True)
+            changes["max_kb"] = None if mb is None else round(mb * 1024)
     if "w" in body or "h" in body:
         if fmt.get("panels"):
             raise job_mod.JobError("Panel sizes can only be changed in the file (Edit file).")
@@ -181,12 +192,58 @@ def create_job(ctx, body):
     registry, saved_ids, one_off = _custom_sizes(ctx, body, registry)
     format_ids += saved_ids
 
+    dates = job_mod.clean_dates(body.get("dates") or {})
     job = job_mod.create_job(
         ctx.jobs_root, registry, name, format_ids,
         bleed_overrides=body.get("bleed_overrides") or {},
         custom_formats=one_off,
     )
+    if dates:
+        job = job_mod.update_job(ctx.jobs_root, job["id"], lambda j: j.update(dates=dates))
     return 200, {"ok": True, "job": job}
+
+
+@route("POST", "/api/jobs/<job_id>/dates")
+def set_job_dates(ctx, body, job_id):
+    """Due dates from her brief (R11): print_due, digital_due, live_from, live_to."""
+    dates = job_mod.clean_dates(body or {})
+    job = job_mod.update_job(ctx.jobs_root, job_id, lambda j: j.update(dates=dates))
+    return 200, {"ok": True, "job": job}
+
+
+@route("POST", "/api/registry/formats/<format_id>/spec")
+def attach_spec_sheet(ctx, body, format_id):
+    """The operator's spec sheet (PDF/JPG), kept with the format so the
+    source of a size is never lost again (R11). Streamed by the server."""
+    body = body or {}
+    if "tmp" not in body:
+        raise job_mod.JobError("Send the file itself.")
+    registry = _load_registry(ctx)
+    if format_id not in registry.formats:
+        raise job_mod.JobError(f"No format '{format_id}'.")
+    name = Path(body.get("name") or "spec").name
+    if Path(name).suffix.lower() not in (".pdf", ".jpg", ".jpeg", ".png", ".webp"):
+        raise job_mod.JobError("Spec sheets must be PDF, JPG or PNG.")
+    folder = app_paths.app_data_dir() / "specs" / format_id
+    folder.mkdir(parents=True, exist_ok=True)
+    dest = folder / name
+    shutil.copyfile(body["tmp"], dest)
+    try:
+        registry = registry_edit.update_format(
+            ctx.registry_path, format_id, {"source_file": str(dest)})
+    except registry_edit.FormatEditError as exc:
+        raise job_mod.JobError(str(exc)) from exc
+    return 200, {"ok": True, "format": registry.formats[format_id]}
+
+
+@route("POST", "/api/registry/formats/<format_id>/spec/open")
+def open_spec_sheet(ctx, body, format_id):
+    fmt = _load_registry(ctx).formats.get(format_id) or {}
+    path = Path(fmt.get("source_file") or "")
+    if not fmt.get("source_file") or not path.is_file():
+        raise job_mod.JobError("No spec sheet attached to this format.")
+    open_path(path)
+    return 200, {"ok": True}
 
 
 def _custom_sizes(ctx, body: dict, registry: Registry, taken: set[str] | None = None):
@@ -525,6 +582,8 @@ def _summarize(job: dict, ctx) -> dict:
         "name": job["name"],
         "created": job["created"],
         "version": job["version"],
+        "dates": job.get("dates") or {},
+        "next_due": job_mod.next_due(job),
         "deliverables_done": done,
         "deliverables_total": len(status),
         "counts": counts,

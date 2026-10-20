@@ -41,6 +41,7 @@ for _type, _ext in (("text/css", ".css"), ("text/javascript", ".js"), ("font/wof
 # uploads (masters, pieces), always inside the job's own folder.
 JOB_FILE = re.compile(r"^/api/jobs/([^/]+)/file$")
 JOB_UPLOAD = re.compile(r"^/api/jobs/([^/]+)/upload$")
+SPEC_UPLOAD = re.compile(r"^/api/registry/formats/([a-z0-9-]+)/spec$")
 VIEWABLE_DIRS = ("02_assets/", "04_export/")
 MAX_UPLOAD_BYTES = 4 * 1024**3
 CHUNK = 1024 * 1024
@@ -150,14 +151,15 @@ class Handler(BaseHTTPRequestHandler):
                     return  # the player moved on (seeking); fine
                 left -= len(chunk)
 
-    def _receive_upload(self, job_id: str, path: str) -> None:
-        """A raw file (drag and drop) streamed to a temporary file inside
-        the job folder, then handed to the API to put in place."""
-        root = self._job_root(job_id)
+    def _receive_upload(self, root: Path | None, path: str) -> None:
+        """A raw file (drag and drop) streamed to a temporary file under
+        `root` (the job folder, or app data for spec sheets), then handed
+        to the API to put in place."""
         length = int(self.headers.get("Content-Length", 0) or 0)
         if root is None:
             self._send_json(404, {"ok": False, "error": "No such job."})
             return
+        root.mkdir(parents=True, exist_ok=True)
         if length <= 0 or length > MAX_UPLOAD_BYTES:
             self._send_json(400, {"ok": False, "error": "That file is empty or over 4 GB."})
             return
@@ -281,9 +283,14 @@ class Handler(BaseHTTPRequestHandler):
             self._send_json(500, {"ok": False, "error": "server not configured"})
             return
 
+        raw = self.headers.get("Content-Type", "").startswith("application/octet-stream")
         upload = JOB_UPLOAD.match(path)
-        if upload and self.headers.get("Content-Type", "").startswith("application/octet-stream"):
-            self._receive_upload(upload.group(1), path)
+        if upload and raw:
+            self._receive_upload(self._job_root(upload.group(1)), path)
+            return
+        if SPEC_UPLOAD.match(path) and raw:
+            from studio_helper import paths as app_paths
+            self._receive_upload(app_paths.app_data_dir(), path)
             return
 
         try:

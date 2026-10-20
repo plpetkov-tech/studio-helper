@@ -16,7 +16,8 @@ import yaml
 from studio_helper.core.registry import Registry, RegistryError, load_registry
 
 # What the form can change. Required ones can't be emptied.
-EDITABLE = ("name", "group", "notes", "size", "bleed_mm", "safe_mm", "exports", "tiff_ppi")
+EDITABLE = ("name", "group", "notes", "size", "bleed_mm", "safe_mm", "exports", "tiff_ppi",
+            "max_duration_s", "max_kb", "source", "source_file", "estimated")
 REQUIRED = ("name", "size", "exports")
 
 

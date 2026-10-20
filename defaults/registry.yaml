@@ -40,6 +40,7 @@ formats:
     name: Serdika Center floor sticker - estimated per piece (1000 x 1000 mm)
     group: Mall print
     notes: "The workbook lists 3 floor stickers, 3 m² in total. Sized as 3 equal 1 m² squares until the print shop confirms."
+    estimated: true
     kind: print
     size: {w: 1000, h: 1000, unit: mm}
     exports: [tiff]

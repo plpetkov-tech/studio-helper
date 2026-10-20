@@ -26,8 +26,8 @@ from studio_helper.core.registry import (
 KINDS = {
     # kind: (unit, allowed exports)
     "print": ("mm", ("tiff", "pdf")),
-    "screen": ("px", ("png", "jpg")),
-    "social": ("px", ("png", "jpg")),
+    "screen": ("px", ("png", "jpg", "mp4")),
+    "social": ("px", ("png", "jpg", "mp4")),
     "web": ("px", ("jpg", "png")),
 }
 

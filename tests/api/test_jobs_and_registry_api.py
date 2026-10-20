@@ -281,3 +281,24 @@ def test_video_plan_and_reference_pack(api, monkeypatch):
     assert status == 200 and data["plan"] == {"masters": [], "strips": []}
     status, data = api("POST", f"/api/jobs/{job_id}/video/reference-pack", {})
     assert status == 200 and data["folder"].endswith("higgsfield") and data["copied"] == []
+
+
+def test_dates_on_a_job_and_the_next_due_badge(api):
+    status, data = api("POST", "/api/jobs", {"name": "Black November", "format_ids": ["ig-post"],
+                                             "dates": {"print_due": "2099-10-23",
+                                                       "digital_due": "2099-10-29"}})
+    assert status == 200 and data["job"]["dates"]["print_due"] == "2099-10-23"
+    _s, jobs = api("GET", "/api/jobs")
+    assert jobs["jobs"][0]["next_due"] == {"what": "print", "date": "2099-10-23"}
+    status, data = api("POST", f"/api/jobs/{data['job']['id']}/dates", {"print_due": "23.10"})
+    assert status == 400 and "isn't a date" in data["error"]
+
+
+def test_editing_a_social_format_keeps_mp4_and_marks_estimates(api):
+    status, data = api("POST", "/api/registry/formats/ig-post",
+                       {"exports": ["png", "mp4"], "estimated": True, "source": "IG help"})
+    assert status == 200, data
+    fmt = data["format"]
+    assert fmt["exports"] == ["png", "mp4"] and fmt["estimated"] is True
+    status, data = api("POST", "/api/registry/formats/ig-post", {"estimated": False})
+    assert "estimated" not in data["format"]

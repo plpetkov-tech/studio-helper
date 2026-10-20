@@ -52,6 +52,9 @@ FIELD_PATCHES = [
     ("veliko-turnovo-max-duration", "max_duration_s", 20, ("mall-screen-veliko-turnovo-led",)),
     ("paradise-column-max-duration", "max_duration_s", 10, ("mall-screen-paradise-led-column",)),
     ("paradise-column-wrap", "wrap_panels", "[2, 3]", ("mall-screen-paradise-led-column",)),
+    # Sizes that are still a guess get the "estimated" badge (R11).
+    ("floor-sticker-estimated", "estimated", "true",
+     ("mall-print-serdika-floor-sticker-estimated",)),
     # Instagram/Facebook cover the top and bottom of stories with their UI.
     ("story-ui-safe", "ui_safe_px", "{top: 250, bottom: 340}", ("ig-story", "fb-story")),
 ]
