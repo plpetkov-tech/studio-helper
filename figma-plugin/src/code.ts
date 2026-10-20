@@ -2,20 +2,29 @@
 // sandboxed plugin environment; talks to ui.html only via postMessage
 // (no disk access, no network -- see manifest.json's networkAccess).
 
-import { NOTE_SPACE_PX, bumpFrameName, digitalFrameSpecs, layoutGrid, pageName, startBelow } from "./layout";
+import {
+  NOTE_SPACE_PX,
+  bumpFrameName,
+  closestByAspect,
+  coverFit,
+  digitalFrameSpecs,
+  layoutGrid,
+  pageName,
+  startBelow,
+} from "./layout";
 import type { Job } from "./layout";
 
 figma.showUI(__html__, { width: 360, height: 460 });
 
 type UiMessage =
-  | { type: "create-frames"; jobJson: string }
+  | { type: "create-frames"; jobJson: string; startFromClosest?: boolean }
   | { type: "bump-version" };
 
 figma.ui.onmessage = async (msg: UiMessage) => {
   try {
     if (msg.type === "create-frames") {
       const job: Job = JSON.parse(msg.jobJson);
-      const message = await createFrames(job);
+      const message = await createFrames(job, msg.startFromClosest !== false);
       figma.ui.postMessage({ type: "result", ok: true, message });
     } else if (msg.type === "bump-version") {
       const message = bumpVersion();
@@ -30,7 +39,7 @@ function findPage(name: string): PageNode | null {
   return (figma.root.children.find((p) => p.name === name) as PageNode) ?? null;
 }
 
-async function createFrames(job: Job): Promise<string> {
+async function createFrames(job: Job, startFromClosest: boolean): Promise<string> {
   const name = pageName(job);
   let page = findPage(name);
   let isNewPage = false;
@@ -51,6 +60,12 @@ async function createFrames(job: Job): Promise<string> {
   // loaded before its children can be read.
   await page.loadAsync();
   const existingNames = new Set(page.children.map((n) => n.name));
+  // Her existing frames for this job: a new size can start from the one
+  // with the closest shape (R3).
+  const stems = new Set(specs.map((s) => s.stem));
+  const sources = page.children
+    .filter((n): n is FrameNode => n.type === "FRAME" && stems.has(n.name))
+    .map((frame) => ({ frame, widthPx: frame.width, heightPx: frame.height }));
   const toCreate = specs.filter((s) => !existingNames.has(s.stem));
 
   // Frames made by an older plugin version had no export setting: add
@@ -70,6 +85,7 @@ async function createFrames(job: Job): Promise<string> {
   if (hasNotes) await figma.loadFontAsync(NOTE_FONT);
   for (const pos of positions) pos.y += top;
 
+  let seeded = 0;
   for (const pos of positions) {
     const frame = figma.createFrame();
     frame.name = pos.item.stem;
@@ -94,6 +110,10 @@ async function createFrames(job: Job): Promise<string> {
 
     page.appendChild(frame);
     if (pos.item.notes) page.appendChild(noteLabel(frame, pos.item.notes));
+    if (startFromClosest) {
+      const source = closestByAspect(pos.item, sources);
+      if (source) seeded += startFrom(frame, source.frame) ? 1 : 0;
+    }
   }
 
   // Plain `figma.currentPage = page` throws under dynamic-page (seen on
@@ -109,10 +129,39 @@ async function createFrames(job: Job): Promise<string> {
   if (skipped > 0) {
     parts.push(`${skipped} already existed and were left as-is`);
   }
+  if (seeded > 0) {
+    parts.push(`${seeded} started from your closest existing frame`);
+  }
   const prefix = isNewPage ? `on new page "${page.name}"` : `on page "${page.name}"`;
   return parts.length > 0
     ? `${parts.join(", ")} ${prefix}.`
     : `All frames already exist ${prefix} -- nothing to add.`;
+}
+
+const SEED_NAME = "Starting point - adjust me";
+
+/** Copies the source frame's content into `frame`, grouped and scaled to
+ * cover it, centred. Her source frame is only read. */
+function startFrom(frame: FrameNode, source: FrameNode): boolean {
+  if (source.children.length === 0) return false;
+  const clones = source.children.map((child) => {
+    const copy = child.clone();
+    frame.appendChild(copy);
+    return copy;
+  });
+  const group = figma.group(clones, frame);
+  group.name = SEED_NAME;
+  const fit = coverFit(
+    { widthPx: source.width, heightPx: source.height },
+    { widthPx: frame.width, heightPx: frame.height },
+  );
+  // children keep their positions relative to the source frame's origin
+  const offsetX = group.x;
+  const offsetY = group.y;
+  group.rescale(fit.scale);
+  group.x = fit.x + offsetX * fit.scale;
+  group.y = fit.y + offsetY * fit.scale;
+  return true;
 }
 
 const NOTE_FONT: FontName = { family: "Inter", style: "Regular" };

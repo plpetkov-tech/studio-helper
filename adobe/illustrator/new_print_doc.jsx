@@ -298,7 +298,125 @@ function addNoteLabel(layer, entry, bleedPt) {
     tf.position = [entry.left, entry.top + bleedPt + 4 + lines.length * size * 1.2];
 }
 
-function createDocumentForSheet(sheet, bleedMm, filePath) {
+// -- "start from closest" (ROADMAP R3) ------------------------------------
+//
+// A size added to the job later gets a scaled copy of her artwork from
+// the existing size with the closest shape (Python picks the pairs), on a
+// "Starting point - adjust me" layer. Her source files are only read:
+// never saved, and closed again only if this script opened them.
+
+var SEED_LAYER = "Starting point - adjust me";
+var SKIP_LAYERS = {"Guides": true, "Notes": true};
+
+// Box [left, top, right, bottom] grown by `by` on every side (y up).
+function grow(box, by) {
+    return [box[0] - by, box[1] + by, box[2] + by, box[3] - by];
+}
+
+function intersects(a, b) {
+    return a[0] < b[2] && a[2] > b[0] && a[3] < b[1] && a[1] > b[3];
+}
+
+// How to move a copied group so the source box (artboard + bleed)
+// covers the target box: scale by the larger ratio (cover, nothing
+// left empty), centre on centre. The group is resized about its own
+// centre g, so the translation corrects for g differing from the
+// source box's centre. All boxes are [left, top, right, bottom].
+function seedTransform(src, tgt, group) {
+    var sw = src[2] - src[0], sh = src[1] - src[3];
+    var tw = tgt[2] - tgt[0], th = tgt[1] - tgt[3];
+    var s = Math.max(tw / sw, th / sh);
+    var scx = (src[0] + src[2]) / 2, scy = (src[1] + src[3]) / 2;
+    var tcx = (tgt[0] + tgt[2]) / 2, tcy = (tgt[1] + tgt[3]) / 2;
+    var gcx = (group[0] + group[2]) / 2, gcy = (group[1] + group[3]) / 2;
+    return {
+        scalePct: s * 100,
+        dx: tcx - gcx + s * (gcx - scx),
+        dy: tcy - gcy + s * (gcy - scy)
+    };
+}
+
+function artboardNamed(doc, formatId) {
+    var i, name;
+    for (i = 0; i < doc.artboards.length; i++) {
+        name = doc.artboards[i].name;
+        if (name === formatId || name.indexOf(formatId + "@") === 0) { return doc.artboards[i]; }
+    }
+    return null;
+}
+
+// {doc, artboard} for a source format across the set's files, opening a
+// file only if it isn't open already. `opened` collects what we opened.
+function findSource(files, formatId, opened) {
+    var i, file, doc, ab;
+    for (i = 0; i < files.length; i++) {
+        file = new File(files[i]);
+        if (!file.exists) { continue; }
+        doc = SH.findOpenDocument(file);
+        if (!doc) {
+            doc = app.open(file);
+            opened.push(doc);
+        }
+        ab = artboardNamed(doc, formatId);
+        if (ab) { return {doc: doc, artboard: ab}; }
+    }
+    return null;
+}
+
+function seedArtboards(doc, artboards, bleedPt, seedArgs, warnings) {
+    var opened = [], layer = null, i, j, k, seed, target, src, box, tgtBox, group, items, t;
+    for (i = 0; i < seedArgs.seeds.length; i++) {
+        seed = seedArgs.seeds[i];
+        target = null;
+        for (j = 0; j < artboards.length; j++) {
+            if (artboards[j].plan.formatId === seed.target) { target = artboards[j]; }
+        }
+        if (!target) { continue; }
+        src = findSource(seedArgs.source_files, seed.source, opened);
+        if (!src) {
+            warnings.push("No artwork found for '" + seed.source + "' to start '" + seed.target +
+                "' from; it starts empty.");
+            continue;
+        }
+        box = grow(src.artboard.artboardRect, SH.bleedPt(seed.source_bleed_mm || 0));
+        if (!layer) {
+            layer = doc.layers.add();
+            layer.name = SEED_LAYER;
+        }
+        group = layer.groupItems.add();
+        group.name = "From " + seed.source;
+        items = 0;
+        for (j = 0; j < src.doc.layers.length; j++) {
+            var srcLayer = src.doc.layers[j];
+            if (SKIP_LAYERS[srcLayer.name] || !srcLayer.printable || !srcLayer.visible) { continue; }
+            for (k = 0; k < srcLayer.pageItems.length; k++) {
+                var item = srcLayer.pageItems[k];
+                if (item.parent !== srcLayer || !intersects(item.visibleBounds, box)) { continue; }
+                try {
+                    item.duplicate(group, ElementPlacement.PLACEATEND);
+                    items += 1;
+                } catch (e) {
+                    // a locked or odd item: skip it, the rest still helps
+                }
+            }
+        }
+        if (items === 0) {
+            group.remove();
+            continue;
+        }
+        tgtBox = grow([target.left, target.top, target.right, target.bottom], bleedPt);
+        t = seedTransform(box, tgtBox, group.geometricBounds);
+        group.resize(t.scalePct, t.scalePct, true, true, true, true, t.scalePct,
+            Transformation.CENTER);
+        group.translate(t.dx, t.dy);
+    }
+    for (i = 0; i < opened.length; i++) {
+        opened[i].close(SaveOptions.DONOTSAVECHANGES);
+    }
+    doc.activate();
+}
+
+function createDocumentForSheet(sheet, bleedMm, filePath, seedArgs) {
     var outFile = new File(filePath);
     if (outFile.exists) {
         return {error: {
@@ -399,6 +517,16 @@ function createDocumentForSheet(sheet, bleedMm, filePath) {
         notesLayer.printable = false;
         notesLayer.locked = true;
     }
+    var seedWarnings = [];
+    if (seedArgs && seedArgs.seeds && seedArgs.seeds.length) {
+        try {
+            seedArtboards(doc, artboards, bleedPt, seedArgs, seedWarnings);
+        } catch (e) {
+            doc.activate();
+            seedWarnings.push("Couldn't copy the starting artwork: " + String(e.message || e) +
+                ". The new artboards start empty.");
+        }
+    }
     app.redraw(); // otherwise the Artboards panel can keep showing the old names
 
     var saveOpts = new IllustratorSaveOptions();
@@ -420,7 +548,7 @@ function createDocumentForSheet(sheet, bleedMm, filePath) {
     }
 
     return {data: {path: outFile.fsName, bleed_mm: bleedMm, artboards: artboardData,
-        notes_failed: notesFailed}};
+        notes_failed: notesFailed, seed_warnings: seedWarnings}};
 }
 
 // "<id>_print[_add01][_bleed3mm][_part2]_v01.ai", one per sheet, in order.
@@ -476,12 +604,16 @@ function main(args) {
     for (i = 0; i < groups.length; i++) {
         for (s = 0; s < planned[i].sheets.length; s++) {
             var outcome = createDocumentForSheet(
-                planned[i].sheets[s], groups[i].bleedMm, joinPath(outputDir, names[n])
+                planned[i].sheets[s], groups[i].bleedMm, joinPath(outputDir, names[n]),
+                {seeds: args.seeds || [], source_files: args.source_files || []}
             );
             n += 1;
             if (outcome.error) {
                 SH.addError(result, outcome.error.code, outcome.error.message, outcome.error.hint);
             } else {
+                for (var w = 0; w < outcome.data.seed_warnings.length; w++) {
+                    SH.addWarning(result, "STARTING_POINT", outcome.data.seed_warnings[w], "");
+                }
                 if (outcome.data.notes_failed) {
                     SH.addWarning(result, "NOTES_LABEL",
                         "Couldn't add some notes labels in " + names[n - 1] + ". The file itself is fine.", "");

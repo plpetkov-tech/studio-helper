@@ -10,7 +10,7 @@ from pathlib import Path
 
 from studio_helper import paths as app_paths
 from studio_helper.adobe import illustrator, photoshop
-from studio_helper.core import custom_formats, registry_edit
+from studio_helper.core import custom_formats, registry_edit, seeds
 from studio_helper.core import job as job_mod
 from studio_helper.core.registry import Registry, RegistryError, load_registry
 from studio_helper.core.scaffold import EXPORT_SUBDIR_BY_KIND
@@ -285,6 +285,16 @@ def create_illustrator_print_doc(ctx, body, job_id):
         if not any(f["kind"] == "print" for f in view["formats"]):
             raise job_mod.JobError("None of the added sizes are print sizes.")
         extra = {"name_tag": f"add{int(batch_no):02d}", "version": job_mod.print_set_version(job)}
+        if (body or {}).get("start_from_closest", True):
+            root = job_mod.job_path(ctx.jobs_root, job_id)
+            by_id = {f["id"]: f for f in job["formats"]}
+            pairs = [p for p in seeds.seeds_for(job, batch["format_ids"])
+                     if by_id[p["target"]]["kind"] == "print"]
+            for p in pairs:
+                src = by_id[p["source"]]
+                p["source_bleed_mm"] = (src.get("bleed_mm") or 0) * (src.get("scale") or 1)
+            extra["seeds"] = pairs
+            extra["source_files"] = [str(root / rel) for rel in job_mod.current_print_files(job)]
 
     def work() -> dict:
         if extra is None:
@@ -372,6 +382,10 @@ def create_photoshop_digital_doc(ctx, body, job_id):
         if not any(f["kind"] != "print" for f in view["formats"]):
             raise job_mod.JobError("None of the added sizes are digital sizes.")
         extra = {"add_to": str(root / job["files"]["psd"])}
+        if (body or {}).get("start_from_closest", True):
+            kinds = {f["id"]: f["kind"] for f in job["formats"]}
+            extra["seeds"] = [p for p in seeds.seeds_for(job, batch["format_ids"])
+                              if kinds[p["target"]] != "print"]
 
     def work() -> dict:
         if extra is None:

@@ -234,6 +234,52 @@ function runPhotoshopAdd(openDocs, opts) {
   return {result, app, placed};
 }
 
+// "Start from closest" (new_print_doc.jsx seedArtboards, ROADMAP R3): her
+// source file is only read -- never saved -- and closed only if we opened it.
+function runSeeding(openDocs) {
+  const fsys = makeFs([AI]);
+  const app = illustratorApp(openDocs, fsys, {});
+  const ctx = {app, File: fsys.File, console,
+    SaveOptions: {DONOTSAVECHANGES: "DONOTSAVECHANGES"},
+    ElementPlacement: {PLACEATEND: "PLACEATEND"},
+    Transformation: {CENTER: "CENTER"}};
+  vm.createContext(ctx);
+  vm.runInContext(source("illustrator/lib/common.jsx"), ctx, {filename: "common.jsx"});
+  vm.runInContext(source("illustrator/new_print_doc.jsx"), ctx, {filename: "new_print_doc.jsx"});
+  const copies = [];
+  const target = {
+    log: [],
+    layers: {add() {
+      return {groupItems: {add() {
+        return {geometricBounds: [0, 10, 10, 0], name: "",
+          resize() { target.log.push("resize"); }, translate() { target.log.push("translate"); },
+          remove() { target.log.push("remove"); }};
+      }}};
+    }},
+    activate() { this.log.push("activate"); },
+  };
+  // every page item of a source doc records when it is copied
+  app.documents.concat([]).forEach((d) => d.layers.forEach((l) => l.pageItems.forEach((it) => {
+    it.parent = l;
+    it.duplicate = () => copies.push(it);
+  })));
+  const realOpen = app.open.bind(app);
+  app.open = function (file) {
+    const doc = realOpen(file);
+    doc.layers.forEach((l) => l.pageItems.forEach((it) => {
+      it.parent = l;
+      it.duplicate = () => copies.push(it);
+    }));
+    return doc;
+  };
+  const warnings = [];
+  const artboards = [{plan: {formatId: "mall-x"}, left: 0, top: 300, right: 300, bottom: 0}];
+  ctx.seedArtboards(target, artboards, 9,
+    {seeds: [{target: "mall-x", source: "flyer-a5", source_bleed_mm: 3}], source_files: [AI]},
+    warnings);
+  return {app, target, copies, warnings};
+}
+
 // -- checks -------------------------------------------------------------------
 
 function run() {
@@ -388,6 +434,22 @@ function run() {
     assert.strictEqual(result.errors[0].code, "TOO_LARGE");
     assert.strictEqual(placed.length, 0);
     assert.deepStrictEqual(mine.log, []);
+  });
+
+  check("Start-from-closest reads an open source file and leaves it exactly as it was", () => {
+    const mine = illustratorDoc(AI, {saved: false});
+    const {app, target, copies} = runSeeding([mine]);
+    assert.strictEqual(copies.length, 1);
+    assert.deepStrictEqual(mine.log, []); // not saved, not closed
+    assert.strictEqual(app.opened.length, 0);
+    assert.ok(target.log.indexOf("resize") >= 0 && target.log.indexOf("activate") >= 0);
+  });
+
+  check("Start-from-closest opens a closed source file read-only and closes it unsaved", () => {
+    const {app, copies} = runSeeding([]);
+    assert.strictEqual(copies.length, 1);
+    assert.strictEqual(app.opened.length, 1);
+    assert.deepStrictEqual(app.opened[0].log, ["close:DONOTSAVECHANGES"]);
   });
 
   console.log("\n" + passed + " document-safety checks passed.");

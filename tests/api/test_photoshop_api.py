@@ -196,3 +196,4 @@ def test_added_digital_sizes_go_into_her_existing_psd(api, monkeypatch):
     ids, extra = seen[1]
     assert ids == ["led-mall-entrance"]
     assert extra["add_to"].endswith(f"{job_id}_digital_v01.psd")
+    assert extra["seeds"] == [{"target": "led-mall-entrance", "source": "ig-post"}]

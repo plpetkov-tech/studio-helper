@@ -1,5 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { bumpFrameName, digitalFrameSpecs, gridColumns, layoutGrid, pageName, startBelow } from "./layout";
+import {
+  bumpFrameName,
+  closestByAspect,
+  coverFit,
+  digitalFrameSpecs,
+  gridColumns,
+  layoutGrid,
+  pageName,
+  startBelow,
+} from "./layout";
 import type { Job } from "./layout";
 
 const JOB: Job = {
@@ -199,5 +208,31 @@ describe("startBelow", () => {
   });
   it("starts below the lowest thing already on the page", () => {
     expect(startBelow([{ y: 0, height: 1350 }, { y: 1450, height: 1920 }], 100)).toBe(3470);
+  });
+});
+
+describe("closestByAspect", () => {
+  const story = { widthPx: 1080, heightPx: 1920 };
+  const post = { widthPx: 1080, heightPx: 1350 };
+  const wide = { widthPx: 1920, heightPx: 1080 };
+  it("picks the frame with the closest shape", () => {
+    expect(closestByAspect({ widthPx: 1600, heightPx: 2560 }, [post, story, wide])).toBe(story);
+    expect(closestByAspect({ widthPx: 1920, heightPx: 1440 }, [post, story, wide])).toBe(wide);
+  });
+  it("prefers the larger frame on a tie, and null with nothing to start from", () => {
+    const small = { widthPx: 100, heightPx: 100 };
+    const big = { widthPx: 1000, heightPx: 1000 };
+    expect(closestByAspect({ widthPx: 500, heightPx: 500 }, [small, big])).toBe(big);
+    expect(closestByAspect(story, [])).toBeNull();
+  });
+});
+
+describe("coverFit", () => {
+  it("scales to cover and centres", () => {
+    expect(coverFit({ widthPx: 1080, heightPx: 1920 }, { widthPx: 1600, heightPx: 2560 })).toEqual({
+      scale: 1600 / 1080,
+      x: 0,
+      y: (2560 - 1920 * (1600 / 1080)) / 2,
+    });
   });
 });

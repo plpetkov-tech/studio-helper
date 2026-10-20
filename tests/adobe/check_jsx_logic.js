@@ -240,6 +240,35 @@ function run() {
     );
   });
 
+  check("seedTransform covers the target with the source, centre on centre", () => {
+    // source artboard 100x200 at (0,200)-(100,0); target 300x300 at (1000,300)-(1300,0)
+    const t = ctx.seedTransform([0, 200, 100, 0], [1000, 300, 1300, 0], [10, 190, 90, 10]);
+    assert.strictEqual(t.scalePct, 300); // max(300/100, 300/200) = 3: covers, no empty edge
+    // the source centre (50,100) must land on the target centre (1150,150)
+    const gcx = 50, gcy = 100; // group centre == source centre here
+    assert.strictEqual(gcx + t.dx, 1150);
+    assert.strictEqual(gcy + t.dy, 150);
+  });
+
+  check("seedTransform keeps an off-centre group in the right place", () => {
+    const src = [0, 100, 100, 0], tgt = [0, 100, 100, 0];
+    const t = ctx.seedTransform(src, tgt, [60, 40, 80, 20]); // group sits right of centre
+    assert.strictEqual(t.scalePct, 100);
+    assert.strictEqual(t.dx, 0);
+    assert.strictEqual(t.dy, 0);
+    // at 2x into a 200x200 target, a point at the source's right edge maps to the target's
+    const t2 = ctx.seedTransform(src, [0, 200, 200, 0], [60, 40, 80, 20]);
+    const gcx = 70, s = t2.scalePct / 100;
+    const mapped = gcx + t2.dx + (100 - gcx) * s; // where x=100 ends up
+    assert.strictEqual(mapped, 200);
+  });
+
+  check("grow and intersects use Illustrator's y-up boxes", () => {
+    assert.deepStrictEqual(Array.from(ctx.grow([0, 100, 50, 0], 5)), [-5, 105, 55, -5]);
+    assert.ok(ctx.intersects([0, 10, 10, 0], [5, 15, 15, 5]));
+    assert.ok(!ctx.intersects([0, 10, 10, 0], [20, 30, 30, 20]));
+  });
+
   check("printFileNames marks add-on files for sizes added later (_add01)", () => {
     assert.deepStrictEqual(
       Array.from(ctx.printFileNames("job", [{bleedMm: 3}], [{sheets: [[]]}], "_v01", "add01")),

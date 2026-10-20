@@ -42,6 +42,10 @@
   <div id="drop-zone" class="drop-zone">Drop job.json here, or click to choose</div>
   <input type="file" id="file-input" accept="application/json" style="display:none">
   <div id="job-name"></div>
+  <label style="display:block;font-size:11px;margin:0 0 8px">
+    <input type="checkbox" id="seed-checkbox" checked>
+    New sizes start from the closest existing frame
+  </label>
   <button id="create-frames-btn" class="primary" disabled>Create frames</button>
   <button id="bump-version-btn">Bump version</button>
   <div id="status"></div>
@@ -94,7 +98,9 @@
 
       createBtn.addEventListener("click", function () {
         statusEl.textContent = "Working…";
-        parent.postMessage({pluginMessage: {type: "create-frames", jobJson: jobJson}}, "*");
+        var seed = document.getElementById("seed-checkbox").checked;
+        parent.postMessage({pluginMessage: {type: "create-frames", jobJson: jobJson,
+          startFromClosest: seed}}, "*");
       });
 
       // Bump version doesn't need a job.json loaded -- it works on

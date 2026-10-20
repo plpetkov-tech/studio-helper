@@ -97,6 +97,19 @@ function extentOf(positions, minW, minH) {
     return {width: w, height: h};
 }
 
+// "Start from closest" (ROADMAP R3): how to move a copy of the source
+// artboard's layers so it covers the target artboard, centre on centre.
+// Rects are {left, top, right, bottom} in pixels (y down); the copy is
+// resized about its own centre, which the translation corrects for.
+function seedTransformPx(src, tgt, group) {
+    var s = Math.max((tgt.right - tgt.left) / (src.right - src.left),
+        (tgt.bottom - tgt.top) / (src.bottom - src.top));
+    var scx = (src.left + src.right) / 2, scy = (src.top + src.bottom) / 2;
+    var tcx = (tgt.left + tgt.right) / 2, tcy = (tgt.top + tgt.bottom) / 2;
+    var gcx = (group.left + group.right) / 2, gcy = (group.top + group.bottom) / 2;
+    return {scalePct: s * 100, dx: tcx - gcx + s * (gcx - scx), dy: tcy - gcy + s * (gcy - scy)};
+}
+
 // -- Photoshop-touching glue ---------------------------------------------
 
 // Creates a Photoshop Artboard via Action Manager (there is no DOM
@@ -161,6 +174,63 @@ function addNoteLabel(doc, plan, x, y) {
     layer.allLocked = true;
 }
 
+var SEED_LAYER = "Starting point - adjust me";
+
+function topLevelSet(doc, name) {
+    var i;
+    for (i = 0; i < doc.layerSets.length; i++) {
+        if (doc.layerSets[i].name === name) { return doc.layerSets[i]; }
+    }
+    return null;
+}
+
+function artboardRectOf(doc, set) {
+    doc.activeLayer = set;
+    return SH.activeArtboardRect();
+}
+
+function boundsPx(layer) {
+    var b = layer.bounds;
+    return {left: b[0].as("px"), top: b[1].as("px"), right: b[2].as("px"), bottom: b[3].as("px")};
+}
+
+// Copies each seed's source artboard layers into the new artboard,
+// scaled to cover it, in a "Starting point - adjust me" group.
+function seedArtboards(doc, seeds, result) {
+    var i, k, seed, srcSet, tgtSet, srcRect, tgtRect, holder, t;
+    for (i = 0; i < seeds.length; i++) {
+        seed = seeds[i];
+        srcSet = topLevelSet(doc, seed.source);
+        tgtSet = topLevelSet(doc, seed.target);
+        if (!srcSet || !tgtSet || srcSet.layers.length === 0) { continue; }
+        try {
+            srcRect = artboardRectOf(doc, srcSet);
+            tgtRect = artboardRectOf(doc, tgtSet);
+            if (!srcRect || !tgtRect) { continue; }
+            holder = tgtSet.layerSets.add();
+            holder.name = SEED_LAYER;
+            for (k = srcSet.layers.length - 1; k >= 0; k--) {
+                if (srcSet.layers[k] !== holder) {
+                    srcSet.layers[k].duplicate(holder, ElementPlacement.PLACEATBEGINNING);
+                }
+            }
+            t = seedTransformPx(srcRect, tgtRect, boundsPx(holder));
+            holder.resize(t.scalePct, t.scalePct, AnchorPosition.MIDDLECENTER);
+            holder.translate(t.dx, t.dy);
+            if (t.scalePct > 105) {
+                SH.addWarning(result, "STARTING_POINT_UPSCALED",
+                    "'" + seed.target + "' starts from '" + seed.source + "' enlarged " +
+                        Math.round(t.scalePct) + "%: pixel layers may look soft.",
+                    "Replace soft pictures with the originals, or use Smart Objects.");
+            }
+        } catch (e) {
+            SH.addWarning(result, "STARTING_POINT",
+                "Couldn't copy the starting artwork into '" + seed.target + "': " +
+                    String(e.message || e) + ". It starts empty.", "");
+        }
+    }
+}
+
 function topLevelNames(doc) {
     var names = {}, i;
     for (i = 0; i < doc.layerSets.length; i++) { names[doc.layerSets[i].name] = true; }
@@ -215,6 +285,9 @@ function addToExisting(args, digitalFormats, result) {
     }
 
     var artboardsData = placeArtboards(positions, result);
+    if (args.seeds && args.seeds.length) {
+        seedArtboards(app.activeDocument, args.seeds, result);
+    }
     app.activeDocument.save();
     if (openedHere) {
         app.activeDocument.close(SaveOptions.DONOTSAVECHANGES);

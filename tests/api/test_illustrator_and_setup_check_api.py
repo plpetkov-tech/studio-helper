@@ -364,7 +364,13 @@ def test_added_sizes_get_an_add_on_file_at_the_print_set_version(api, monkeypatc
     _s, data = call("POST", f"/api/jobs/{job_id}/illustrator/new-print-doc", {"batch": 1})
     assert poll(data["task_id"])["status"] == "done"
 
-    assert seen[1] == (["mall-x-door"], {"name_tag": "add01", "version": 1})
+    ids, extra = seen[1]
+    assert ids == ["mall-x-door"]
+    assert (extra["name_tag"], extra["version"]) == ("add01", 1)
+    # starts from her A5 artwork (the only print size), read from the v01 file
+    assert extra["seeds"] == [{"target": "mall-x-door", "source": "flyer-a5",
+                               "source_bleed_mm": 3}]
+    assert extra["source_files"][0].endswith(f"{job_id}_print_v01.ai")
     _s, job_data = call("GET", f"/api/jobs/{job_id}")
     assert job_data["print_files"] == [
         f"03_working/{job_id}_print_v01.ai", f"03_working/{job_id}_print_add01_v01.ai"]

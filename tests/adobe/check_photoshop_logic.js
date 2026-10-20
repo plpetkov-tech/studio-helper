@@ -63,6 +63,15 @@ function run() {
     assert.deepStrictEqual([ext.width, ext.height], [2000, 1800]);
   });
 
+  check("seedTransformPx covers the target and lands centre on centre (y down)", () => {
+    const src = {left: 0, top: 0, right: 1080, bottom: 1920};
+    const tgt = {left: 0, top: 3000, right: 1600, bottom: 5560};
+    const t = newDoc.seedTransformPx(src, tgt, {left: 0, top: 0, right: 1080, bottom: 1920});
+    assert.ok(Math.abs(t.scalePct - (1600 / 1080) * 100) < 1e-9); // width decides: covers
+    assert.strictEqual(540 + t.dx, 800);   // source centre x -> target centre x
+    assert.strictEqual(960 + t.dy, 4280);  // source centre y -> target centre y
+  });
+
   check("layoutGrid places items left to right then wraps (2 cols for 3 items)", () => {
     const plan = [
       {name: "a", widthPx: 100, heightPx: 100},

@@ -139,6 +139,34 @@ export function startBelow(
   return Math.max(...existing.map((n) => n.y + n.height)) + gapPx;
 }
 
+/** The existing frame whose shape is closest to `target` (by
+ * |log(aspect)|; the larger one on a tie), to start a new size from
+ * (ROADMAP R3). Mirrors core/seeds.py. */
+export function closestByAspect<T extends Sized>(target: Sized, candidates: readonly T[]): T | null {
+  const want = Math.log(target.widthPx / target.heightPx);
+  let best: T | null = null;
+  let bestKey: [number, number] = [Infinity, 0];
+  for (const c of candidates) {
+    const d = Math.round(Math.abs(Math.log(c.widthPx / c.heightPx) - want) * 1e6) / 1e6;
+    const area = c.widthPx * c.heightPx;
+    if (d < bestKey[0] || (d === bestKey[0] && area > bestKey[1])) {
+      best = c;
+      bestKey = [d, area];
+    }
+  }
+  return best;
+}
+
+/** Scale and offset that make a `src`-sized copy cover `dst`, centred. */
+export function coverFit(src: Sized, dst: Sized): { scale: number; x: number; y: number } {
+  const scale = Math.max(dst.widthPx / src.widthPx, dst.heightPx / src.heightPx);
+  return {
+    scale,
+    x: (dst.widthPx - src.widthPx * scale) / 2,
+    y: (dst.heightPx - src.heightPx * scale) / 2,
+  };
+}
+
 const VERSION_SUFFIX = /_v(\d+)$/;
 
 /** "_vNN" -> "_vNN+1", padded back to the same width (SPEC.md §6.6
