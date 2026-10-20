@@ -475,3 +475,14 @@ def print_set_version(job: dict) -> int:
 
 def add_batch(job: dict, batch: int) -> dict | None:
     return next((b for b in job.get("added", []) if b["batch"] == batch), None)
+
+
+@_locked
+def update_job(jobs_root: Path, job_id: str, change) -> dict:
+    """Applies change(job) -> None under the job lock and saves. For the
+    job's own sections (video, brand pieces, dates, deliveries); Python
+    stays the only writer of job.json."""
+    job = load_job(jobs_root, job_id)
+    change(job)
+    _write_job(job_path(jobs_root, job_id), job)
+    return job

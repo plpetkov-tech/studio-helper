@@ -1,0 +1,638 @@
+{
+ "concat": "0.2.8",
+ "note": "tools/list from Concat 0.2.8, argument names only",
+ "tools": [
+  {
+   "name": "concat_version",
+   "inputSchema": {
+    "type": "object",
+    "properties": {},
+    "required": []
+   }
+  },
+  {
+   "name": "project_list",
+   "inputSchema": {
+    "type": "object",
+    "properties": {},
+    "required": []
+   }
+  },
+  {
+   "name": "project_create",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "location": {},
+     "name": {},
+     "video": {}
+    },
+    "required": [
+     "location",
+     "name"
+    ]
+   }
+  },
+  {
+   "name": "project_open",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "path": {}
+    },
+    "required": [
+     "path"
+    ]
+   }
+  },
+  {
+   "name": "project_save",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "name": {},
+     "path": {}
+    },
+    "required": [
+     "path"
+    ]
+   }
+  },
+  {
+   "name": "project_close",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "path": {},
+     "save": {}
+    },
+    "required": [
+     "path"
+    ]
+   }
+  },
+  {
+   "name": "timeline_read",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "path": {}
+    },
+    "required": [
+     "path"
+    ]
+   }
+  },
+  {
+   "name": "project_get",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "path": {}
+    },
+    "required": [
+     "path"
+    ]
+   }
+  },
+  {
+   "name": "project_set_video",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "path": {},
+     "video": {}
+    },
+    "required": [
+     "path",
+     "video"
+    ]
+   }
+  },
+  {
+   "name": "media_probe",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "path": {}
+    },
+    "required": [
+     "path"
+    ]
+   }
+  },
+  {
+   "name": "media_import",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "file": {},
+     "path": {}
+    },
+    "required": [
+     "path",
+     "file"
+    ]
+   }
+  },
+  {
+   "name": "edit_apply",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "command": {},
+     "path": {}
+    },
+    "required": [
+     "path",
+     "command"
+    ]
+   }
+  },
+  {
+   "name": "edit_undo",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "path": {}
+    },
+    "required": [
+     "path"
+    ]
+   }
+  },
+  {
+   "name": "edit_redo",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "path": {}
+    },
+    "required": [
+     "path"
+    ]
+   }
+  },
+  {
+   "name": "clip_add",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "mediaId": {},
+     "path": {},
+     "ripple": {},
+     "start": {},
+     "trackId": {}
+    },
+    "required": [
+     "path",
+     "mediaId",
+     "trackId",
+     "start"
+    ]
+   }
+  },
+  {
+   "name": "clips_add_sequence",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "mediaIds": {},
+     "path": {},
+     "ripple": {},
+     "start": {},
+     "trackId": {}
+    },
+    "required": [
+     "path",
+     "mediaIds",
+     "start"
+    ]
+   }
+  },
+  {
+   "name": "clip_trim",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "clipId": {},
+     "delta": {},
+     "edge": {},
+     "path": {},
+     "ripple": {}
+    },
+    "required": [
+     "path",
+     "clipId",
+     "edge",
+     "delta"
+    ]
+   }
+  },
+  {
+   "name": "clips_split",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "clipIds": {},
+     "path": {},
+     "time": {}
+    },
+    "required": [
+     "path",
+     "clipIds",
+     "time"
+    ]
+   }
+  },
+  {
+   "name": "clips_move",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "moves": {},
+     "path": {}
+    },
+    "required": [
+     "path",
+     "moves"
+    ]
+   }
+  },
+  {
+   "name": "clips_remove",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "clipIds": {},
+     "path": {},
+     "ripple": {}
+    },
+    "required": [
+     "path",
+     "clipIds"
+    ]
+   }
+  },
+  {
+   "name": "clip_update",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "clipId": {},
+     "patch": {},
+     "path": {}
+    },
+    "required": [
+     "path",
+     "clipId",
+     "patch"
+    ]
+   }
+  },
+  {
+   "name": "clip_mask",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "clipId": {},
+     "mask": {},
+     "path": {}
+    },
+    "required": [
+     "path",
+     "clipId",
+     "mask"
+    ]
+   }
+  },
+  {
+   "name": "clip_stabilize",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "clipId": {},
+     "path": {},
+     "stabilize": {}
+    },
+    "required": [
+     "path",
+     "clipId"
+    ]
+   }
+  },
+  {
+   "name": "clip_frame",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "at": {},
+     "clipId": {},
+     "framing": {},
+     "path": {}
+    },
+    "required": [
+     "path",
+     "clipId",
+     "framing"
+    ]
+   }
+  },
+  {
+   "name": "timeline_background",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "background": {},
+     "path": {},
+     "timelineId": {}
+    },
+    "required": [
+     "path",
+     "timelineId",
+     "background"
+    ]
+   }
+  },
+  {
+   "name": "clip_transform",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "clipId": {},
+     "offsetX": {},
+     "offsetY": {},
+     "path": {},
+     "rotation": {},
+     "scale": {},
+     "stretchX": {},
+     "stretchY": {}
+    },
+    "required": [
+     "path",
+     "clipId"
+    ]
+   }
+  },
+  {
+   "name": "clip_speed",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "clipId": {},
+     "path": {},
+     "speed": {}
+    },
+    "required": [
+     "path",
+     "clipId",
+     "speed"
+    ]
+   }
+  },
+  {
+   "name": "title_add",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "above": {},
+     "duration": {},
+     "offsetY": {},
+     "path": {},
+     "start": {},
+     "style": {},
+     "trackId": {}
+    },
+    "required": [
+     "path",
+     "start"
+    ]
+   }
+  },
+  {
+   "name": "captions_add",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "captions": {},
+     "offsetY": {},
+     "path": {},
+     "style": {}
+    },
+    "required": [
+     "path",
+     "captions"
+    ]
+   }
+  },
+  {
+   "name": "keyframe_set",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "at": {},
+     "clipId": {},
+     "ease": {},
+     "path": {},
+     "property": {},
+     "value": {}
+    },
+    "required": [
+     "path",
+     "clipId",
+     "property",
+     "at",
+     "value"
+    ]
+   }
+  },
+  {
+   "name": "keyframe_clear",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "at": {},
+     "clipId": {},
+     "path": {},
+     "property": {}
+    },
+    "required": [
+     "path",
+     "clipId",
+     "property",
+     "at"
+    ]
+   }
+  },
+  {
+   "name": "effect_layer_add",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "duration": {},
+     "effectId": {},
+     "name": {},
+     "path": {},
+     "start": {},
+     "trackId": {}
+    },
+    "required": [
+     "path",
+     "start",
+     "effectId",
+     "name"
+    ]
+   }
+  },
+  {
+   "name": "effect_key_set",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "at": {},
+     "clipId": {},
+     "ease": {},
+     "entry": {},
+     "key": {},
+     "path": {},
+     "value": {}
+    },
+    "required": [
+     "path",
+     "clipId",
+     "entry",
+     "key",
+     "at",
+     "value"
+    ]
+   }
+  },
+  {
+   "name": "track_add",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "bottom": {},
+     "path": {}
+    },
+    "required": [
+     "path"
+    ]
+   }
+  },
+  {
+   "name": "effects_list",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "kind": {}
+    },
+    "required": []
+   }
+  },
+  {
+   "name": "template_list",
+   "inputSchema": {
+    "type": "object",
+    "properties": {},
+    "required": []
+   }
+  },
+  {
+   "name": "template_instantiate",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "fills": {},
+     "location": {},
+     "name": {},
+     "template": {}
+    },
+    "required": [
+     "template",
+     "location",
+     "name",
+     "fills"
+    ]
+   }
+  },
+  {
+   "name": "export_start",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "codec": {},
+     "colorRange": {},
+     "crf": {},
+     "hdr": {},
+     "height": {},
+     "output": {},
+     "path": {},
+     "preset": {},
+     "rateDen": {},
+     "rateNum": {},
+     "tenBit": {},
+     "width": {}
+    },
+    "required": [
+     "path",
+     "output"
+    ]
+   }
+  },
+  {
+   "name": "export_status",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "job": {}
+    },
+    "required": [
+     "job"
+    ]
+   }
+  },
+  {
+   "name": "export_wait",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "job": {},
+     "timeoutSeconds": {}
+    },
+    "required": [
+     "job"
+    ]
+   }
+  },
+  {
+   "name": "export_cancel",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "job": {}
+    },
+    "required": [
+     "job"
+    ]
+   }
+  },
+  {
+   "name": "preview_frame",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "height": {},
+     "output": {},
+     "path": {},
+     "time": {},
+     "width": {}
+    },
+    "required": [
+     "path",
+     "time"
+    ]
+   }
+  }
+ ]
+}

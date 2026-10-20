@@ -16,6 +16,8 @@ class Config:
     # ROADMAP R13: set once the desktop shortcut was made, so a shortcut
     # she deleted isn't made again.
     desktop_shortcut_created: bool = False
+    # Concat (video, ROADMAP R5): empty means look in the usual install places.
+    concat_path: str = ""
 
     @classmethod
     def load(cls) -> Config:

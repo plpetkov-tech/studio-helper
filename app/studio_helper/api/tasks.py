@@ -20,6 +20,7 @@ class Task:
     status: str = "running"  # running | done | error
     result: dict | None = None
     error: str | None = None
+    progress: dict | None = None  # e.g. {"done": 2, "total": 10, "label": "LED Screen 2"}
 
 
 class TaskManager:
@@ -27,15 +28,21 @@ class TaskManager:
         self._lock = threading.Lock()
         self._tasks: dict[str, Task] = {}
 
-    def start(self, fn: Callable[[], dict]) -> str:
+    def start(self, fn: Callable[..., dict], progress: bool = False) -> str:
+        """Runs fn in a worker thread. With progress=True, fn gets a
+        report(dict) callback whose latest value the UI sees while it runs."""
         task_id = uuid.uuid4().hex
         task = Task(id=task_id)
         with self._lock:
             self._tasks[task_id] = task
 
+        def report(info: dict) -> None:
+            with self._lock:
+                task.progress = dict(info)
+
         def _run() -> None:
             try:
-                result = fn()
+                result = fn(report) if progress else fn()
                 with self._lock:
                     task.status = "done"
                     task.result = result
@@ -58,7 +65,7 @@ def get_task(ctx, body, task_id):
     if task is None:
         return 404, {"ok": False, "error": "unknown task"}
     if task.status == "running":
-        return 200, {"ok": True, "status": "running"}
+        return 200, {"ok": True, "status": "running", "progress": task.progress}
     if task.status == "error":
         return 200, {"ok": True, "status": "error", "error": task.error}
     return 200, {"ok": True, "status": "done", "result": task.result}

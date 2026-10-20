@@ -50,7 +50,8 @@ def dispatch(method: str, path: str, ctx, body: dict | None) -> tuple[int, dict]
 def _error_status(exc: Exception) -> int:
     from studio_helper.core.job import JobError
     from studio_helper.core.registry import RegistryError
+    from studio_helper.video.concat import ConcatError
 
-    if isinstance(exc, (JobError, RegistryError)):
+    if isinstance(exc, (JobError, RegistryError, ConcatError)):
         return 400
     return 500
