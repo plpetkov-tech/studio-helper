@@ -7,6 +7,7 @@ from __future__ import annotations
 import functools
 import json
 import re
+import shutil
 import threading
 from datetime import datetime
 from pathlib import Path
@@ -486,3 +487,59 @@ def update_job(jobs_root: Path, job_id: str, change) -> dict:
     change(job)
     _write_job(job_path(jobs_root, job_id), job)
     return job
+
+
+# "<job id>_print[_add01][_bleed3mm][_part2]_v03.ai" / "<job id>_digital_v02.psd"
+_JOB_FILE_NAME = re.compile(
+    r"^(?P<prefix>.+?)(?P<rest>_(?:print|digital)(?:_.*?)?)_v\d+(?P<ext>\.\w+)$")
+
+
+def reuse_job(jobs_root: Path, registry: Registry, source_id: str, name: str,
+              keep_ids: list[str], new_ids: list[str] | None = None,
+              custom_formats: list[dict] | None = None, now: datetime | None = None) -> dict:
+    """'Reuse as new job' (ROADMAP R8): the same campaign with a new offer
+    or dates. A new job starts from copies of the old one's current
+    working files (renamed to the new job, _v01), its video masters and
+    brand pieces. The old job and its files are never changed."""
+    source = load_job(jobs_root, source_id)
+    src_root = job_path(jobs_root, source_id)
+    kept = [dict(f) for f in source["formats"] if f["id"] in keep_ids]
+    new_ids = [i for i in (new_ids or []) if i not in keep_ids]
+    job = create_job(jobs_root, registry, name, new_ids, now=now,
+                     custom_formats=kept + list(custom_formats or []))
+    root = job_path(jobs_root, job["id"])
+
+    def renamed(rel: str) -> str:
+        p = Path(rel)
+        m = _JOB_FILE_NAME.match(p.name)
+        new_name = f"{job['id']}{m.group('rest')}_v01{m.group('ext')}" if m else p.name
+        return (p.parent / new_name).as_posix()
+
+    files = {"print": [], "psd": None}
+    for rel in current_print_files(source):
+        if (src_root / rel).is_file():
+            dest = renamed(rel)
+            shutil.copy2(src_root / rel, root / dest)
+            files["print"].append(dest)
+    if source["files"].get("psd") and (src_root / source["files"]["psd"]).is_file():
+        dest = renamed(source["files"]["psd"])
+        shutil.copy2(src_root / source["files"]["psd"], root / dest)
+        files["psd"] = dest
+    for folder in ("02_assets/video", "02_assets/pieces", "02_assets/motion-b"):
+        if (src_root / folder).is_dir():
+            shutil.copytree(src_root / folder, root / folder, dirs_exist_ok=True)
+
+    def change(j):
+        j["files"] = files
+        j["source_job"] = source_id
+        if source.get("pieces"):
+            j["pieces"] = [dict(p) for p in source["pieces"]]
+        video = source.get("video")
+        if video:
+            keep = {f["id"] for f in j["formats"]}
+            j["video"] = {k: v for k, v in video.items() if k != "renders"}
+            j["video"]["screens"] = {k: v for k, v in video.get("screens", {}).items()
+                                     if k in keep}
+            j["video"]["renders"] = {}
+
+    return update_job(jobs_root, job["id"], change)

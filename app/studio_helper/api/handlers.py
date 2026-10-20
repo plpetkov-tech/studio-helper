@@ -224,6 +224,23 @@ def add_job_formats(ctx, body, job_id):
     return 200, {"ok": True, "job": job, "batch": job["added"][-1]}
 
 
+@route("POST", "/api/jobs/<job_id>/reuse")
+def reuse_job(ctx, body, job_id):
+    """Same campaign, new offer (ROADMAP R8): a new job from copies of
+    this one's working files. `keep` = this job's sizes to carry over,
+    `format_ids` = sizes to add from Formats."""
+    body = body or {}
+    registry = _load_registry(ctx)
+    source = job_mod.load_job(ctx.jobs_root, job_id)
+    keep = body.get("keep")
+    keep = [f["id"] for f in source["formats"]] if keep is None else list(keep)
+    taken = set(keep)
+    registry, saved_ids, one_off = _custom_sizes(ctx, body, registry, taken)
+    job = job_mod.reuse_job(ctx.jobs_root, registry, job_id, body.get("name", ""), keep,
+                            list(body.get("format_ids") or []) + saved_ids, one_off)
+    return 200, {"ok": True, "job": job}
+
+
 @route("POST", "/api/jobs/<job_id>/formats/<format_id>/remove")
 def remove_job_format(ctx, body, job_id, format_id):
     return 200, {"ok": True, "job": job_mod.remove_format(ctx.jobs_root, job_id, format_id)}

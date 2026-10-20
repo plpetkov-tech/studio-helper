@@ -139,3 +139,38 @@ def test_concurrent_add_and_bump_lose_nothing(jobs_root, registry):
     final = json.loads((jobs_root / job["id"] / "job.json").read_text())
     assert final["version"] == 2
     assert any(f["id"] == "mall-x-citylight" for f in final["formats"])
+
+
+def test_reuse_as_new_job_copies_current_files_and_leaves_the_old_job_alone(jobs_root, registry):
+    old = _job(jobs_root, registry)
+    old_root = jobs_root / old["id"]
+    (old_root / "03_working" / f"{old['id']}_print_v01.ai").write_bytes(b"old v1")
+    (old_root / "03_working" / f"{old['id']}_print_v02.ai").write_bytes(b"current art")
+    (old_root / "03_working" / f"{old['id']}_print_add01_v02.ai").write_bytes(b"added art")
+    (old_root / "03_working" / f"{old['id']}_digital_v02.psd").write_bytes(b"psd")
+    job_mod.record_print_files(jobs_root, old["id"], [
+        f"03_working/{old['id']}_print_v01.ai", f"03_working/{old['id']}_print_v02.ai",
+        f"03_working/{old['id']}_print_add01_v02.ai"])
+    job_mod.record_digital_file(jobs_root, old["id"], f"03_working/{old['id']}_digital_v02.psd")
+    (old_root / "02_assets" / "pieces").mkdir(parents=True)
+    (old_root / "02_assets" / "pieces" / "logo.png").write_bytes(b"logo")
+    job_mod.update_job(jobs_root, old["id"], lambda j: j.update(
+        pieces=[{"id": "p1", "file": "02_assets/pieces/logo.png"}],
+        video={"masters": [], "fill": "black", "screens": {"ig-post": {"fill": "blur"}},
+               "renders": {"ig-post": {"file": "x.mp4"}}}))
+    before = {p: p.read_bytes() for p in old_root.rglob("*") if p.is_file()}
+
+    new = job_mod.reuse_job(jobs_root, registry, old["id"], "Black Week",
+                            keep_ids=["flyer-a5"], new_ids=["mall-x-citylight"])
+    root = jobs_root / new["id"]
+    assert [f["id"] for f in new["formats"]] == ["mall-x-citylight", "flyer-a5"]
+    assert new["files"]["print"] == [f"03_working/{new['id']}_print_v01.ai",
+                                     f"03_working/{new['id']}_print_add01_v01.ai"]
+    assert (root / new["files"]["print"][0]).read_bytes() == b"current art"
+    assert new["files"]["psd"] == f"03_working/{new['id']}_digital_v01.psd"
+    assert (root / "02_assets" / "pieces" / "logo.png").is_file() and new["pieces"]
+    assert new["source_job"] == old["id"]
+    assert new["video"]["fill"] == "black" and new["video"]["renders"] == {}
+    assert new["video"]["screens"] == {}  # ig-post wasn't kept
+    after = {p: p.read_bytes() for p in old_root.rglob("*") if p.is_file()}
+    assert after == before  # the old job, byte for byte
