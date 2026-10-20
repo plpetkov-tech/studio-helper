@@ -73,14 +73,17 @@ def merge_default_formats() -> list[str]:
     )
 
 
-def run() -> int:
+def run(background: bool = False) -> int:
+    """`background`: started by the assistant connection (--mcp) when the
+    app wasn't running -- serve, but don't open a browser tab."""
     logger = logging_setup.setup()
     logger.info("Studio Helper starting")
 
     live = instance.find_live_instance()
     if live is not None:
         logger.info("Live instance found on port %s, handing off", live.port)
-        webbrowser.open(live.url())
+        if not background:
+            webbrowser.open(live.url())
         return 0
 
     instance.clear()
@@ -120,7 +123,8 @@ def run() -> int:
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
 
-    webbrowser.open(info.url())
+    if not background:
+        webbrowser.open(info.url())
 
     try:
         thread.join()
@@ -142,7 +146,12 @@ def main(argv: list[str] | None = None) -> int:
 
         return selftest.run()
 
-    return run()
+    if "--mcp" in argv:
+        from studio_helper import mcp_server
+
+        return mcp_server.serve()
+
+    return run(background="--background" in argv)
 
 
 if __name__ == "__main__":

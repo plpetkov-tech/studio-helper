@@ -18,6 +18,9 @@ class Config:
     desktop_shortcut_created: bool = False
     # Concat (video, ROADMAP R5): empty means look in the usual install places.
     concat_path: str = ""
+    # ROADMAP R12: AI assistants (ChatGPT desktop over MCP) may use Studio
+    # Helper. On by default (Plamen, 2026-10-20); she can turn it off.
+    assistants_enabled: bool = True
 
     @classmethod
     def load(cls) -> Config:

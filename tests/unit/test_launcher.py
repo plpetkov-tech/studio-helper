@@ -47,7 +47,8 @@ def desktop(tmp_path):
 
 def test_launcher_files_point_at_this_install(tmp_path, monkeypatch, install):
     monkeypatch.setattr(launcher.paths, "app_data_dir", lambda: tmp_path / "data")
-    assert set(launcher.write_launchers(install)) == {launcher.START_CMD, launcher.MCP_CMD}
+    assert set(launcher.write_launchers(install)) == {
+        launcher.START_CMD, launcher.MCP_CMD, "studio-helper-SKILL.md"}
     start = (tmp_path / "data" / "launcher" / launcher.START_CMD).read_text()
     assert "pythonw.exe" in start and str(install) in start
     mcp = (tmp_path / "data" / "launcher" / launcher.MCP_CMD).read_text()

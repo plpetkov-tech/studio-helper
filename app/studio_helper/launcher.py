@@ -69,6 +69,14 @@ def write_launchers(install_root: Path) -> list[str]:
             pass
         path.write_bytes(data)
         written.append(name)
+    # the assistant skill (R12), next to the command ChatGPT runs
+    skill = Path(__file__).parent / "assistant" / "SKILL.md"
+    if skill.is_file():
+        dest = folder / "studio-helper-SKILL.md"
+        data = skill.read_bytes()
+        if not dest.exists() or dest.read_bytes() != data:
+            dest.write_bytes(data)
+            written.append(dest.name)
     return written
 
 

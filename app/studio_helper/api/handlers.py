@@ -32,11 +32,40 @@ def _load_registry(ctx) -> Registry:
 
 @route("GET", "/api/config")
 def get_config(ctx, body):
+    from studio_helper import launcher
     return 200, {
         "ok": True,
         "jobs_root": str(ctx.jobs_root),
         "registry_path": str(ctx.registry_path),
+        "assistants_enabled": ctx.config.assistants_enabled,
+        # what to paste into ChatGPT's MCP settings: fixed across updates (R13)
+        "mcp_command": str(launcher.launcher_dir() / launcher.MCP_CMD),
+        "concat_path": ctx.config.concat_path,
+        "desktop_shortcut_created": ctx.config.desktop_shortcut_created,
     }
+
+
+@route("POST", "/api/settings")
+def save_settings(ctx, body):
+    """Settings: assistant access, Concat's location, the desktop shortcut."""
+    from studio_helper import launcher
+    body = body or {}
+    cfg = ctx.config
+    if "assistants_enabled" in body:
+        cfg.assistants_enabled = bool(body["assistants_enabled"])
+    if "concat_path" in body:
+        path = str(body["concat_path"] or "").strip()
+        if path and not Path(path).is_file():
+            raise job_mod.JobError("There's no Concat program at that path.")
+        cfg.concat_path = path
+    shortcut = body.get("desktop_shortcut")
+    if shortcut == "create":
+        cfg.desktop_shortcut_created = False  # make it again, she asked
+        launcher.ensure_desktop_shortcut(app_paths.bundled_root(), cfg)
+    elif shortcut == "remove":
+        launcher.remove_desktop_shortcut()
+    cfg.save()
+    return get_config(ctx, None)
 
 
 # -- registry -----------------------------------------------------------
