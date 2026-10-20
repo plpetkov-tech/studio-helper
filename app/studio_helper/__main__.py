@@ -15,7 +15,7 @@ import threading
 import webbrowser
 from pathlib import Path
 
-from studio_helper import config, instance, logging_setup, paths, updater
+from studio_helper import config, instance, launcher, logging_setup, paths, updater
 from studio_helper.api.context import AppContext
 from studio_helper.core import default_formats
 from studio_helper.poller import Poller
@@ -101,6 +101,12 @@ def run() -> int:
     except OSError:
         logger.exception("Could not clean up old installs")
     cfg = config.Config.load()
+    try:
+        launcher.write_launchers(paths.bundled_root())
+        shortcut = launcher.ensure_desktop_shortcut(paths.bundled_root(), cfg)
+        logger.info("Desktop shortcut: %s", shortcut)
+    except Exception:  # noqa: BLE001 - a shortcut problem must never stop the app
+        logger.exception("Could not refresh the launcher or desktop shortcut")
     poller = Poller(Path(cfg.jobs_root))
     ctx = AppContext(cfg, poller=poller)
 

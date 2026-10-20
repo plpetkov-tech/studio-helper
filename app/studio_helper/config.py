@@ -13,6 +13,9 @@ class Config:
     jobs_root: str = field(default_factory=lambda: str(paths.default_jobs_root()))
     registry_path: str = field(default_factory=lambda: str(paths.user_registry_path()))
     last_opened_jobs: list[str] = field(default_factory=list)
+    # ROADMAP R13: set once the desktop shortcut was made, so a shortcut
+    # she deleted isn't made again.
+    desktop_shortcut_created: bool = False
 
     @classmethod
     def load(cls) -> Config:
