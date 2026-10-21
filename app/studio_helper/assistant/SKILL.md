@@ -69,6 +69,9 @@ versions through Concat, and packs the finished files for her manager.
    `piece_update` {enter: {effect: pop}}, then `video_render`, then
    `job_get` to confirm the files pass. She sees a live preview of every
    size on the Video tab; suggest she looks before you render.
+   If she set up one size and the others have no picture yet,
+   `video_copy_everywhere` with that size puts its picture and motion on
+   every size made from statics.
    She can fine-tune any video in Concat afterwards (its project is in the
    job's 03_working/video folder).
 5. You can combine this with the Concat tools: read the screen's spec and

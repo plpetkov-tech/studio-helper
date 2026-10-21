@@ -213,3 +213,47 @@ def test_statics_to_video_from_the_video_tab(api, tmp_path):
     assert v["screens"][0]["picture"] is None
     _s, v = jcall("POST", f"/api/jobs/{job_id}/video/disable", {"format_id": "led-screen-2"})
     assert v["screens"] == []
+
+
+def test_copy_everywhere(api, tmp_path):
+    """She sets up one size from her assets; the other sizes have no
+    picture. Copy everywhere puts that size's picture and motion on all."""
+    call, jcall, _token, _jobs = api
+    _s, data = jcall("POST", "/api/jobs", {"name": "Copy", "format_ids": ["led-screen-2",
+                                                                         "ig-story", "ig-post"]})
+    job_id = data["job"]["id"]
+    jcall("POST", f"/api/jobs/{job_id}/video/enable",
+          {"format_ids": ["led-screen-2", "ig-story", "ig-post"]})
+    _s, v = jcall("POST", f"/api/jobs/{job_id}/video/source", {"source": "motion"})
+    ids = [s["format_id"] for s in v["screens"]]
+    assert len(ids) == 3 and "led-screen-2" in ids
+    status, data = jcall("POST", f"/api/jobs/{job_id}/video/copy-everywhere",
+                         {"format_id": "led-screen-2"})
+    assert status == 400 and "picture" in data["error"]
+
+    for which, name in (("a", "bg.png"), ("b", "next.png")):
+        pic = tmp_path / name
+        Image.new("RGB", (1280, 2400), "navy").save(pic)
+        call("POST", f"/api/jobs/{job_id}/upload?to=motion-{which}&format=led-screen-2"
+             f"&name={name}", raw=pic.read_bytes())
+    jcall("POST", f"/api/jobs/{job_id}/video/motion",
+          {"format_id": "led-screen-2", "changes": {"feel": {"type": "bouncy"},
+                                                    "ending": "loop"}})
+    _s, v = jcall("POST", f"/api/jobs/{job_id}/video/fill",
+                  {"format_id": "ig-story", "fill": "black"})
+    assert next(s for s in v["screens"] if s["format_id"] == "ig-story")["own_fill"] == "black"
+
+    status, v = jcall("POST", f"/api/jobs/{job_id}/video/copy-everywhere",
+                      {"format_id": "led-screen-2"})
+    assert status == 200
+    for s in v["screens"]:
+        assert s["picture"] == "02_assets/motion-a/bg.png"
+        assert s["second"] == "02_assets/motion-b/next.png"
+        assert s["motion"]["feel"]["type"] == "bouncy" and s["motion"]["ending"] == "loop"
+        assert not s["own_motion"]
+        assert s["own_fill"] is None  # led-screen-2 had no fill of its own
+    assert v["motion"]["feel"]["type"] == "bouncy"
+    src = next(s for s in v["screens"] if s["format_id"] == "led-screen-2")
+    assert src["picture_own"]
+    _s, data = jcall("GET", f"/api/jobs/{job_id}/video/preview/ig-post")
+    assert data["preview"]["layers"][0]["file"] == "02_assets/motion-a/bg.png"

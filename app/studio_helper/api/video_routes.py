@@ -102,6 +102,13 @@ def clear_picture(ctx, body, job_id):
     return get_video(ctx, None, job_id)
 
 
+@route("POST", "/api/jobs/<job_id>/video/copy-everywhere")
+def copy_everywhere(ctx, body, job_id):
+    """One size's picture and motion onto every size made from statics."""
+    service.copy_everywhere(ctx.jobs_root, job_id, (body or {}).get("format_id", ""))
+    return get_video(ctx, None, job_id)
+
+
 @route("POST", "/api/jobs/<job_id>/video/enable")
 def enable_video(ctx, body, job_id):
     """Also make a video for sizes that only had a picture."""

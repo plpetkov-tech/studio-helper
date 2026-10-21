@@ -141,7 +141,8 @@
       if (previewPlaced) return "";
       previewPlaced = true;
       return '<div class="card preview-card"><div class="card-b"><div class="row" style="align-items:center;justify-content:space-between">' +
-        '<label class="note" for="preview-for">Preview</label><select id="preview-for" class="input" style="flex:1;min-width:0"></select></div>' +
+        '<label class="note" for="preview-for">Preview</label><select id="preview-for" class="input" style="flex:1;min-width:0"></select>' +
+        '<button class="btn ghost sm" data-v="copy-all" hidden title="This size’s picture and motion, on every size made from a static">Copy everywhere</button></div>' +
         '<div id="player"></div><p class="note" id="preview-note"></p></div></div>';
     }
     function motionParts() {
@@ -400,7 +401,16 @@
     refreshPreview(true);
   }
 
+  // "Copy everywhere": only for a size made from a static, with a picture, when there are others
+  function drawCopyAll() {
+    var btn = pane.querySelector('[data-v="copy-all"]'), r = row(previewFor);
+    if (!btn) return;
+    var others = state.screens.filter(function (s) { return s.mode === "motion" && s.format_id !== previewFor; });
+    btn.hidden = !(r && r.mode === "motion" && r.picture && others.length);
+  }
+
   function refreshPreview(now) {
+    drawCopyAll();
     if (!player || !previewFor) return;
     clearTimeout(previewTimer);
     previewTimer = setTimeout(function () {
@@ -787,6 +797,12 @@
       post("/enable", {format_ids: ids}, function () { render(); JP.reload(); UI.toast("Added. They’re in the list below."); });
     } else if (d.disable) {
       post("/disable", {format_id: d.disable}, function () { render(); JP.reload(); });
+    } else if (d.v === "copy-all") {
+      var from = row(previewFor), n = state.screens.filter(function (s) { return s.mode === "motion"; }).length - 1;
+      post("/copy-everywhere", {format_id: previewFor}, function () {
+        scope = "job"; render();
+        UI.toast(from.name + "’s picture and motion are now on " + n + " other size" + (n === 1 ? "" : "s") + ".");
+      });
     } else if (d.v === "reset-size") {
       SH.post(api("/motion"), {format_id: scope, reset: true}).then(function (res) {
         if (res.data.ok) { setState(res.data); drawMotion(); refreshPreview(); UI.toast("This size follows the job’s motion again."); }

@@ -18,6 +18,7 @@ Python stays the only writer of job.json (job.update_job).
 
 from __future__ import annotations
 
+import copy
 import shutil
 import threading
 import time
@@ -567,6 +568,62 @@ def set_picture(jobs_root: Path, job_id: str, format_id: str, which: str,
             files.pop(format_id, None)
         else:
             files[format_id] = rel
+
+    return job_mod.update_job(jobs_root, job_id, change)
+
+
+def copy_everywhere(jobs_root: Path, job_id: str, format_id: str) -> dict:
+    """What she sees on one size, on every size made from statics: its
+    picture (a picture she chose goes everywhere; its exported static
+    only where a size has none of its own), 2nd picture, motion (it
+    becomes the job's, so no size keeps its own), fill and brand-piece
+    changes."""
+    job = job_mod.load_job(jobs_root, job_id)
+    root = job_mod.job_path(jobs_root, job_id)
+    fmt = next((f for f in video_plan.video_formats(job) if f["id"] == format_id), None)
+    if fmt is None:
+        raise VideoError("That size has no video in this job.")
+    if screen_settings(job, fmt)["mode"] != "motion":
+        raise VideoError("Copy everywhere works on a size made from a static.")
+    pic = recipes.static_for(job, fmt, root)
+    if pic is None:
+        raise VideoError("Choose a picture for this size first.")
+    pic_rel = pic.relative_to(root).as_posix()
+    own_pic = format_id in job.get("video", {}).get("motion", {}).get("a_files", {})
+    second = recipes.second_for(job, fmt, root)
+    second_rel = second.relative_to(root).as_posix() if second else None
+    # her settings as chosen, not cut to this size's longest allowed video
+    motion = recipes.motion_settings(job, {k: v for k, v in fmt.items() if k != "max_duration_s"})
+    for k in ("a_files", "b_files", "recipes"):
+        motion.pop(k, None)
+
+    def change(job):
+        v = section(job)
+        src = v["screens"].get(format_id, {})
+        fill, pieces = src.get("fill"), copy.deepcopy(src.get("pieces"))
+        m = v.setdefault("motion", {})
+        m.pop("recipes", None)
+        m.update(copy.deepcopy(motion))
+        a, b = m.setdefault("a_files", {}), m.setdefault("b_files", {})
+        for f in video_plan.video_formats(job):
+            if screen_settings(job, f)["mode"] != "motion":
+                continue
+            s = v["screens"].setdefault(f["id"], {})
+            s.pop("motion", None)
+            s.pop("recipes", None)
+            if f["id"] == format_id:  # it already shows these
+                continue
+            if own_pic or recipes.static_for(job, f, root) is None:
+                a[f["id"]] = pic_rel  # an export of its own stays, unless she chose a picture
+            if second_rel:
+                b[f["id"]] = second_rel
+            else:
+                b.pop(f["id"], None)
+            for key, val in (("fill", fill), ("pieces", pieces)):
+                if val:
+                    s[key] = copy.deepcopy(val)
+                else:
+                    s.pop(key, None)
 
     return job_mod.update_job(jobs_root, job_id, change)
 

@@ -346,6 +346,16 @@ def video_enable(a):
     return {"ok": True}
 
 
+@tool("video_copy_everywhere", "Copy one size's picture, 2nd picture, motion, fill and "
+      "brand-piece changes to every size of this job made from statics (for when she set up "
+      "one size and the others have no picture yet).",
+      {"job_id": JOB_ID, "format_id": _s("string", "the size to copy from")},
+      ["job_id", "format_id"])
+def video_copy_everywhere(a):
+    api("POST", f"/api/jobs/{a['job_id']}/video/copy-everywhere", a)
+    return {"ok": True}
+
+
 MOTION_HELP = (
     "Motion from statics, with Figma's words. changes may hold: "
     "feel = easing for everything that moves: {type: gentle | quick | bouncy | slow} (Figma's "
