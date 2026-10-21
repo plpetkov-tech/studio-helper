@@ -11,6 +11,28 @@ Ships as a zip from a GitHub Release: extract, double-click
 offline. See `README.txt.template` for the end-user instructions that
 ship inside the zip.
 
+What it does in v1.0:
+
+- **Files & export**: job folders, Illustrator/Photoshop/Figma setup at
+  every size, preflight, export with the delivery names, a live ✓/✕
+  check of every exported file (PDF, TIFF, PNG, JPG, MP4).
+- **Campaigns that grow**: add sizes to a finished job (new artboards
+  start from the closest existing artwork), reuse a campaign as a new
+  job, revisions, campaign dates.
+- **Video**: every video size made through the designer's own Concat,
+  either from her statics (Figma-style motion: feel, camera move,
+  transitions, brand pieces coming in) or from one Higgsfield video
+  fitted to every screen around a "juice box", with a live in-browser
+  preview of exactly what will be rendered.
+- **Deliver**: one ZIP per job (or per batch of added sizes) for the
+  manager, with a README of the print-shop notes.
+- **Assistant access**: an MCP server (`python -m studio_helper --mcp`)
+  that ChatGPT desktop uses; the app registers it in ChatGPT's
+  `~/.codex/config.toml` itself.
+
+The feature plan and its history are in `ROADMAP.md` (kept out of the
+public repository, like `AGENTS.md`).
+
 ## Repo layout
 
 ```
@@ -18,7 +40,8 @@ app/studio_helper/   the Python package (stdlib HTTP server + local web UI)
 adobe/                Illustrator/Photoshop ExtendScript adapters (ES3)
 figma-plugin/         Figma plugin (TypeScript)
 defaults/registry.yaml default format registry (the studio's real formats; some sizes marked estimated)
-tests/                 pytest suite; tests/adobe/check_*.js run the JSX adapters in Node with mocked apps
+tests/                 pytest suite; tests/adobe/check_*.js run the JSX adapters in Node with mocked apps;
+                       tests/web/check_motion_js.js checks the video preview's math against the renderer's
 packaging/             release assembly (build_release.ps1) and lock-file tooling
 .github/workflows/     ci.yml (every push/PR), release.yml (on tag v*)
 ```
@@ -45,6 +68,8 @@ Run the test suite:
 ```sh
 pytest -q -m "not adobe"
 for f in tests/adobe/check_*.js; do node "$f"; done   # JSX adapters, mocked apps
+node tests/web/check_motion_js.js                      # video preview math
+STUDIO_HELPER_CONCAT=1 pytest -q tests/unit/test_video_render.py -k real   # with Concat installed
 ```
 
 Lint:

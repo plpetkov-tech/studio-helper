@@ -15,7 +15,7 @@ import threading
 import webbrowser
 from pathlib import Path
 
-from studio_helper import config, instance, launcher, logging_setup, paths, updater
+from studio_helper import chatgpt_setup, config, instance, launcher, logging_setup, paths, updater
 from studio_helper.api.context import AppContext
 from studio_helper.core import default_formats
 from studio_helper.poller import Poller
@@ -110,6 +110,10 @@ def run(background: bool = False) -> int:
         logger.info("Desktop shortcut: %s", shortcut)
     except Exception:  # noqa: BLE001 - a shortcut problem must never stop the app
         logger.exception("Could not refresh the launcher or desktop shortcut")
+    try:
+        logger.info("ChatGPT MCP entry: %s", chatgpt_setup.ensure(paths.bundled_root(), cfg))
+    except Exception:  # noqa: BLE001 - ChatGPT's settings must never stop the app
+        logger.exception("Could not update ChatGPT's MCP settings")
     poller = Poller(Path(cfg.jobs_root))
     ctx = AppContext(cfg, poller=poller)
 

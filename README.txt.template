@@ -30,8 +30,40 @@ browser will open a page - that page IS Studio Helper. You can leave
 it open while you work.
 
 The first time you start it, it will show a "Setup check" page that
-tells you if Illustrator, Photoshop, and your jobs folder are ready.
-Follow any "fix" hints it shows.
+tells you if Illustrator, Photoshop, Concat and your jobs folder are
+ready. Follow any "fix" hints it shows.
+
+It also puts a "Studio Helper" shortcut on your desktop. Use that from
+now on: it keeps working after every update. If you delete it, it stays
+deleted (Settings -> Desktop shortcut brings it back).
+
+The "?" at the top right opens the Guide: every step, in order.
+
+
+VIDEOS
+------
+The Video tab on a job makes the MP4 for every size that can be a video
+(stories, posts, LED and mall screens), at the exact size and length,
+with the delivery name. Two ways, picked at the top of the tab:
+
+  - "Bring your statics to life": your exported pictures move (a slow
+    camera push, your logo and promo text coming in), with Figma's
+    motion words: Gentle, Quick, Bouncy, Slow, Dissolve, Slide in...
+  - "Fit a Higgsfield video": one video from Higgsfield, cut to every
+    size around the box you draw.
+
+A preview plays every size before anything is made. The videos are made
+with Concat, a free video editor you install yourself
+(concatenate.pages.dev). Studio Helper doesn't include it.
+
+
+CHATGPT
+-------
+If you use the ChatGPT desktop app, Studio Helper adds itself to
+ChatGPT's MCP servers (with its skill) every time it starts, so it keeps
+working after updates. Quit and reopen ChatGPT once to see it. ChatGPT
+sees job names, sizes and statuses, never your artwork, and can't delete
+anything. Turn it off in Settings -> ChatGPT.
 
 
 ONE-TIME FIGMA SETUP

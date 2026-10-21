@@ -65,6 +65,8 @@ jobs:
         run: node tests/adobe/check_photoshop_logic.js
       - name: Open documents are never closed, discarded or saved by a check (mocked apps)
         run: node tests/adobe/check_document_safety.js
+      - name: The video preview's easing and keyframe math matches the renderer's
+        run: node tests/web/check_motion_js.js
 
   figma-plugin:
     name: Figma plugin build + test

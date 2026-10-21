@@ -390,3 +390,57 @@ details.passed .checks { margin-top: 8px; }
   .fmt .meta { grid-column: 3; }
 }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+details.more { margin-top: 10px; }
+details.more > summary { cursor: pointer; color: var(--ink-3); font-size: 13.5px; }
+details.more[open] > summary { margin-bottom: 8px; }
+
+/* -- v1.0: the Video tab's two ways, motion settings, live preview -------- */
+.btn.sm { padding: 4px 9px; font-size: 12.5px; }
+.center { text-align: center; }
+.choices { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.choice { display: grid; gap: 6px; text-align: left; padding: 16px 18px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--ink); font: inherit; cursor: pointer; }
+.choice:hover { border-color: var(--line-strong); }
+.choice b { font-size: 15px; }
+.choice span { font-size: 13px; color: var(--ink-2); line-height: 1.45; }
+.choice .steps-mini { font-size: 12px; color: var(--ink-3); }
+.choice[aria-pressed="true"] { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); background: var(--accent-soft); }
+.motion-grid, .fit-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 380px); gap: 20px; align-items: start; }
+.motion-grid > .card > .card-b { display: grid; gap: 16px; }
+.preview-card { position: sticky; top: 76px; }
+.preview-card .card-b { display: grid; gap: 10px; }
+.player { display: grid; gap: 8px; }
+.pstage-wrap { display: grid; place-items: center; background: var(--surface-2); border-radius: 8px; padding: 10px; min-height: 120px; }
+.pstage { position: relative; overflow: hidden; background: #000; box-shadow: 0 0 0 1px var(--line-strong); }
+.player-layer { position: absolute; overflow: hidden; will-change: transform, opacity; }
+.player-layer img, .player-layer video { position: absolute; max-width: none; user-select: none; }
+.pblack { position: absolute; inset: 0; width: 100% !important; height: 100% !important; left: 0 !important; top: 0 !important; background: #000; }
+.pblur { position: absolute; inset: -8%; width: 116%; height: 116%; object-fit: cover; filter: blur(14px) saturate(1.1); opacity: .9; }
+.pbar { display: flex; gap: 8px; align-items: center; }
+.pbar input[type="range"] { flex: 1; min-width: 0; accent-color: var(--accent); }
+#player.unavailable .pstage { opacity: .25; }
+.feel-row { display: flex; gap: 12px; align-items: center; }
+.curve { flex: none; background: var(--surface-2); border-radius: 6px; }
+.curve path { fill: none; stroke: var(--accent); stroke-width: 2; }
+.curve .guide { stroke: var(--line-strong); stroke-dasharray: 3 3; stroke-width: 1; }
+.custom-feel { display: grid; gap: 8px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; }
+.two-ctl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.seg.wrap { flex-wrap: wrap; }
+.seg button:disabled { opacity: .45; cursor: not-allowed; }
+.scr .stage { border: 0; width: 100%; padding: 0; cursor: pointer; }
+.scr.picked { box-shadow: 0 0 0 2px var(--accent); }
+.screen .second { position: absolute; right: 4px; bottom: 4px; width: 34%; height: auto; border: 2px solid #fff; border-radius: 3px; }
+.empty-pic { position: absolute; inset: 0; display: grid; place-items: center; color: #fff; font-size: 11px; text-align: center; padding: 4px; }
+.pics { display: grid; gap: 12px; }
+.make-rows { display: grid; }
+.make-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; padding: 12px 16px; border-bottom: 1px solid var(--line); }
+.make-row:last-child { border-bottom: 0; }
+.cands { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; margin: 8px 0; }
+.piece-row .ctrls + .ctrls { margin-top: 10px; }
+.ctl .val select { width: auto; flex: 1; min-width: 0; }
+@media (max-width: 900px) {
+  .choices, .motion-grid, .fit-grid, .two-ctl { grid-template-columns: minmax(0, 1fr); }
+  .preview-card { position: static; }
+}
+.field > .seg, .field > .row > .seg { justify-self: start; }
+.piece-row .ctrls.ctrls2 { grid-template-columns: minmax(0, 1.3fr) minmax(90px, .5fr) minmax(0, 1.5fr); }
+@media (max-width: 860px) { .piece-row .ctrls.ctrls2 { grid-template-columns: minmax(0, 1fr); } }

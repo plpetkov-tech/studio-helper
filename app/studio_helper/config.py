@@ -21,6 +21,9 @@ class Config:
     # ROADMAP R12: AI assistants (ChatGPT desktop over MCP) may use Studio
     # Helper. On by default (Plamen, 2026-10-20); she can turn it off.
     assistants_enabled: bool = True
+    # Set once Studio Helper added itself to ChatGPT's MCP servers, so a
+    # table she deleted there isn't added back (chatgpt_setup.py).
+    chatgpt_mcp_added: bool = False
 
     @classmethod
     def load(cls) -> Config:

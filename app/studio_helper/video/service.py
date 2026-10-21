@@ -4,8 +4,11 @@ brand pieces, and rendering every video size through Concat.
 job["video"] = {
   "masters": [{"id", "file", "w", "h", "duration_s", "fps", "juice": [{"t", "box"}]}],
   "fill": "blur" | "black" | "color", "brand_color": "#rrggbb",
-  "screens": {format_id: {"master", "fill", "juice", "mode": "fit" | "motion"}},
-  "motion": {"recipes": [...], "length_s": 8},
+  "source": "fit" | "motion",   # how she makes this job's videos (her choice)
+  "screens": {format_id: {"master", "fill", "juice", "mode": "fit" | "motion",
+                          "motion": {...}, "pieces": {piece_id: {...}}}},
+  "motion": {"feel", "camera", "opening", "second", "ending", "length_s", "use_pieces",
+             "a_files": {format_id: picture}, "b_files": {format_id: 2nd picture}},
   "renders": {format_id: {"at", "file", "project", "master", "fill", "mode"}},
 }
 job["pieces"] = [{"id", "file", "label", "anchor", "width_pct", "margin_pct", "enter", "exit"}]
@@ -24,6 +27,7 @@ from studio_helper.core import job as job_mod
 from studio_helper.core.scaffold import EXPORT_SUBDIR_BY_KIND
 from studio_helper.validators.mp4info import Mp4Error, read_mp4
 
+from . import motion as M
 from . import plan as video_plan
 from . import recipes
 from . import render as R
@@ -205,7 +209,7 @@ def screen_settings(job: dict, fmt: dict) -> dict:
     wraps = fmt.get("wrap_panels") or []
     return {
         "repeat": s.get("repeat", max(wraps) if wraps else 0),
-        "mode": s.get("mode") or ("fit" if master else "motion"),
+        "mode": s.get("mode") or v.get("source") or ("fit" if master else "motion"),
         "master": master,
         "fill": s.get("fill") or v["fill"],
         "juice": juice,
@@ -329,9 +333,13 @@ def _plan_for(job: dict, fmt: dict, root: Path) -> tuple[R.RenderPlan, dict]:
                                     st["juice"])
         # brand pieces arrive as an end card over the video
         recipes.add_pieces(plan, recipes.piece_layers(job, fmt, root, end_s=plan.duration))
+        if plan.duration < m["duration_s"] - 0.05:  # trimmed to the screen's limit: fade out
+            plan.layers += R.fade_layers(root, plan, 0.0, 0.3)
         return plan, {"mode": "fit", "master": m["id"], "fill": st["fill"]}
     plan = recipes.motion_plan(job, fmt, root)
-    return plan, {"mode": "motion", "recipes": recipes.job_recipes(job, fmt)}
+    st = recipes.motion_settings(job, fmt)
+    return plan, {"mode": "motion", "camera": st["camera"]["move"], "feel": st["feel"]["type"],
+                  "ending": st["ending"]}
 
 
 # -- brand pieces (R7) -----------------------------------------------------------
@@ -339,7 +347,7 @@ def _plan_for(job: dict, fmt: dict, root: Path) -> tuple[R.RenderPlan, dict]:
 
 def _piece_defaults(n: int) -> dict:
     return {"anchor": "bottom-center", "width_pct": 30 if n == 0 else 22, "margin_pct": 5,
-            "enter": {"effect": "fade-up"}, "exit": None}
+            "enter": {"effect": "slide-in", "direction": "bottom"}, "exit": None}
 
 
 def add_piece(jobs_root: Path, job_id: str, src: Path, label: str | None = None) -> dict:
@@ -365,11 +373,40 @@ def add_piece(jobs_root: Path, job_id: str, src: Path, label: str | None = None)
     return job_mod.update_job(jobs_root, job_id, change)
 
 
-PIECE_FIELDS = {"label", "anchor", "width_pct", "margin_pct", "enter", "exit"}
+PIECE_FIELDS = {"label", "anchor", "width_pct", "margin_pct", "enter", "exit", "hidden"}
+
+
+def _clean_move(move: dict, effects: tuple[str, ...], what: str) -> dict:
+    out = {}
+    for k, val in move.items():
+        if k == "effect":
+            if val not in effects:
+                raise VideoError(f"Unknown {what} '{val}'. Use one of: {', '.join(effects)}.")
+            out[k] = val
+        elif k == "direction":
+            if val not in M.DIRECTIONS:
+                raise VideoError("Direction must be bottom, top, left or right.")
+            out[k] = val
+        elif k == "easing":
+            out[k] = None if val in (None, "", "feel") else M.clean_easing(val)
+        elif k in ("at", "duration"):
+            if val in (None, ""):
+                out[k] = None
+                continue
+            num = float(val)
+            if not 0 <= num <= 60:
+                raise VideoError(f"The {what} {k} must be 0 to 60 seconds.")
+            out[k] = num
+        else:
+            raise VideoError(f"Can't set '{k}' on a piece's {what}.")
+    return out
 
 
 def update_piece(jobs_root: Path, job_id: str, piece_id: str, changes: dict,
                  format_id: str | None = None) -> dict:
+    """A brand piece's place, size, entrance and exit; per size with
+    format_id (that size's own, over the job's)."""
+    changes = dict(changes)
     bad = set(changes) - PIECE_FIELDS
     if bad:
         raise VideoError(f"Can't change {', '.join(sorted(bad))} on a brand piece.")
@@ -377,19 +414,32 @@ def update_piece(jobs_root: Path, job_id: str, piece_id: str, changes: dict,
         raise VideoError("Unknown position for the piece.")
     if "width_pct" in changes and not 2 <= float(changes["width_pct"]) <= 100:
         raise VideoError("Piece size must be between 2% and 100% of the width.")
-    effect = (changes.get("enter") or {}).get("effect")
-    if effect and effect not in recipes.EFFECTS:
-        raise VideoError("Unknown entrance effect.")
+    if "margin_pct" in changes and not 0 <= float(changes["margin_pct"]) <= 30:
+        raise VideoError("The margin must be 0 to 30%.")
+    try:
+        if isinstance(changes.get("enter"), dict):
+            changes["enter"] = _clean_move(changes["enter"], M.ENTER_EFFECTS, "entrance")
+        if isinstance(changes.get("exit"), dict):
+            changes["exit"] = _clean_move(changes["exit"], M.EXIT_EFFECTS, "exit")
+    except (M.MotionError, TypeError, ValueError) as exc:
+        raise VideoError(str(exc)) from exc
+
+    def merge(p: dict) -> None:
+        for k, val in changes.items():
+            if k in ("enter", "exit") and isinstance(val, dict) and isinstance(p.get(k), dict):
+                p[k] = {**p[k], **val}
+            else:
+                p[k] = val
 
     def change(job):
         if format_id:
             over = section(job)["screens"].setdefault(format_id, {}).setdefault("pieces", {})
-            over.setdefault(piece_id, {}).update(changes)
+            merge(over.setdefault(piece_id, {}))
             return
         p = next((p for p in job.get("pieces", []) if p["id"] == piece_id), None)
         if p is None:
             raise VideoError("That brand piece isn't in this job.")
-        p.update(changes)
+        merge(p)
 
     return job_mod.update_job(jobs_root, job_id, change)
 
@@ -440,24 +490,178 @@ def save_to_library(jobs_root: Path, job_id: str, piece_id: str) -> dict:
     return {"name": dest.name, "path": str(dest)}
 
 
-def set_motion(jobs_root: Path, job_id: str, recipes_: list[str] | None = None,
-               length_s: float | None = None, format_id: str | None = None) -> dict:
-    if recipes_ is not None and any(r not in recipes.RECIPES for r in recipes_):
-        raise VideoError("Unknown motion recipe.")
-    if length_s is not None and not 1 <= float(length_s) <= 60:
-        raise VideoError("Length must be between 1 and 60 seconds.")
+OLD_RECIPES = ("push-in", "crossfade", "pieces-reveal", "loop")
+
+
+def _merge_into(target: dict, clean: dict) -> None:
+    for k, val in clean.items():
+        if isinstance(val, dict) and k != "feel" and isinstance(target.get(k), dict):
+            target[k] = {**target[k], **val}
+        else:
+            target[k] = val
+
+
+def set_motion(jobs_root: Path, job_id: str, changes: dict | None = None,
+               format_id: str | None = None, recipes_: list[str] | None = None,
+               length_s: float | None = None, reset: bool = False) -> dict:
+    """Motion settings (recipes.py) for the job, or one size's own
+    (format_id; reset=True drops that size's own settings). recipes_ is
+    the older list of recipe names, read as the same choices."""
+    changes = dict(changes or {})
+    if recipes_ is not None:
+        if any(r not in OLD_RECIPES for r in recipes_):
+            raise VideoError("Unknown motion recipe.")
+        changes = {**recipes._from_recipes(recipes_), **changes}
+    if length_s is not None:
+        changes["length_s"] = length_s
+    try:
+        clean = recipes.clean_motion(changes)
+    except (M.MotionError, TypeError, ValueError, AttributeError) as exc:
+        raise VideoError(str(exc) or "Those motion settings aren't valid.") from exc
 
     def change(job):
         v = section(job)
         if format_id:
             s = v["screens"].setdefault(format_id, {})
-            if recipes_ is not None:
-                s["recipes"] = recipes_
+            s.pop("recipes", None)
+            if reset:
+                s.pop("motion", None)
+                return
+            _merge_into(s.setdefault("motion", {}), clean)
             return
         m = v.setdefault("motion", {})
-        if recipes_ is not None:
-            m["recipes"] = recipes_
-        if length_s is not None:
-            m["length_s"] = float(length_s)
+        if "recipes" in m:  # an older job: keep what it meant, in the new words
+            for k, val in recipes._from_recipes(m.pop("recipes")).items():
+                m.setdefault(k, val)
+        _merge_into(m, clean)
 
     return job_mod.update_job(jobs_root, job_id, change)
+
+
+def set_source(jobs_root: Path, job_id: str, source: str) -> dict:
+    """How she makes this job's videos: "fit" (one Higgsfield video,
+    fitted to every size) or "motion" (her statics come alive). One click
+    switches every size; a size can still be set on its own afterwards."""
+    if source not in ("fit", "motion"):
+        raise VideoError("Make the videos from a Higgsfield video (fit) or from your "
+                         "statics (motion).")
+
+    def change(job):
+        v = section(job)
+        v["source"] = source
+        for s in v["screens"].values():
+            s.pop("mode", None)
+
+    return job_mod.update_job(jobs_root, job_id, change)
+
+
+def set_picture(jobs_root: Path, job_id: str, format_id: str, which: str,
+                rel: str | None) -> dict:
+    """The picture a size's motion starts from (which="a"; None = her
+    exported static) or its 2nd picture (which="b"; None = none)."""
+    key = {"a": "a_files", "b": "b_files"}[which]
+
+    def change(job):
+        files = section(job).setdefault("motion", {}).setdefault(key, {})
+        if rel is None:
+            files.pop(format_id, None)
+        else:
+            files[format_id] = rel
+
+    return job_mod.update_job(jobs_root, job_id, change)
+
+
+VIDEO_KINDS = ("screen", "social", "web")
+
+
+def video_candidates(job: dict) -> list[dict]:
+    """Digital sizes in this job that have no video yet but could have one."""
+    return [{"format_id": f["id"], "name": f.get("name", f["id"]), "w": f["size"]["w"],
+             "h": f["size"]["h"], "kind": f["kind"]}
+            for f in job["formats"]
+            if f["kind"] in VIDEO_KINDS and "mp4" not in f.get("exports", [])
+            and "size" in f and not f.get("panels")]
+
+
+def enable_video(jobs_root: Path, job_id: str, format_ids: list[str]) -> dict:
+    """Also makes a video for these sizes of this job: an MP4 joins their
+    expected files, as an alternative to the picture (a job that delivers
+    only pictures still counts as done). The registry is left alone; the
+    Formats page changes a size for every new job."""
+    def change(job):
+        wanted = set(format_ids)
+        found = set()
+        for fmt in job["formats"]:
+            if fmt["id"] not in wanted or fmt["kind"] not in VIDEO_KINDS:
+                continue
+            found.add(fmt["id"])
+            if "mp4" in fmt.get("exports", []):
+                continue
+            fmt["exports"] = [*fmt.get("exports", []), "mp4"]
+            fmt["video_added"] = True
+            # the same name as the size's picture, at the job's current version
+            stem = next(d["expected_stem"] for d in job["deliverables"]
+                        if d["format_id"] == fmt["id"])
+            job["deliverables"].append({"format_id": fmt["id"], "type": "mp4", "panel": None,
+                                        "expected_stem": stem})
+        missing = wanted - found
+        if missing or not wanted:
+            raise VideoError("Pick digital sizes of this job: "
+                             f"{', '.join(sorted(missing)) or 'none picked'}.")
+
+    return job_mod.update_job(jobs_root, job_id, change)
+
+
+def disable_video(jobs_root: Path, job_id: str, format_id: str) -> dict:
+    """Undoes enable_video for one size (only a video added on the Video tab)."""
+    def change(job):
+        fmt = next((f for f in job["formats"] if f["id"] == format_id), None)
+        if fmt is None or not fmt.get("video_added"):
+            raise VideoError("This size's video comes from its format. Change it on the "
+                             "Formats page.")
+        fmt["exports"] = [e for e in fmt["exports"] if e != "mp4"]
+        fmt.pop("video_added", None)
+        job["deliverables"] = [d for d in job["deliverables"]
+                               if not (d["format_id"] == format_id and d["type"] == "mp4")]
+
+    return job_mod.update_job(jobs_root, job_id, change)
+
+
+# -- live preview ------------------------------------------------------------------
+
+
+def preview(jobs_root: Path, job_id: str, format_id: str) -> dict:
+    """What one size's video will be, as data the browser plays live
+    (web/static/motion.js): the same layers and keyframes Concat gets."""
+    root = job_mod.job_path(jobs_root, job_id)
+    job = job_mod.load_job(jobs_root, job_id)
+    fmt = next((f for f in video_plan.video_formats(job) if f["id"] == format_id), None)
+    if fmt is None:
+        raise VideoError("That size has no video in this job.")
+    plan, meta = _plan_for(job, fmt, root)
+    masters = {str(root / m["file"]): m for m in section(job)["masters"]}
+    layers = []
+    for layer in plan.layers:
+        path = Path(layer.file)
+        try:
+            rel = path.relative_to(root).as_posix()
+        except ValueError:
+            continue
+        if str(path) in masters:
+            m = masters[str(path)]
+            kind, w, h = "video", m["w"], m["h"]
+        elif path.name.startswith("_black_"):
+            kind, w, h, rel = "black", plan.width, plan.height, None  # fades: no file to fetch
+        else:
+            kind = "image"
+            w, h = recipes._image_size(path)
+        layers.append({"kind": kind, "file": rel, "w": w, "h": h, "start": layer.start,
+                       "duration": layer.duration if layer.duration is not None
+                       else plan.duration - layer.start,
+                       "scale": layer.scale, "offset_x": layer.offset_x,
+                       "offset_y": layer.offset_y, "keys": layer.keys,
+                       "fade_in": layer.fade_in, "fade_out": layer.fade_out,
+                       "crop": layer.crop, "muted": layer.muted})
+    return {"format_id": format_id, "w": plan.width, "h": plan.height,
+            "duration": plan.duration, "fps": plan.fps, "background": plan.background,
+            "layers": layers, "meta": meta}

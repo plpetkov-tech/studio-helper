@@ -158,3 +158,56 @@ def test_spec_sheet_is_kept_with_the_format(api, tmp_path, monkeypatch):
     fmt = json.loads(body)["format"]
     assert fmt["source_file"].endswith("specs/mall-screen-veliko-turnovo-led/VT sheet.jpg")
     assert Path(fmt["source_file"]).read_bytes() == b"\xff\xd8\xff jpeg"
+
+
+def test_statics_to_video_from_the_video_tab(api, tmp_path):
+    """The statics path end to end over HTTP: a size gets a video, she
+    picks "from statics", chooses a picture, sets Figma-style motion,
+    and the preview is the data the browser plays."""
+    call, jcall, token, jobs = api
+    _s, data = jcall("POST", "/api/jobs", {"name": "Statics", "format_ids": ["led-screen-2"]})
+    job_id = data["job"]["id"]
+    _s, v = jcall("GET", f"/api/jobs/{job_id}/video")
+    assert v["screens"] == [] and v["candidates"][0]["format_id"] == "led-screen-2"
+    assert v["source"] is None
+    _s, v = jcall("POST", f"/api/jobs/{job_id}/video/enable", {"format_ids": ["led-screen-2"]})
+    assert [s["format_id"] for s in v["screens"]] == ["led-screen-2"] and v["candidates"] == []
+    assert v["screens"][0]["video_added"] and v["screens"][0]["picture"] is None
+
+    _s, v = jcall("POST", f"/api/jobs/{job_id}/video/source", {"source": "motion"})
+    assert v["source"] == "motion" and v["screens"][0]["mode"] == "motion"
+    status, data = jcall("GET", f"/api/jobs/{job_id}/video/preview/led-screen-2")
+    assert status == 400 and "static" in data["error"]
+
+    pic = tmp_path / "bg.png"
+    Image.new("RGB", (1280, 2400), "navy").save(pic)
+    status, body, _ = call("POST", f"/api/jobs/{job_id}/upload?to=motion-a&format=led-screen-2"
+                           "&name=bg.png", raw=pic.read_bytes())
+    assert status == 200 and json.loads(body)["warnings"] == []
+    _s, v = jcall("GET", f"/api/jobs/{job_id}/video")
+    row = v["screens"][0]
+    assert row["picture"] == "02_assets/motion-a/bg.png" and row["picture_own"]
+
+    status, v = jcall("POST", f"/api/jobs/{job_id}/video/motion",
+                      {"changes": {"feel": {"type": "spring", "mass": 3, "stiffness": 150,
+                                            "damping": 8},
+                                   "camera": {"move": "pan-up", "amount": 10}, "ending": "loop"}})
+    assert status == 200 and v["motion"]["feel"]["mass"] == 3
+    assert v["options"]["springs"]["gentle"]["duration_s"] > 0
+    status, data = jcall("POST", f"/api/jobs/{job_id}/video/motion",
+                         {"changes": {"camera": {"move": "barrel-roll"}}})
+    assert status == 400
+
+    _s, data = jcall("GET", f"/api/jobs/{job_id}/video/preview/led-screen-2")
+    p = data["preview"]
+    assert (p["w"], p["h"]) == (1280, 2400) and p["meta"]["ending"] == "loop"
+    assert p["layers"][0]["file"] == "02_assets/motion-a/bg.png"
+    status, _b, _h = call("GET", f"/api/jobs/{job_id}/file?rel={p['layers'][0]['file']}&t={token}",
+                          token=False)
+    assert status == 200  # the browser can fetch every layer it's given
+
+    _s, v = jcall("POST", f"/api/jobs/{job_id}/video/picture",
+                  {"format_id": "led-screen-2", "which": "a"})
+    assert v["screens"][0]["picture"] is None
+    _s, v = jcall("POST", f"/api/jobs/{job_id}/video/disable", {"format_id": "led-screen-2"})
+    assert v["screens"] == []

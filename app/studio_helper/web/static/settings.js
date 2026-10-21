@@ -19,12 +19,11 @@
     var concatChip = !concat ? UI.chip("missing", "Checking…") : c.found ? UI.chip(c.warning ? "warn" : "ok", "Concat " + (c.version || "")) : UI.chip("fail", "Not found");
     var folder = cfg.mcp_command.replace(/[\\/][^\\/]*$/, "");
     el.innerHTML =
-      card("ChatGPT", UI.chip(cfg.assistants_enabled ? "ok" : "missing", cfg.assistants_enabled ? "On" : "Off"),
+      card("ChatGPT", UI.chip(!cfg.assistants_enabled ? "missing" : cfg.chatgpt === "added" ? "ok" : "warn",
+          !cfg.assistants_enabled ? "Off" : cfg.chatgpt === "added" ? "Connected" : "Not connected"),
         '<label class="toggle"><input type="checkbox" id="ai"' + (cfg.assistants_enabled ? " checked" : "") + "><span><b>Let ChatGPT use Studio Helper</b><br>" +
         '<span class="note">It can read jobs and their status, add sizes, export and make videos. It sees names and statuses, never your artwork. Deleting is never allowed.</span></span></label>' +
-        '<div class="field"><span class="lbl">Paste this into ChatGPT’s MCP settings (it stays the same after updates)</span>' +
-        '<div class="cmd"><code id="mcp">' + esc(cfg.mcp_command) + '</code><button class="btn" id="copy-mcp">Copy</button></div></div>' +
-        '<p class="note">Also add <span class="mono">studio-helper-SKILL.md</span> from the same folder as a skill, so ChatGPT knows the words this app uses. <button class="btn ghost" id="open-launcher" data-folder="' + esc(folder) + '">Open folder</button></p>') +
+        (cfg.assistants_enabled ? chatgptBlock(folder) : "")) +
       card("Video (Concat)", concatChip,
         (c.found ? '<dl class="kv"><dt>Found at</dt><dd class="mono">' + esc(c.path) + "</dd></dl>" :
           concat ? '<p class="note">Videos are made with Concat, a free video editor you install yourself (concatenate.pages.dev). Everything else works without it.</p>' : "") +
@@ -36,6 +35,21 @@
         '<p class="note">Starts Studio Helper. It follows every update, so you never look for the newest folder.</p>' +
         '<div class="acts" style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" data-shortcut="create">Put it on the desktop</button>' +
         '<button class="btn ghost" data-shortcut="remove">Remove it</button></div>');
+  }
+
+  function chatgptBlock(folder) {
+    var how = cfg.chatgpt === "added"
+      ? '<p class="note">Studio Helper is in ChatGPT’s MCP servers, with its skill, and stays there through every update. If ChatGPT doesn’t list it yet, quit and reopen ChatGPT once.</p>' +
+        '<div class="acts" style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn ghost" data-chatgpt="remove">Remove from ChatGPT</button></div>'
+      : '<p class="note">' + (cfg.chatgpt === "no-chatgpt" ? "ChatGPT’s settings weren’t found on this PC yet. If you use the ChatGPT desktop app, add Studio Helper to it:" :
+          "Studio Helper isn’t in ChatGPT’s MCP servers right now.") + "</p>" +
+        '<div class="acts" style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" data-chatgpt="add"' + (cfg.is_release ? "" : " disabled title=\"Only in the installed app\"") + ">Add to ChatGPT</button></div>";
+    return how +
+      '<details class="more"><summary>Add it by hand instead</summary>' +
+      '<div class="field"><span class="lbl">In ChatGPT: Settings → MCP servers → Add server → STDIO, and paste this command (it stays the same after updates)</span>' +
+      '<div class="cmd"><code id="mcp">' + esc(cfg.mcp_command) + '</code><button class="btn" id="copy-mcp">Copy</button></div></div>' +
+      '<p class="note">Also add <span class="mono">studio-helper-SKILL.md</span> from the same folder as a skill. <button class="btn ghost" id="open-launcher" data-folder="' + esc(folder) + '">Open folder</button></p>' +
+      '<p class="note">ChatGPT’s settings file: <span class="mono">' + esc(cfg.chatgpt_config) + "</span></p></details>";
   }
 
   function save(body, msg) {
@@ -57,6 +71,8 @@
       save({concat_path: document.getElementById("concat-path").value}, "Saved.").then(checkConcat);
     } else if (t.id === "open-launcher") {
       SH.post("/api/settings/open-launcher");
+    } else if (t.dataset.chatgpt) {
+      save({chatgpt: t.dataset.chatgpt}, t.dataset.chatgpt === "add" ? "Added. Quit and reopen ChatGPT once to see Studio Helper." : "Removed from ChatGPT.");
     } else if (t.dataset.shortcut) {
       save({desktop_shortcut: t.dataset.shortcut}, t.dataset.shortcut === "create" ? "Shortcut on the desktop." : "Shortcut removed.");
     }

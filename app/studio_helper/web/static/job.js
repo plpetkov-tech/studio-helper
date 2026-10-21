@@ -251,9 +251,12 @@
       '<div class="file">' + esc(d.expected_stem + "." + ext) + "</div>" +
       (d.alternatives && d.alternatives.length ? '<p class="note">Or deliver it as ' + esc(d.alternatives.map(function (a) { return "." + a; }).join(" or ")) + " with the same name. Any one of them counts.</p>" : "") +
       (d.found_file && d.found_file !== d.expected_stem + "." + ext ? '<p class="note">Found as ' + esc(d.found_file) + "</p>" : "") +
+      (d.type === "mp4" || (d.alternatives || []).indexOf("mp4") >= 0 ? '<p><button class="btn" id="to-video">Make the video on the Video tab</button></p>' : "") +
       splitChecks(d.checks) + notesBlock(fmt) + (fmt ? formatFacts(fmt) : "") +
       '<div class="acts" style="border-top:1px solid var(--line);padding-top:14px"><button class="btn danger" id="remove-size">Stop expecting this size</button></div>' +
       '<p class="note">For a cancelled placement. Your artboards and exported files stay; you can restore it.</p>');
+    var toVideo = document.getElementById("to-video");
+    if (toVideo) toVideo.addEventListener("click", function () { UI.closeDrawer(); showTab("video"); });
     document.getElementById("remove-size").addEventListener("click", function () {
       SH.post(api("/formats/" + encodeURIComponent(d.format_id) + "/remove")).then(function (res) {
         UI.closeDrawer();

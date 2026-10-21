@@ -329,13 +329,46 @@ def video_set_screen(a):
     return {"ok": True}
 
 
-@tool("video_set_motion", "Motion from statics: recipes (push-in, crossfade, pieces-reveal, loop) "
-      "and length in seconds, for the job or one size.",
-      {"job_id": JOB_ID, "recipes": _s("array", "", items={"type": "string"}),
-       "length_s": _s("number", ""), "format_id": _s("string", "")}, ["job_id"])
-def video_set_motion(a):
-    api("POST", f"/api/jobs/{a['job_id']}/video/motion", a)
+@tool("video_set_source", "How this job's videos are made, for every size at once: 'motion' "
+      "(her statics come alive) or 'fit' (one Higgsfield video fitted to every size).",
+      {"job_id": JOB_ID, "source": _s("string", "motion / fit")}, ["job_id", "source"])
+def video_set_source(a):
+    api("POST", f"/api/jobs/{a['job_id']}/video/source", a)
+    return {"source": a["source"]}
+
+
+@tool("video_enable", "Also make a video for digital sizes of this job that only have a picture "
+      "(video_get lists them as candidates). Adds an MP4 to their expected files; the picture "
+      "still counts on its own.", {"job_id": JOB_ID, "format_ids": FORMAT_IDS},
+      ["job_id", "format_ids"])
+def video_enable(a):
+    api("POST", f"/api/jobs/{a['job_id']}/video/enable", a)
     return {"ok": True}
+
+
+MOTION_HELP = (
+    "Motion from statics, with Figma's words. changes may hold: "
+    "feel = easing for everything that moves: {type: gentle | quick | bouncy | slow} (Figma's "
+    "springs), {type: spring, mass, stiffness, damping} (heavier mass = slower, swings further), "
+    "or a curve {type: linear | ease-in | ease-out | ease-in-out | ease-in-back | ease-out-back | "
+    "ease-in-out-back} or {type: bezier, points: [x1, y1, x2, y2]}; "
+    "camera = {move: none | push-in | pull-out | pan-left | pan-right | pan-up | pan-down, "
+    "amount: 0-30 %}; opening = dissolve | instant; ending = dissolve | hold | loop; "
+    "second = how a size's 2nd picture takes over: {type: dissolve | slide-in | move-in | push | "
+    "instant, direction: bottom | top | left | right (where it comes from), at: seconds or null "
+    "(middle), duration: seconds}; length_s = 1-60; use_pieces = true/false. "
+    "With format_id it's that size's own (reset: true = follow the job again).")
+
+
+@tool("video_set_motion", MOTION_HELP,
+      {"job_id": JOB_ID, "changes": _s("object", "Motion settings to change."),
+       "format_id": _s("string", "One size only."), "reset": _s("boolean", ""),
+       "recipes": _s("array", "Older form: push-in, crossfade, pieces-reveal, loop.",
+                     items={"type": "string"}),
+       "length_s": _s("number", "")}, ["job_id"])
+def video_set_motion(a):
+    data = api("POST", f"/api/jobs/{a['job_id']}/video/motion", a)
+    return {"motion": data.get("motion")}
 
 
 @tool("video_render", "Makes every video size (or format_ids) through her Concat, one by one, "
@@ -347,8 +380,12 @@ def video_render(a):
 
 
 @tool("piece_update", "A brand piece (logo, line, promo text): anchor (top-left ... "
-      "bottom-right, center), width_pct, margin_pct, enter {effect: fade/fade-up/scale-in/pop, "
-      "at, duration}; per size with format_id.",
+      "bottom-right, center), width_pct, margin_pct, enter {effect: dissolve | slide-in | move-in "
+      "| scale-in | pop | instant, direction: bottom | top | left | right (where it comes from), "
+      "at: seconds or null (auto, one after another), duration, easing: a feel like gentle / "
+      "bouncy or null (the video's)}, exit null (stays) or {effect: dissolve | slide-out | "
+      "move-out | scale-out, direction, at, duration, easing}; hidden (with format_id: leave it "
+      "off that size).",
       {"job_id": JOB_ID, "piece_id": _s("string", ""), "changes": _s("object", ""),
        "format_id": _s("string", "")}, ["job_id", "piece_id", "changes"])
 def piece_update(a):

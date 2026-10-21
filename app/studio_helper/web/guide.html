@@ -8,7 +8,7 @@
 </head>
 <body data-page="guide">
   <main>
-    <div class="head"><div><h1>Guide</h1><p>From the brief to files the print shop can use, in order.</p></div></div>
+    <div class="head"><div><h1>Guide</h1><p>From the brief to files the print shop, the malls and Instagram can use, in order.</p></div></div>
     <div class="guide">
       <nav class="toc" aria-label="Guide sections">
         <a href="#how">1. How it works</a>
@@ -16,22 +16,31 @@
         <a href="#setup">3. Set up the files</a>
         <a href="#design">4. Design</a>
         <a href="#export">5. Check &amp; export</a>
-        <a href="#deliver">6. Delivered</a>
-        <a href="#formats">7. Formats</a>
-        <a href="#more">8. Revisions, deleting, updates</a>
-        <a href="#trouble">9. When something goes wrong</a>
+        <a href="#video">6. Videos</a>
+        <a href="#motion">7. Statics that move</a>
+        <a href="#higgsfield">8. A Higgsfield video for every size</a>
+        <a href="#pieces">9. Brand pieces</a>
+        <a href="#feel">10. Motion words</a>
+        <a href="#deliver">11. Deliver</a>
+        <a href="#grow">12. Add sizes, reuse, revisions</a>
+        <a href="#formats">13. Formats</a>
+        <a href="#chatgpt">14. ChatGPT</a>
+        <a href="#settings">15. Settings &amp; updates</a>
+        <a href="#trouble">16. When something goes wrong</a>
       </nav>
       <div>
         <section class="card gsec" id="how">
           <h2>How it works</h2>
-          <p>Studio Helper never designs anything. It does the setup and the checking around your design work.</p>
+          <p>Studio Helper never designs anything. It does the setup, the naming and the checking around your design work.</p>
           <ul>
             <li><strong>Before:</strong> it creates the job folder and the Illustrator / Photoshop / Figma files, with every artboard at the right size and bleed and safe-zone guides in place.</li>
             <li><strong>During:</strong> you design as usual, in your own files.</li>
-            <li><strong>After:</strong> it checks and exports the print files, then watches the export folder and marks every file ✓ or ✕.</li>
+            <li><strong>After:</strong> it checks and exports, watches the export folder and marks every file ✓ or ✕. It makes the video versions through Concat and packs the finished files for your manager.</li>
           </ul>
-          <p class="note">It never overwrites or deletes your .ai / .psd files.</p>
+          <p>A job page has three tabs, in the order you work: <strong>1 · Files &amp; export</strong>, <strong>2 · Video</strong>, <strong>3 · Deliver</strong>.</p>
+          <p class="note">It never overwrites or deletes your .ai / .psd files, and your artwork never leaves your PC.</p>
         </section>
+
         <section class="card gsec" id="job">
           <h2>Start a job</h2>
           <ol>
@@ -39,28 +48,33 @@
             <li>Pick a preset like <strong>Mall print</strong>, or tick formats by hand. Search helps with long lists.</li>
             <li>If the print shop gave you a different bleed, change it right on the ticked format. It only affects this job.</li>
             <li>A size nobody has used before? <strong>+ Custom size</strong>. Tick “save to Formats” if it’ll come back.</li>
+            <li>Add the dates from the brief (print due, digital due, when it runs). The Jobs list then shows what’s due first. You can add them later with <strong>Add dates from the brief</strong>.</li>
             <li>Check the file names on the right, then <strong>Create job</strong>.</li>
           </ol>
           <pre>2026-09-26_paradise-spring/
   01_brief/     brief and print-shop specs
-  02_assets/    logos, photos
-  03_working/   your .ai and .psd (created for you)
-  04_export/    finished files land here</pre>
+  02_assets/    logos, photos, Higgsfield videos, brand pieces
+  03_working/   your .ai and .psd (created for you), Concat projects
+  04_export/    finished files land here
+  05_delivery/  packages for your manager</pre>
         </section>
+
         <section class="card gsec" id="setup">
           <h2>Set up the files</h2>
-          <p>Step 1 on the job page creates the working files in <code>03_working</code>:</p>
+          <p>Step 1 on <strong>Files &amp; export</strong> creates the working files in <code>03_working</code>:</p>
           <ul>
             <li><strong>Illustrator:</strong> CMYK, one artboard per print format, bleed set, safe zones as locked guides. Very large formats are drawn at 1:10 and named <code>…@1:10</code>. Big jobs are split into <code>_part1</code>, <code>_part2</code> files so each fits Illustrator’s canvas.</li>
             <li><strong>Photoshop:</strong> RGB / sRGB, one artboard per screen or social format at the exact pixel size.</li>
-            <li><strong>Figma:</strong> copy the job.json path and run the Studio Helper plugin → Create frames.</li>
+            <li><strong>Figma:</strong> <strong>Design in Figma</strong> shows how: run the Studio Helper plugin and drop in the job’s job.json.</li>
           </ul>
         </section>
+
         <section class="card gsec" id="design">
           <h2>Design</h2>
           <p>Work in your files as usual. The one rule: <strong>don’t rename the artboards</strong>. Their names are how each one is matched to its format and file name.</p>
-          <p class="note">Print shop notes (pockets, how far text must stay from the edge) are on each file in the job. Click a file to see them.</p>
+          <p class="note">Print-shop notes (pockets, how far text must stay from the edge) sit next to each artboard, and on each file in the job. Click a file to see them.</p>
         </section>
+
         <section class="card gsec" id="export">
           <h2>Check &amp; export</h2>
           <ul>
@@ -68,42 +82,148 @@
             <li>If something fails, the panel says exactly what and where. Fix it, or use <strong>Export anyway</strong>.</li>
             <li>Your file can stay open. Export saves your unsaved changes first, then exports. <strong>Check only</strong> never saves or closes anything.</li>
             <li><strong>Export Photoshop</strong> exports every artboard as PNG / JPG, flattened and in sRGB. Your .psd isn’t changed.</li>
-            <li>Figma and video (mp4): export them yourself into <code>04_export</code>, with the file name shown on the job page.</li>
+            <li>From Figma, export into <code>04_export</code> with the file name shown on the job page. Click any file in the list to see its exact name.</li>
           </ul>
-        </section>
-        <section class="card gsec" id="deliver">
-          <h2>Delivered</h2>
-          <p>The file list on the job page updates by itself every few seconds:</p>
+          <p>The list updates by itself every few seconds:</p>
           <ul>
             <li><span class="chip missing">missing</span> nothing with that name yet</li>
             <li><span class="chip ok">✓ ok</span> passes every check</li>
             <li><span class="chip warn">! check</span> usable, worth a look</li>
-            <li><span class="chip fail">✕ fail</span> wrong size, colour mode, resolution…</li>
+            <li><span class="chip fail">✕ fail</span> wrong size, colour mode, resolution, video length…</li>
           </ul>
-          <p>When everything is ✓, send the <code>04_export</code> folder to the print shop.</p>
         </section>
+
+        <section class="card gsec" id="video">
+          <h2>Videos</h2>
+          <p>The <strong>Video</strong> tab makes an MP4 for every size that can be a video: Instagram and Facebook stories and posts, LED and mall screens. Each video gets its delivery name, the screen’s exact size, length limit and frame rate, no sound where screens play none, and is then checked like any export.</p>
+          <ol>
+            <li><strong>Only pictures in this job?</strong> The tab lists your digital sizes: tick the ones that should get a video too, and <strong>Add a video for these</strong>. The picture still counts on its own.</li>
+            <li><strong>Pick how to make them.</strong> Two big cards at the top:
+              <ul>
+                <li><strong>Bring your statics to life</strong>: your exported pictures move. Nothing to make anywhere else. See <a href="#motion">Statics that move</a>.</li>
+                <li><strong>Fit a Higgsfield video</strong>: one video from Higgsfield, cut to every size. See <a href="#higgsfield">A Higgsfield video for every size</a>.</li>
+              </ul>
+              One click switches every size. A single size can still be made the other way: change <strong>Made from</strong> under it.</li>
+            <li><strong>Watch the preview.</strong> It plays exactly what will be made, in the browser, with nothing rendered yet. Pick any size above it, or click a size’s picture.</li>
+            <li><strong>Make all videos</strong> (or <strong>Make</strong> on one size). They’re made one after another in Concat, with progress shown. A video you exported yourself under the same name is never replaced unless you say so.</li>
+            <li>Want to fine-tune one? <strong>Fine-tune in Concat</strong> opens its Concat project.</li>
+          </ol>
+          <p class="note">Videos are made with <strong>Concat</strong>, a free video editor you install yourself. Without it you can still set everything up and watch the previews; the tab says when it’s missing.</p>
+        </section>
+
+        <section class="card gsec" id="motion">
+          <h2>Statics that move</h2>
+          <ol>
+            <li><strong>Pictures.</strong> Each size starts from its exported static, shown on its card. No static yet? Export it on Files &amp; export, or <strong>Choose another picture</strong>.
+              <br><span class="note">Animating your logo or promo text? Choose a version of the picture <em>without</em> them (say, just the background), and add them as brand pieces, so they aren’t there twice.</span></li>
+            <li><strong>A 2nd picture</strong> (optional): <strong>+ 2nd picture</strong> on a size, and the video changes from the first picture to the second halfway through.</li>
+            <li><strong>Motion</strong>, with the same words as Figma (see <a href="#feel">Motion words</a>):
+              <ul>
+                <li><strong>Feel</strong>: Gentle, Quick, Bouncy, Slow, or Custom. The little curve shows how a move speeds up, slows down or bounces.</li>
+                <li><strong>Camera</strong>: a slow push in, pull out, or drift left, right, up or down, by a few percent. No edge of the picture ever shows.</li>
+                <li><strong>Start</strong>: dissolve from black, or straight in. <strong>End</strong>: dissolve to black, hold, or <strong>Loop</strong> (the end melts back into the first frame, for screens that repeat it).</li>
+                <li><strong>Length</strong>: screens with a limit get less on their own (the Paradise column: 10 s).</li>
+                <li><strong>2nd picture</strong>: how it takes over: Dissolve, Slide in, Move in or Push, from which side, and when.</li>
+              </ul></li>
+            <li><strong>Every size or only one.</strong> “Change the motion for: Every size / Only one size”. A size with its own motion keeps it until you press <strong>Follow the job again</strong>.</li>
+          </ol>
+        </section>
+
+        <section class="card gsec" id="higgsfield">
+          <h2>A Higgsfield video for every size</h2>
+          <ol>
+            <li><strong>What to make in Higgsfield</strong> lists which shapes to generate (for example one 9:16 and one 3:4) and at least how big. <strong>Make reference pack</strong> copies your statics and brand pieces into <code>02_assets/higgsfield</code> to feed it.</li>
+            <li><strong>Drop the Higgsfield videos</strong> on the tab. They’re copied into the job; your originals stay where they are.</li>
+            <li><strong>Draw the yellow box</strong> around what must stay visible (the juice). Every size zooms in as far as it can while the whole box stays on screen. If the subject moves, play to another moment, move the box and press <strong>Set box here</strong>.</li>
+            <li><strong>Behind the video</strong>: where a size’s shape can’t be covered, it shows Blur, Black or your Brand colour. One click switches every size; a size can have its own.</li>
+            <li>Very tall strips show how much fill they need; reframe those in Higgsfield if it’s a lot. The Paradise column repeats the video 3 times around.</li>
+          </ol>
+        </section>
+
+        <section class="card gsec" id="pieces">
+          <h2>Brand pieces</h2>
+          <p>Your logo, the line under it, a promo text like “-30%”: upload them (transparent PNG is best) and they come in one after another. Over statics they come right after the start; over a Higgsfield video they come in over the last 2 seconds, as an end card.</p>
+          <ul>
+            <li><strong>Position</strong>: one of 9 spots; pieces at the same spot stack in list order. Stories keep clear of Instagram’s own bars.</li>
+            <li><strong>Size</strong>: a share of the video’s width.</li>
+            <li><strong>Comes in</strong>: Dissolve, Slide in, Move in, Scale in, Pop or Instant, and from which side. <strong>When</strong>: leave it on auto, or give the second.</li>
+            <li><strong>Feel</strong>: like the video, or its own (a bouncy Pop for “-30%”).</li>
+            <li><strong>Goes out</strong>: stays to the end, or leaves with Dissolve, Slide out, Move out or Scale out.</li>
+            <li><strong>Save to library</strong> keeps a piece for every job; it then shows at the top of the section.</li>
+            <li>With “Only one size” chosen in Motion, <strong>Leave it off</strong> hides a piece on that size.</li>
+          </ul>
+        </section>
+
+        <section class="card gsec" id="feel">
+          <h2>Motion words</h2>
+          <p>The same as Figma’s prototype animations:</p>
+          <ul>
+            <li><strong>Gentle</strong>: calm and smooth, the most neutral. The default. <strong>Quick</strong>: snappy, a little spring. <strong>Bouncy</strong>: goes past its place and settles. <strong>Slow</strong>: steady and natural, no bounce.</li>
+            <li><strong>Custom spring</strong>: <strong>Mass</strong> is how heavy it is (heavier is slower and swings further), <strong>Stiffness</strong> gives more bounces, <strong>Damping</strong> makes it settle sooner. A spring’s length comes from these, like in Figma.</li>
+            <li><strong>Ease in</strong> starts slowly, <strong>Ease out</strong> ends slowly, <strong>Ease in and out</strong> does both, <strong>Linear</strong> is constant. The <strong>back</strong> versions pull back a little first, or go a little past. <strong>Custom bezier</strong> takes the four numbers Figma or CSS show.</li>
+            <li><strong>Dissolve</strong> fades over. <strong>Move in</strong> slides in from outside the frame. <strong>Slide in</strong> moves a little while it fades in. <strong>Push</strong> pushes the first picture out as the second comes in.</li>
+          </ul>
+        </section>
+
+        <section class="card gsec" id="deliver">
+          <h2>Deliver</h2>
+          <ol>
+            <li>On <strong>3 · Deliver</strong>, see which files are ready. Files that fail their checks are never packed; tick <strong>Send files with warnings too</strong> if your manager is fine with them.</li>
+            <li><strong>Make package</strong> writes one ZIP in <code>05_delivery</code>, with a folder per group (mall print, mall screens, social…) and a README listing every file with its print-shop notes.</li>
+            <li>After adding sizes for a new mall, pick <strong>Sizes added …</strong> to pack only those.</li>
+            <li>Drag the ZIP into WeTransfer or SwissTransfer (buttons on the tab), or attach it to an email. <strong>Packed before</strong> keeps a record of what went out when.</li>
+          </ol>
+        </section>
+
+        <section class="card gsec" id="grow">
+          <h2>Add sizes, reuse, revisions</h2>
+          <ul>
+            <li><strong>+ Add sizes</strong>: a finished campaign gets a new mall. The new sizes join the job (no new version) and are marked “added”. Then the setup step adds them: a new Illustrator file, or new artboards at the bottom of your Photoshop file. Each starts from your closest existing artwork on a “Starting point - adjust me” layer, unless you untick that.</li>
+            <li><strong>Stop expecting this size</strong> (click a file): for a cancelled placement. Your files stay; restore it from the bottom of the list.</li>
+            <li><strong>Reuse as new job</strong>: the same campaign with a new offer. A new job starts with copies of the old working files, Higgsfield videos and brand pieces. The old job stays exactly as it is.</li>
+            <li><strong>Start revision</strong>: the version goes v01 → v02, so new exports get new names and the old ones stay for reference. Keep working in the same files; export uses your newest one.</li>
+            <li><strong>More → Delete job</strong> moves the folder to <code>Studio Jobs\_Deleted Jobs</code>. Nothing is erased.</li>
+          </ul>
+        </section>
+
         <section class="card gsec" id="formats">
           <h2>Formats</h2>
-          <p>Every size you’ve delivered before lives in <strong>Formats</strong>: its size, bleed, what it’s delivered as, and the print shop’s notes.</p>
+          <p>Every size you’ve delivered before lives in <strong>Formats</strong>: its size, bleed, what it’s delivered as, video limits, and the print shop’s notes.</p>
           <ul>
             <li><strong>+ Add format</strong> saves a new one. So does ticking “save to Formats” on a custom size.</li>
+            <li>Attach the operator’s <strong>spec sheet</strong> (PDF or picture) to a format; it’s kept on your PC and linked from the format. Sizes nobody has confirmed yet show an <strong>Estimated</strong> badge.</li>
             <li><strong>Edit file</strong> opens the formats file for bigger changes; <strong>Check file</strong> tells you if something in it is wrong, and on which line.</li>
-            <li>Changes apply to new jobs. A job keeps the sizes it was created with.</li>
+            <li>Changes apply to new jobs. A job keeps the sizes it was created with; video limits and TIFF resolution follow your changes.</li>
           </ul>
         </section>
-        <section class="card gsec" id="more">
-          <h2>Revisions, deleting, updates</h2>
+
+        <section class="card gsec" id="chatgpt">
+          <h2>ChatGPT</h2>
+          <p>ChatGPT on your PC can use Studio Helper: “What’s left on Black November?”, “Add the Mall X size to it”, “Make the LED videos from the statics, bouncy, with the logo popping in”.</p>
           <ul>
-            <li><strong>Start revision:</strong> the version goes v01 → v02, so new exports get new names and the old ones stay for reference. Keep working in the same Illustrator/Photoshop file; export uses your newest one.</li>
-            <li><strong>More → Delete job</strong> moves the folder to <code>Studio Jobs\_Deleted Jobs</code>. Nothing is erased.</li>
+            <li>It’s set up for you: every start and every update adds Studio Helper to ChatGPT’s MCP servers, with its skill. Quit and reopen ChatGPT once to see it.</li>
+            <li>It sees job names, sizes, file names and statuses, never your artwork. It can’t delete anything.</li>
+            <li><strong>Settings → ChatGPT</strong> turns it off (and takes it out of ChatGPT), adds it again, or shows the command to paste by hand.</li>
+          </ul>
+        </section>
+
+        <section class="card gsec" id="settings">
+          <h2>Settings &amp; updates</h2>
+          <ul>
+            <li><strong>Desktop shortcut</strong>: starts Studio Helper and follows every update. Delete it and it stays deleted; <strong>Put it on the desktop</strong> brings it back.</li>
+            <li><strong>Video (Concat)</strong>: shows whether Concat was found. Installed somewhere unusual? Paste the path to concat.exe.</li>
             <li><strong>? → Check for updates</strong> installs the new version and restarts. One backup of the old version is kept; older ones are cleaned up, unless you saved your own files inside them.</li>
           </ul>
         </section>
+
         <section class="card gsec" id="trouble">
           <h2>When something goes wrong</h2>
           <ul>
             <li><strong>Illustrator / Photoshop didn’t respond:</strong> the panel offers to run the script by hand. If it keeps happening, run <a href="/setup-check.html">Setup check</a>.</li>
             <li><strong>“A file already exists”:</strong> the app won’t overwrite your work. Open it, or Start revision.</li>
+            <li><strong>A video says “Close it in Concat first”:</strong> its project is open in the Concat window. Close it there and make it again.</li>
+            <li><strong>The preview says to export the static first:</strong> that size has no picture yet. Export it, or choose one on its card.</li>
+            <li><strong>A video fails its check:</strong> click it on Files &amp; export. The reason is plain (too long, wrong size, too big a file).</li>
             <li><strong>A format looks wrong in an old job:</strong> fix it in Formats, then start a new job.</li>
             <li><strong>Anything else:</strong> take a photo of the message. It says exactly what failed.</li>
           </ul>

@@ -110,6 +110,7 @@ def fitter_plan(fmt: dict, master: dict, master_path: str, fill: str,
     layer = Layer(file=master_path, duration=duration, scale=first.concat_scale,
                   offset_x=first.offset_x, offset_y=first.offset_y,
                   muted=not audio_allowed(fmt),
+                  # Concat's clip fade: the sound fades with the picture's black fade
                   fade_out=0.3 if duration < master["duration_s"] else 0.0)
     if len(fits) > 1:
         for t, f in fits:
@@ -122,6 +123,42 @@ def fitter_plan(fmt: dict, master: dict, master_path: str, fill: str,
         background=background_for(fill, brand_color), max_kb=fmt.get("max_kb"),
     )
     return plan, fits
+
+
+BLACK_DIR = "03_working/video"
+
+
+def black_still(root: Path, w: int, h: int) -> Path:
+    """A black picture at the screen's own shape, for fades to and from
+    black (Concat's clip fadeIn/fadeOut don't darken the picture; checked
+    on Concat 0.2.8)."""
+    path = root / BLACK_DIR / f"_black_{w}x{h}.png"
+    if not path.is_file():
+        from PIL import Image
+
+        path.parent.mkdir(parents=True, exist_ok=True)
+        Image.new("RGB", (w, h)).save(path)
+    return path
+
+
+def fade_layers(root: Path, plan: RenderPlan, fade_in: float, fade_out: float) -> list[Layer]:
+    """Black on top: dissolving away at the start, in at the end."""
+    from . import motion as M
+
+    out = []
+    black = str(black_still(root, plan.width, plan.height))
+    if fade_in > 0:
+        layer = Layer(file=black, start=0.0, duration=fade_in)
+        layer.keys = M.all_keys({}, [M.Seg("opacity", 0.0, fade_in, 1.0, 0.0,
+                                           {"type": "ease-in-out"})], fade_in)
+        out.append(layer)
+    if fade_out > 0:
+        start = max(plan.duration - fade_out, 0.0)
+        layer = Layer(file=black, start=start, duration=plan.duration - start)
+        layer.keys = M.all_keys({}, [M.Seg("opacity", 0.0, plan.duration - start, 0.0, 1.0,
+                                           {"type": "ease-in-out"})], plan.duration - start)
+        out.append(layer)
+    return out
 
 
 def _fresh_project_dir(project_dir: Path) -> None:

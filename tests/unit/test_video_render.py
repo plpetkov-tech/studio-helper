@@ -172,3 +172,27 @@ def test_real_concat_renders_a_checked_video(video_job, tmp_path):
     job = job_mod.load_job(jobs, job_id)
     r = job["video"]["renders"]["mall-screen-paradise-led-column"]
     assert validate_file(jobs / job_id / r["file"], job).status == "ok"
+
+
+@pytest.mark.skipif(not (os.environ.get("STUDIO_HELPER_CONCAT") and shutil.which("concat")),
+                    reason="set STUDIO_HELPER_CONCAT=1 with Concat installed")
+def test_real_concat_renders_springs_transitions_and_pieces(video_job, tmp_path):
+    jobs, job_id, _, logo = video_job
+    env = {k: str(tmp_path / "concat-home" / k.lower()) for k in
+           ("XDG_CONFIG_HOME", "XDG_DATA_HOME", "XDG_CACHE_HOME")}
+    story = "ig-story"
+    b = jobs / job_id / "02_assets" / "b.png"
+    Image.new("RGB", (1080, 1920), "red").save(b)
+    service.set_picture(jobs, job_id, story, "b", "02_assets/b.png")
+    service.add_piece(jobs, job_id, logo, "Logo")
+    service.update_piece(jobs, job_id, "p1", {"enter": {"effect": "pop"},
+                                              "exit": {"effect": "move-out", "direction": "top"}})
+    service.set_motion(jobs, job_id, {"feel": "bouncy", "camera": {"move": "pan-left"},
+                                      "second": {"type": "push", "direction": "right"},
+                                      "ending": "loop", "length_s": 5})
+    service.set_source(jobs, job_id, "motion")
+    result = service.render_all(jobs, job_id, format_ids=[story], concat_env=env)
+    assert result["failed"] == [], result
+    job = job_mod.load_job(jobs, job_id)
+    r = job["video"]["renders"][story]
+    assert validate_file(jobs / job_id / r["file"], job).status == "ok"

@@ -9,7 +9,7 @@ from __future__ import annotations
 import shutil
 from pathlib import Path
 
-from studio_helper import delivery
+from studio_helper import chatgpt_setup, delivery
 from studio_helper import paths as app_paths
 from studio_helper.adobe import illustrator, photoshop
 from studio_helper.core import custom_formats, registry_edit, seeds
@@ -42,6 +42,10 @@ def get_config(ctx, body):
         "mcp_command": str(launcher.launcher_dir() / launcher.MCP_CMD),
         "concat_path": ctx.config.concat_path,
         "desktop_shortcut_created": ctx.config.desktop_shortcut_created,
+        # ChatGPT desktop's own settings file, which the app fills in by itself
+        "chatgpt": chatgpt_setup.status(),
+        "chatgpt_config": str(chatgpt_setup.config_file()),
+        "is_release": (app_paths.bundled_root() / "runtime" / "python.exe").exists(),
     }
 
 
@@ -61,6 +65,18 @@ def save_settings(ctx, body):
     cfg = ctx.config
     if "assistants_enabled" in body:
         cfg.assistants_enabled = bool(body["assistants_enabled"])
+        cfg.save()
+        chatgpt_setup.ensure(app_paths.bundled_root(), cfg, force=cfg.assistants_enabled)
+    chatgpt = body.get("chatgpt")
+    if chatgpt == "add":
+        result = chatgpt_setup.ensure(app_paths.bundled_root(), cfg, force=True)
+        if result == "unreadable":
+            raise job_mod.JobError("ChatGPT's settings file couldn't be read, so it was left "
+                                   "alone. Add the command below by hand.")
+        if result == "skipped":
+            raise job_mod.JobError("This only works in the installed app.")
+    elif chatgpt == "remove":
+        chatgpt_setup.remove()
     if "concat_path" in body:
         path = str(body["concat_path"] or "").strip()
         if path and not Path(path).is_file():

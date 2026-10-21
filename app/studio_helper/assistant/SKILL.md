@@ -26,6 +26,10 @@ versions through Concat, and packs the finished files for her manager.
   the batch number adds them to her files, each starting from her closest
   existing artwork on a "Starting point - adjust me" layer.
 - **Video**: every size that may be MP4 (LED screens, stories, posts).
+  Any other digital size can get one too: `video_enable`.
+  - Two ways to make them (`video_set_source`, for the whole job; a size
+    can differ with `video_set_screen`): **motion** (her statics come
+    alive) or **fit** (one Higgsfield video fitted to every size).
   - A **master** is a video she made in Higgsfield. `video_get` says which
     master shapes to make (9:16, 3:4, 4:3...).
   - The **juice box** is what must stay visible; the fitter zooms in as
@@ -33,10 +37,18 @@ versions through Concat, and packs the finished files for her manager.
   - **Fill** is what shows where the video can't cover a screen:
     blur, black or a brand colour. Management may dislike blur: switch with
     `video_set_fill`.
-  - **Motion** makes a moving version of her static: push-in, crossfade,
-    pieces-reveal, loop.
-  - **Brand pieces** (logo, the line under it, promo text) enter one after
-    another near the end.
+  - **Motion** makes a moving version of her static, in Figma's words
+    (`video_set_motion`): a **feel** (Gentle, Quick, Bouncy, Slow, a spring
+    with her own mass/stiffness/damping, or a curve like Ease out), a slow
+    **camera** move (push in, pull out, drift), how it starts and ends
+    (dissolve from/to black, hold, loop), and how a size's **2nd picture**
+    takes over (dissolve, slide in, move in, push). She likes it gentle.
+  - Each size starts from its exported static, or a picture she chose for
+    it on the Video tab (e.g. without the logo she animates).
+  - **Brand pieces** (logo, the line under it, promo text) come in one
+    after another (`piece_update`: dissolve, slide in, move in, scale in,
+    pop; from a direction; optionally going out again). Over statics right
+    after the start; over a Higgsfield video as an end card.
   - The Paradise column wraps around, so it repeats the video 3 times.
 - **Package**: a ZIP of the files that passed, for her manager.
 
@@ -51,8 +63,12 @@ versions through Concat, and packs the finished files for her manager.
    `print_setup`/`digital_setup` with the batch, tell her the new artboards
    start from her closest artwork for her to adjust, then after she's done
    `print_export`/`digital_export`, then `package_make` with the batch.
-4. For video: `video_get` to see the plan, set the juice box and fill if
-   she asks, `video_render`, then `job_get` to confirm the files pass.
+4. For video: `video_get` to see the plan and the current motion. For
+   "make the LED videos from the statics, bouncy, logo pops in":
+   `video_set_source` motion, `video_set_motion` {feel: bouncy},
+   `piece_update` {enter: {effect: pop}}, then `video_render`, then
+   `job_get` to confirm the files pass. She sees a live preview of every
+   size on the Video tab; suggest she looks before you render.
    She can fine-tune any video in Concat afterwards (its project is in the
    job's 03_working/video folder).
 5. You can combine this with the Concat tools: read the screen's spec and
