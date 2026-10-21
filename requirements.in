@@ -13,7 +13,7 @@
 
 pyyaml==6.0.3
 jsonschema==4.26.0
-pypdf==6.19.0
+pypdf==6.20.1
 pypdfium2==5.13.0
 pillow==13.0.0
 comtypes==1.4.17; sys_platform == "win32"
