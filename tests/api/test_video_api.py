@@ -156,7 +156,9 @@ def test_spec_sheet_is_kept_with_the_format(api, tmp_path, monkeypatch):
         raw=b"\xff\xd8\xff jpeg")
     assert status == 200, body
     fmt = json.loads(body)["format"]
-    assert fmt["source_file"].endswith("specs/mall-screen-veliko-turnovo-led/VT sheet.jpg")
+    # a native path (backslashes on Windows), opened as is
+    assert Path(fmt["source_file"]).parts[-3:] == ("specs", "mall-screen-veliko-turnovo-led",
+                                                   "VT sheet.jpg")
     assert Path(fmt["source_file"]).read_bytes() == b"\xff\xd8\xff jpeg"
 
 
