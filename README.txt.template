@@ -40,6 +40,24 @@ deleted (Settings -> Desktop shortcut brings it back).
 The "?" at the top right opens the Guide: every step, in order.
 
 
+ONE MASTER, CUT TO EVERY SIZE
+-----------------------------
+On a job's Files & export tab you can choose "One master, cut to every
+size" instead of one artboard per size:
+
+  1. Make the master, in Illustrator (every size, print included) or
+     Photoshop (the digital sizes; print stays in Illustrator).
+  2. Design everything on it, save, and press "Read the master".
+  3. Drag the yellow box around what must stay: headline, logo, offer.
+     Every size updates live.
+  4. "Cut to every size": the digital files land in 04_export with
+     their delivery names; print sizes are placed in your Illustrator
+     print file, linked to the master, for Check & export print.
+
+Your master is never changed, and a file you exported yourself is never
+replaced without asking.
+
+
 VIDEOS
 ------
 The Video tab on a job makes the MP4 for every size that can be a video

@@ -42,3 +42,18 @@ def export_digital(job: dict, psd_path: Path, export_dirs: dict[str, Path]) -> d
         "export_dirs": {kind: str(path) for kind, path in export_dirs.items()},
     }
     return bridge.run_jsx(app, EXPORT_DIGITAL_JSX, args)
+
+
+NEW_MASTER_JSX = ADOBE_ROOT / "new_master.jsx"
+EXPORT_MASTER_JSX = ADOBE_ROOT / "export_master.jsx"
+
+
+def make_master(path: Path, width_px: int, height_px: int) -> dict:
+    app = bridge.connect(PROGID)
+    return bridge.run_jsx(app, NEW_MASTER_JSX, {"path": str(path), "width_px": width_px,
+                                                "height_px": height_px})
+
+
+def export_master(path: Path, out: Path) -> dict:
+    app = bridge.connect(PROGID)
+    return bridge.run_jsx(app, EXPORT_MASTER_JSX, {"path": str(path), "out": str(out)})

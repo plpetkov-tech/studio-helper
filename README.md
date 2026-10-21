@@ -11,11 +11,16 @@ Ships as a zip from a GitHub Release: extract, double-click
 offline. See `README.txt.template` for the end-user instructions that
 ship inside the zip.
 
-What it does in v1.0:
+What it does in v1.1:
 
 - **Files & export**: job folders, Illustrator/Photoshop/Figma setup at
   every size, preflight, export with the delivery names, a live ✓/✕
   check of every exported file (PDF, TIFF, PNG, JPG, MP4).
+- **One master, cut to every size** (v1.1): she designs once on a master
+  artboard in Illustrator (every size, print included) or Photoshop
+  (digital sizes), marks what must stay with a box, and the app cuts it:
+  digital sizes into `04_export` (Pillow), print sizes placed and linked
+  into her Illustrator print file (`cut_master.jsx`).
 - **Campaigns that grow**: add sizes to a finished job (new artboards
   start from the closest existing artwork), reuse a campaign as a new
   job, revisions, campaign dates.
@@ -69,6 +74,8 @@ Run the test suite:
 pytest -q -m "not adobe"
 for f in tests/adobe/check_*.js; do node "$f"; done   # JSX adapters, mocked apps
 node tests/web/check_motion_js.js                      # video preview math
+node tests/web/check_master_js.js                      # master cut preview == the cut
+node tests/adobe/check_master_jsx.js                   # master scripts, mocked Illustrator/Photoshop
 STUDIO_HELPER_CONCAT=1 pytest -q tests/unit/test_video_render.py -k real   # with Concat installed
 ```
 

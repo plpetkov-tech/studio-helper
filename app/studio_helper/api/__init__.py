@@ -1,5 +1,6 @@
 from studio_helper.api import (
     handlers,  # noqa: F401 - registers routes on import
+    master_routes,  # noqa: F401 - registers routes on import
     setup_check,  # noqa: F401 - registers routes on import
     tasks,  # noqa: F401 - registers routes on import
     updates,  # noqa: F401 - registers routes on import

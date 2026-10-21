@@ -14,26 +14,27 @@
         <a href="#how">1. How it works</a>
         <a href="#job">2. Start a job</a>
         <a href="#setup">3. Set up the files</a>
-        <a href="#design">4. Design</a>
-        <a href="#export">5. Check &amp; export</a>
-        <a href="#video">6. Videos</a>
-        <a href="#motion">7. Statics that move</a>
-        <a href="#higgsfield">8. A Higgsfield video for every size</a>
-        <a href="#pieces">9. Brand pieces</a>
-        <a href="#feel">10. Motion words</a>
-        <a href="#deliver">11. Deliver</a>
-        <a href="#grow">12. Add sizes, reuse, revisions</a>
-        <a href="#formats">13. Formats</a>
-        <a href="#chatgpt">14. ChatGPT</a>
-        <a href="#settings">15. Settings &amp; updates</a>
-        <a href="#trouble">16. When something goes wrong</a>
+        <a href="#master">4. One master, cut to every size</a>
+        <a href="#design">5. Design</a>
+        <a href="#export">6. Check &amp; export</a>
+        <a href="#video">7. Videos</a>
+        <a href="#motion">8. Statics that move</a>
+        <a href="#higgsfield">9. A Higgsfield video for every size</a>
+        <a href="#pieces">10. Brand pieces</a>
+        <a href="#feel">11. Motion words</a>
+        <a href="#deliver">12. Deliver</a>
+        <a href="#grow">13. Add sizes, reuse, revisions</a>
+        <a href="#formats">14. Formats</a>
+        <a href="#chatgpt">15. ChatGPT</a>
+        <a href="#settings">16. Settings &amp; updates</a>
+        <a href="#trouble">17. When something goes wrong</a>
       </nav>
       <div>
         <section class="card gsec" id="how">
           <h2>How it works</h2>
           <p>Studio Helper never designs anything. It does the setup, the naming and the checking around your design work.</p>
           <ul>
-            <li><strong>Before:</strong> it creates the job folder and the Illustrator / Photoshop / Figma files, with every artboard at the right size and bleed and safe-zone guides in place.</li>
+            <li><strong>Before:</strong> it creates the job folder and the Illustrator / Photoshop / Figma files, with every artboard at the right size and bleed and safe-zone guides in place. Or one master you design once, which it then cuts into every size.</li>
             <li><strong>During:</strong> you design as usual, in your own files.</li>
             <li><strong>After:</strong> it checks and exports, watches the export folder and marks every file ✓ or ✕. It makes the video versions through Concat and packs the finished files for your manager.</li>
           </ul>
@@ -67,6 +68,33 @@
             <li><strong>Photoshop:</strong> RGB / sRGB, one artboard per screen or social format at the exact pixel size.</li>
             <li><strong>Figma:</strong> <strong>Design in Figma</strong> shows how: run the Studio Helper plugin and drop in the job’s job.json.</li>
           </ul>
+        </section>
+
+        <section class="card gsec" id="master">
+          <h2>One master, cut to every size</h2>
+          <p>For campaigns where every size shows the same design: design it once, and the app cuts it into every size. On <strong>Files &amp; export</strong>, pick <strong>One master, cut to every size</strong> (you can switch back any time; nothing is deleted).</p>
+          <ol>
+            <li><strong>Make the master.</strong> Choose where it lives:
+              <ul>
+                <li><strong>Illustrator</strong> covers every size, print included. Vector, so it stays sharp even on a 4 m vinyl.</li>
+                <li><strong>Photoshop</strong> covers the digital sizes (social, screens, web). For photos, retouching and generative fill. Print sizes stay in Illustrator as usual: use the steps below it, and place your PSD there if you want the same picture.</li>
+              </ul>
+              The app sizes the master so every size can be cut from it at full sharpness, and saves it in <code>03_working</code> (<code>…_master_v01.ai</code> / <code>.psd</code>). Design everything on it: picture, headline, logo, terms.</li>
+            <li><strong>Read the master.</strong> Save it, then press <strong>Read the master</strong>: the app takes a picture of it. Press again after every change. If Illustrator or Photoshop won’t respond, export a PNG of the master yourself and drop it on the page.</li>
+            <li><strong>Mark what must stay.</strong> Drag the yellow box around the headline, logo, offer and terms; drag its corner to resize. Every size updates live next to it.
+              <ul>
+                <li>Each size shows <strong>as much of the master as fits</strong>, and <strong>never cuts what’s in the box</strong>.</li>
+                <li>A size whose shape can’t hold the whole box (a tall LED column, a thin web strip) gets <strong>Blur</strong>, <strong>Brand colour</strong> or <strong>White</strong> around the picture. Its card says <span class="chip warn">Fill shows</span>.</li>
+                <li>One size needs a different crop? Click it, pick <strong>Only &lt;that size&gt;</strong>, and move its own box. <strong>Follow every size again</strong> undoes it.</li>
+              </ul></li>
+            <li><strong>Cut to every size.</strong>
+              <ul>
+                <li>Digital sizes land in <code>04_export</code> with their delivery names (PNG or JPG, sRGB) and are checked like any export.</li>
+                <li>Print sizes (Illustrator master) are placed in your Illustrator print file, made for you the first time: linked to the master, clipped to each artboard and its bleed, on a <strong>Master cut</strong> layer. Open it, adjust if you like, then <strong>Check &amp; export print</strong> as usual.</li>
+                <li>Changed the master? Read it again and cut again. Only what the app cut is replaced. A file you exported yourself is kept, and the app asks before replacing it.</li>
+              </ul></li>
+          </ol>
+          <p class="note">Formats split into panels (elevator doors, wraps) aren’t cut; set them up with the usual steps. The video tab’s “Bring your statics to life” uses the cut files like any export.</p>
         </section>
 
         <section class="card gsec" id="design">
@@ -227,6 +255,7 @@
             <li><strong>The preview says to export the static first:</strong> that size has no picture yet. Export it, or choose one on its card.</li>
             <li><strong>A video fails its check:</strong> click it on Files &amp; export. The reason is plain (too long, wrong size, too big a file).</li>
             <li><strong>A format looks wrong in an old job:</strong> fix it in Formats, then start a new job.</li>
+            <li><strong>A size says “Your own export: kept”:</strong> a file you exported is already there, so the cut left it alone. Cut again and choose <strong>Replace them with the cut</strong> if the cut should win.</li>
             <li><strong>Anything else:</strong> take a photo of the message. It says exactly what failed.</li>
           </ul>
         </section>

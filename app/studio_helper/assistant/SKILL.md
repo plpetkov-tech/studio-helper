@@ -50,6 +50,13 @@ versions through Concat, and packs the finished files for her manager.
     pop; from a direction; optionally going out again). Over statics right
     after the start; over a Higgsfield video as an end card.
   - The Paradise column wraps around, so it repeats the video 3 times.
+- **One master, cut to every size** (`master_get`): instead of one
+  artboard per size, she designs once on a master and the app cuts it into
+  every size. The master is in Illustrator (every size, print included) or
+  Photoshop (digital sizes only; print stays in Illustrator). The **box**
+  marks what must stay; each size shows as much of the master as fits and
+  never cuts the box, with blur, brand colour or white around the picture
+  where a size's shape can't hold it.
 - **Package**: a ZIP of the files that passed, for her manager.
 
 ## How to help
@@ -74,7 +81,14 @@ versions through Concat, and packs the finished files for her manager.
    every size made from statics.
    She can fine-tune any video in Concat afterwards (its project is in the
    job's 03_working/video folder).
-5. You can combine this with the Concat tools: read the screen's spec and
+5. For "one design, every size": `master_update` {mode: master, app: ai or
+   ps}, `master_action` make; she designs and saves; `master_action` read;
+   set the box with `master_update` only if she tells you what must stay
+   (she usually drags it herself on the Files & export tab); then
+   `master_action` cut, and `job_get` to confirm the files pass. Print sizes
+   from an Illustrator master land in her print file: she runs
+   `print_export` after looking.
+6. You can combine this with the Concat tools: read the screen's spec and
    the deliverable file name here, edit in Concat, export to that name.
 
 ## Rules

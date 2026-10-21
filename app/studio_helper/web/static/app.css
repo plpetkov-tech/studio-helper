@@ -444,3 +444,22 @@ details.more[open] > summary { margin-bottom: 8px; }
 .field > .seg, .field > .row > .seg { justify-self: start; }
 .piece-row .ctrls.ctrls2 { grid-template-columns: minmax(0, 1.3fr) minmax(90px, .5fr) minmax(0, 1.5fr); }
 @media (max-width: 860px) { .piece-row .ctrls.ctrls2 { grid-template-columns: minmax(0, 1fr); } }
+
+/* One master, cut to every size (master.js) */
+#master-flow { display: grid; gap: 28px; margin-bottom: 28px; }
+#master-flow:empty { display: none; }
+.master-flow { display: grid; gap: 28px; }
+.mgrid .acts { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.mstage img { display: block; width: 100%; height: auto; pointer-events: none; }
+.mscreens { grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); gap: 10px; }
+.mscreens .scr { text-align: left; font: inherit; color: inherit; cursor: pointer; padding: 10px; }
+.mscreens .scr:hover { border-color: var(--line-strong); }
+.mscreens .stage { height: 140px; }
+.mrows { display: grid; border: 1px solid var(--line); border-radius: 8px; }
+.mrow { display: grid; grid-template-columns: minmax(0, 220px) minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 10px 14px; border-top: 1px solid var(--line); }
+.mrow:first-child { border-top: 0; }
+.mrow .t { font-size: 13px; font-weight: 500; }
+.mrow .mono { overflow-wrap: anywhere; }
+@media (max-width: 720px) {
+  .mrow { grid-template-columns: minmax(0, 1fr); gap: 4px; }
+}

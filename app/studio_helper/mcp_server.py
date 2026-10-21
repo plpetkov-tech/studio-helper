@@ -389,6 +389,41 @@ def video_render(a):
     return _task(f"/api/jobs/{a['job_id']}/video/render", a)
 
 
+@tool("master_get", "One master, cut to every size: how this job is designed (mode each / "
+      "master), the master's app (ai = Illustrator, every size; ps = Photoshop, digital sizes "
+      "only), its file and size, the box of what must stay (fractions x, y, w, h of the "
+      "master), the fill, and every size it's cut into with where its file goes.",
+      {"job_id": JOB_ID}, ["job_id"])
+def master_get(a):
+    return api("GET", f"/api/jobs/{a['job_id']}/master")["master"]
+
+
+@tool("master_update", "Changes the master settings: mode (each / master), app (ai / ps, only "
+      "before the master is made), box [x, y, w, h] as fractions of the master (with format_id: "
+      "that size's own box; reset true = follow every size again), fill (blur / color / white, "
+      "around the picture on sizes whose shape can't hold the whole box), brand_color #rrggbb.",
+      {"job_id": JOB_ID, "mode": _s("string", ""), "app": _s("string", ""),
+       "box": {"type": "array", "items": {"type": "number"}}, "format_id": _s("string", ""),
+       "reset": _s("boolean", ""), "fill": _s("string", ""), "brand_color": _s("string", "")},
+      ["job_id"])
+def master_update(a):
+    body = {k: v for k, v in a.items() if k != "job_id"}
+    return api("POST", f"/api/jobs/{a['job_id']}/master", body)["master"]
+
+
+@tool("master_action", "make: makes the master in Illustrator or Photoshop (or opens it). "
+      "read: takes a picture of her saved master, for the box and the cut. cut: cuts the master "
+      "into every size (digital into 04_export, print placed in her Illustrator print file); "
+      "files she exported herself are kept unless overwrite is true.",
+      {"job_id": JOB_ID, "action": _s("string", "make / read / cut"),
+       "overwrite": _s("boolean", "")}, ["job_id", "action"])
+def master_action(a):
+    if a["action"] not in ("make", "read", "cut"):
+        raise ToolError("action is make, read or cut.")
+    return _task(f"/api/jobs/{a['job_id']}/master/{a['action']}",
+                 {"overwrite": bool(a.get("overwrite"))})
+
+
 @tool("piece_update", "A brand piece (logo, line, promo text): anchor (top-left ... "
       "bottom-right, center), width_pct, margin_pct, enter {effect: dissolve | slide-in | move-in "
       "| scale-in | pop | instant, direction: bottom | top | left | right (where it comes from), "

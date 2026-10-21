@@ -74,3 +74,28 @@ def pdf_preset_available(preset_name: str) -> bool:
     result = inspect()
     presets = result.get("data", {}).get("pdf_presets", [])
     return preset_name in presets
+
+
+NEW_MASTER_JSX = ADOBE_ROOT / "new_master.jsx"
+EXPORT_MASTER_JSX = ADOBE_ROOT / "export_master.jsx"
+CUT_MASTER_JSX = ADOBE_ROOT / "cut_master.jsx"
+
+
+def make_master(path: Path, width_pt: int, height_pt: int, cmyk: bool) -> dict:
+    app = bridge.connect(PROGID)
+    return bridge.run_jsx(app, NEW_MASTER_JSX, {"path": str(path), "width_pt": width_pt,
+                                                "height_pt": height_pt, "cmyk": cmyk})
+
+
+def export_master(path: Path, out: Path, scale: float = 100) -> dict:
+    app = bridge.connect(PROGID)
+    return bridge.run_jsx(app, EXPORT_MASTER_JSX, {"path": str(path), "out": str(out),
+                                                   "scale": scale})
+
+
+def cut_master(master_path: Path, ai_paths: list[Path], cuts: list[dict], fill: str,
+               brand_color: str | None) -> dict:
+    app = bridge.connect(PROGID)
+    return bridge.run_jsx(app, CUT_MASTER_JSX, {
+        "master_path": str(master_path), "ai_paths": [str(p) for p in ai_paths],
+        "cuts": cuts, "fill": fill, "brand_color": brand_color})

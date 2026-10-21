@@ -67,6 +67,10 @@ jobs:
         run: node tests/adobe/check_document_safety.js
       - name: The video preview's easing and keyframe math matches the renderer's
         run: node tests/web/check_motion_js.js
+      - name: The master cut's live preview fits sizes like the cut does
+        run: node tests/web/check_master_js.js
+      - name: The master scripts place the cut where Python says (mocked Illustrator)
+        run: node tests/adobe/check_master_jsx.js
 
   figma-plugin:
     name: Figma plugin build + test

@@ -57,14 +57,17 @@
   function facts() {
     var hasPrint = job.formats.some(function (f) { return f.kind === "print"; });
     var hasDigital = job.formats.some(function (f) { return f.kind !== "print"; });
-    var printReady = !hasPrint || printFiles.length > 0;
-    var psdReady = !hasDigital || !!job.files.psd;
+    // One master, cut to every size (master.js): the cut makes the digital
+    // files, and with an Illustrator master the print file too.
+    var master = job.master && job.master.mode === "master" ? (job.master.app || "ai") : null;
+    var printReady = !hasPrint || printFiles.length > 0 || master === "ai";
+    var psdReady = !hasDigital || !!job.files.psd || !!master;
     var c = {ok: 0, warn: 0, fail: 0, missing: 0};
     deliverables.forEach(function (d) { c[d.status === "found" ? "ok" : d.status]++; });
     var found = deliverables.length - c.missing;
     var allDone = deliverables.length > 0 && c.ok + c.warn === deliverables.length;
     var current = allDone ? 4 : found > 0 ? 2 : (printReady && psdReady) ? 1 : 0;
-    return {hasPrint: hasPrint, hasDigital: hasDigital, printReady: printReady, psdReady: psdReady,
+    return {hasPrint: hasPrint, hasDigital: hasDigital, printReady: printReady, psdReady: psdReady, master: master,
       counts: c, found: found, allDone: allDone, current: current};
   }
 
@@ -118,23 +121,31 @@
   function renderSteps() {
     var f = facts();
     var setupActs = "";
-    if (f.hasPrint) setupActs += btn("create-print", f.printReady ? "Illustrator ✓" : "Create Illustrator file", !f.printReady && f.current === 0);
-    if (f.hasDigital) setupActs += btn("create-psd", f.psdReady ? "Photoshop ✓" : "Create Photoshop file", !f.psdReady && f.current === 0 && f.printReady);
-    if (f.hasDigital) setupActs += btn("figma", "Figma…", false, "ghost");
-    pendingBatches().forEach(function (b) {
-      if (b.print) setupActs += btn("batch-print-" + b.batch, "Add new sizes to Illustrator", true);
-      if (b.digital) setupActs += btn("batch-psd-" + b.batch, "Add new sizes to Photoshop", true);
-    });
+    if (f.master) {   // the master section above makes the files; print stays here with a Photoshop master
+      if (f.hasPrint && f.master === "ps") setupActs += btn("create-print", f.printReady ? "Illustrator ✓" : "Create Illustrator file", !f.printReady);
+    } else {
+      if (f.hasPrint) setupActs += btn("create-print", f.printReady ? "Illustrator ✓" : "Create Illustrator file", !f.printReady && f.current === 0);
+      if (f.hasDigital) setupActs += btn("create-psd", f.psdReady ? "Photoshop ✓" : "Create Photoshop file", !f.psdReady && f.current === 0 && f.printReady);
+      if (f.hasDigital) setupActs += btn("figma", "Figma…", false, "ghost");
+      pendingBatches().forEach(function (b) {
+        if (b.print) setupActs += btn("batch-print-" + b.batch, "Add new sizes to Illustrator", true);
+        if (b.digital) setupActs += btn("batch-psd-" + b.batch, "Add new sizes to Photoshop", true);
+      });
+    }
 
     var exportActs = "";
     if (f.hasPrint) exportActs += btn("export-print", "Check &amp; export print", f.current === 2 || f.current === 1) + btn("check-print", "Check only", false, "ghost");
-    if (f.hasDigital) exportActs += btn("export-psd", "Export Photoshop", !f.hasPrint && (f.current === 1 || f.current === 2));
+    if (f.hasDigital && !f.master) exportActs += btn("export-psd", "Export Photoshop", !f.hasPrint && (f.current === 1 || f.current === 2));
 
     var c = f.counts, n = deliverables.length;
     var steps = [
-      {t: "Set up files", d: "Artboards at the right size, with bleed and safe-zone guides.", acts: setupActs, key: "setup"},
-      {t: "Design", d: "Work in 03_working as usual. Keep the artboard names; they become the file names.", acts: btn("open-folder", "Open job folder")},
-      {t: "Check & export", d: "Checks the artboards, then exports into 04_export. Saves your open file first if it has unsaved changes." +
+      {t: "Set up files", d: f.master === "ai" ? "Made from your master above: the cut creates the Illustrator print file too." :
+        f.master ? "Digital sizes come from your master above." + (f.hasPrint ? " Print sizes: create the Illustrator file here." : "") :
+        "Artboards at the right size, with bleed and safe-zone guides.", acts: setupActs, key: "setup"},
+      {t: "Design", d: f.master ? "Design your master in 03_working, then mark what must stay and cut it above." :
+        "Work in 03_working as usual. Keep the artboard names; they become the file names.", acts: btn("open-folder", "Open job folder")},
+      {t: "Check & export", d: (f.master && !f.hasPrint ? "The cut puts every size in 04_export, where it’s checked like any export." :
+        "Checks the artboards, then exports into 04_export. Saves your open file first if it has unsaved changes.") +
         (f.hasPrint && printFiles.length ? " Print exports from " + printFiles.map(baseName).join(", ") + "." : ""), acts: exportActs, key: "export"},
       {t: "Delivered", d: (c.ok + c.warn) + " of " + n + " files ready" + (c.fail ? ", " + c.fail + " failing" : "") + ".",
         acts: f.allDone ? btn("open-folder", "Open job folder") : ""},

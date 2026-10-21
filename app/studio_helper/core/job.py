@@ -491,7 +491,7 @@ def update_job(jobs_root: Path, job_id: str, change) -> dict:
 
 # "<job id>_print[_add01][_bleed3mm][_part2]_v03.ai" / "<job id>_digital_v02.psd"
 _JOB_FILE_NAME = re.compile(
-    r"^(?P<prefix>.+?)(?P<rest>_(?:print|digital)(?:_.*?)?)_v\d+(?P<ext>\.\w+)$")
+    r"^(?P<prefix>.+?)(?P<rest>_(?:print|digital|master)(?:_.*?)?)_v\d+(?P<ext>\.\w+)$")
 
 
 def reuse_job(jobs_root: Path, registry: Registry, source_id: str, name: str,
@@ -499,8 +499,8 @@ def reuse_job(jobs_root: Path, registry: Registry, source_id: str, name: str,
               custom_formats: list[dict] | None = None, now: datetime | None = None) -> dict:
     """'Reuse as new job' (ROADMAP R8): the same campaign with a new offer
     or dates. A new job starts from copies of the old one's current
-    working files (renamed to the new job, _v01), its video masters and
-    brand pieces. The old job and its files are never changed."""
+    working files (renamed to the new job, _v01), its master for cutting,
+    its video masters and brand pieces. The old job and its files are never changed."""
     source = load_job(jobs_root, source_id)
     src_root = job_path(jobs_root, source_id)
     kept = [dict(f) for f in source["formats"] if f["id"] in keep_ids]
@@ -525,7 +525,14 @@ def reuse_job(jobs_root: Path, registry: Registry, source_id: str, name: str,
         dest = renamed(source["files"]["psd"])
         shutil.copy2(src_root / source["files"]["psd"], root / dest)
         files["psd"] = dest
-    for folder in ("02_assets/video", "02_assets/pieces", "02_assets/motion-b"):
+    master = dict(source.get("master") or {})
+    if master.get("file") and (src_root / master["file"]).is_file():
+        dest = renamed(master["file"])
+        shutil.copy2(src_root / master["file"], root / dest)
+        master["file"] = dest
+    else:
+        master.pop("file", None)
+    for folder in ("02_assets/video", "02_assets/pieces", "02_assets/motion-b", "02_assets/master"):
         if (src_root / folder).is_dir():
             shutil.copytree(src_root / folder, root / folder, dirs_exist_ok=True)
 
@@ -534,6 +541,10 @@ def reuse_job(jobs_root: Path, registry: Registry, source_id: str, name: str,
         j["source_job"] = source_id
         if source.get("pieces"):
             j["pieces"] = [dict(p) for p in source["pieces"]]
+        if master:  # one master, cut to every size: the same master and box, nothing cut yet
+            keep = {f["id"] for f in j["formats"]}
+            own = {k: v for k, v in (master.get("own") or {}).items() if k in keep}
+            j["master"] = dict(master, cuts={}, own=own)
         video = source.get("video")
         if video:
             keep = {f["id"] for f in j["formats"]}

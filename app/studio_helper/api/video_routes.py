@@ -6,6 +6,7 @@ from __future__ import annotations
 import shutil
 from pathlib import Path
 
+from studio_helper import master as master_mod
 from studio_helper.core import job as job_mod
 from studio_helper.video import concat, motion, recipes, service
 from studio_helper.video import plan as video_plan
@@ -135,7 +136,8 @@ def _place_upload(body: dict, folder: Path) -> Path:
 def upload(ctx, body, job_id):
     """Drag-and-drop uploads (the server streams the file to `tmp`):
     to=video (a Higgsfield master), to=piece (a brand piece),
-    to=motion-b&format=<id> (the second static for a crossfade)."""
+    to=motion-b&format=<id> (the second static for a crossfade),
+    to=master (a picture of her master)."""
     body = body or {}
     if "tmp" not in body:
         raise job_mod.JobError("Send the file itself.")
@@ -165,6 +167,14 @@ def upload(ctx, body, job_id):
         job = service.set_picture(ctx.jobs_root, job_id, fid, to[-1], rel)
         warnings = _picture_warnings(job, fid, dest)
         return 200, {"ok": True, "motion": service.section(job)["motion"], "warnings": warnings}
+    if to == "master":
+        # a picture of her master she exported herself, when Illustrator or
+        # Photoshop can't be driven (or she'd rather)
+        if name not in (".png", ".jpg", ".jpeg", ".tif", ".tiff"):
+            raise master_mod.MasterError("The master's picture must be PNG, JPG or TIFF.")
+        info = master_mod.take_preview(root, Path(body["tmp"]))
+        master_mod.record_preview(ctx.jobs_root, job_id, info)
+        return 200, {"ok": True, "preview": info}
     raise job_mod.JobError("Unknown upload.")
 
 
