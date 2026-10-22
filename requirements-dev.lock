@@ -33,7 +33,7 @@ pluggy==1.6.0
 py-serializable==2.1.0
 Pygments==2.21.0
 pyparsing==3.3.3
-pypdf==6.20.1
+pypdf==6.21.1
 pypdfium2==5.13.0
 pytest==9.1.1
 PyYAML==6.0.3
