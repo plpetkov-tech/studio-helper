@@ -57,31 +57,46 @@ def _exports_for_size(fmt: dict, w: float, h: float) -> list[str]:
     return [t for t in exports if t != drop]
 
 
-def _deliverables_for(date_str: str, slug: str, fmt: dict, version: int) -> list[dict]:
-    panels = fmt.get("panels")
+def _parts(fmt: dict) -> list[tuple[float, float, int | None]]:
+    if fmt.get("panels"):
+        return [(p["w"], p["h"], i) for i, p in enumerate(fmt["panels"], start=1)]
+    return [(fmt["size"]["w"], fmt["size"]["h"], None)]
+
+
+def _short_stems(slug: str, fmt: dict) -> set[str]:
     unit = fmt.get("unit") or fmt["size"]["unit"]
-    deliverables = []
+    return {naming.expected_stem(slug, w, h, unit, panel) for w, h, panel in _parts(fmt)}
 
-    def add(w: float, h: float, panel_index: int | None) -> None:
-        for export_type in _exports_for_size(fmt, w, h):
-            deliverables.append(
-                {
-                    "format_id": fmt["id"],
-                    "type": export_type,
-                    "panel": panel_index,
-                    "expected_stem": naming.expected_stem(
-                        date_str, slug, fmt["id"], w, h, unit, version, panel_index
-                    ),
-                }
-            )
 
-    if panels:
-        for i, p in enumerate(panels, start=1):
-            add(p["w"], p["h"], i)
-    else:
-        add(fmt["size"]["w"], fmt["size"]["h"], None)
+def _deliverables_for(slug: str, fmt: dict, labelled: bool) -> list[dict]:
+    unit = fmt.get("unit") or fmt["size"]["unit"]
+    return [
+        {
+            "format_id": fmt["id"],
+            "type": export_type,
+            "panel": panel,
+            "expected_stem": naming.expected_stem(
+                slug, w, h, unit, panel, fmt["id"] if labelled else None),
+        }
+        for w, h, panel in _parts(fmt)
+        for export_type in _exports_for_size(fmt, w, h)
+    ]
 
-    return deliverables
+
+def _deliverables(slug: str, formats: list[dict], taken: set[str] = frozenset()) -> list[dict]:
+    """Deliverables for formats joining a job together. A format whose
+    name (job name + size) another one would also get, here or among
+    `taken` (the job's names so far), gets its format id in the name."""
+    shorts = {f["id"]: _short_stems(slug, f) for f in formats}
+    out = []
+    for fmt in formats:
+        others = set(taken).union(*(s for fid, s in shorts.items() if fid != fmt["id"]))
+        out.extend(_deliverables_for(slug, fmt, bool(shorts[fmt["id"]] & others)))
+    return out
+
+
+def _stems(job: dict) -> set[str]:
+    return {d["expected_stem"] for d in job["deliverables"]}
 
 
 # Illustrator's canvas is 5765mm (227in) per side; its new_print_doc.jsx
@@ -207,9 +222,7 @@ def create_job(
     scaffold.create_job_folder(job_root)
 
     version = 1
-    deliverables = []
-    for fmt in formats_resolved:
-        deliverables.extend(_deliverables_for(date_str, slug, fmt, version))
+    deliverables = _deliverables(slug, formats_resolved)
 
     job = {
         "schema_version": SCHEMA_VERSION,
@@ -359,23 +372,15 @@ def delete_job(jobs_root: Path, job_id: str) -> Path:
 
 @_locked
 def bump_version(jobs_root: Path, job_id: str) -> dict:
-    """'Start revision': vN -> vN+1. New exports get the new version;
-    older files are left in place (SPEC.md §6.1 naming)."""
+    """'Start revision': vN -> vN+1. Export names carry no version, so
+    the revision's files replace the last ones; a job made before that
+    (dated names) moves to the short names here."""
     job = load_job(jobs_root, job_id)
     job["version"] += 1
-    date_str = datetime.fromisoformat(job["created"]).strftime("%Y-%m-%d")
-
-    deliverables = []
-    for fmt in job["formats"]:
-        deliverables.extend(_deliverables_for(date_str, job["slug"], fmt, job["version"]))
-    job["deliverables"] = deliverables
+    job["deliverables"] = _deliverables(job["slug"], job["formats"])
 
     _write_job(job_path(jobs_root, job_id), job)
     return job
-
-
-def _job_date(job: dict) -> str:
-    return datetime.fromisoformat(job["created"]).strftime("%Y-%m-%d")
 
 
 @_locked
@@ -411,10 +416,8 @@ def add_formats(
         raise JobError(f"A size with this id is already in the job: {', '.join(clash)}")
 
     added = _resolve_formats(registry, format_ids, bleed_overrides, custom_formats)
-    date_str = _job_date(job)
-    for fmt in added:
-        job["formats"].append(fmt)
-        job["deliverables"].extend(_deliverables_for(date_str, job["slug"], fmt, job["version"]))
+    job["deliverables"].extend(_deliverables(job["slug"], added, _stems(job)))
+    job["formats"].extend(added)
     ids = [f["id"] for f in added]
     batches = job.setdefault("added", [])
     batches.append({
@@ -458,7 +461,7 @@ def restore_format(jobs_root: Path, job_id: str, format_id: str) -> dict:
         raise JobError("Nothing to restore for that size.")
     fmt = entry["format"]
     job["formats"].append(fmt)
-    job["deliverables"].extend(_deliverables_for(_job_date(job), job["slug"], fmt, job["version"]))
+    job["deliverables"].extend(_deliverables(job["slug"], [fmt], _stems(job)))
     job["removed"] = [r for r in job["removed"] if r is not entry]
     _write_job(job_path(jobs_root, job_id), job)
     return job

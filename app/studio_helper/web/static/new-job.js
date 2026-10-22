@@ -42,15 +42,25 @@
     var drop = t && Math.max(w, h) > t ? "pdf" : "tiff";
     return ex.filter(function (e) { return e !== drop; });
   }
-  function fileNames(fmt, slug) {
-    var out = [], unit = fmt.unit || fmt.size.unit;
-    var parts = fmt.panels ? fmt.panels.map(function (p, i) { return {w: p.w, h: p.h, p: i + 1}; }) : [{w: fmt.size.w, h: fmt.size.h, p: null}];
-    parts.forEach(function (part) {
-      var stem = today() + "_" + slug + "_" + fmt.id + "_" + dimStr(part.w) + "x" + dimStr(part.h) + unit + (part.p ? "_p" + part.p : "") + "_v01.";
+  function parts(fmt) {
+    return fmt.panels ? fmt.panels.map(function (p, i) { return {w: p.w, h: p.h, p: i + 1}; }) : [{w: fmt.size.w, h: fmt.size.h, p: null}];
+  }
+  function stem(slug, fmt, part, labelled) {
+    return slug + (labelled ? "_" + fmt.id : "") + "_" + dimStr(part.w) + "x" + dimStr(part.h) + (fmt.unit || fmt.size.unit) + (part.p ? "_p" + part.p : "");
+  }
+  // a size whose name another size would also get carries its id (job._deliverables)
+  function fileNames(fmt, slug, all) {
+    var mine = parts(fmt).map(function (p) { return stem(slug, fmt, p, false); });
+    var labelled = all.some(function (o) {
+      return o.id !== fmt.id && parts(o).some(function (p) { return mine.indexOf(stem(slug, o, p, false)) >= 0; });
+    });
+    var out = [];
+    parts(fmt).forEach(function (part) {
+      var s = stem(slug, fmt, part, labelled) + ".";
       var ex = exportsFor(fmt, part.w, part.h).map(function (e) { return e === "tiff" ? "tif" : e; });
       // screens/social: any one of the listed types counts (deliverables.py)
-      if (fmt.kind !== "print") out.push(stem + ex.join(" / ."));
-      else ex.forEach(function (e) { out.push(stem + e); });
+      if (fmt.kind !== "print") out.push(s + ex.join(" / ."));
+      else ex.forEach(function (e) { out.push(s + e); });
     });
     return out;
   }
@@ -173,7 +183,7 @@
     var slug = slugify(nameEl.value);
     document.getElementById("folder-preview").textContent = "Studio Jobs\\" + today() + "_" + slug;
     var files = [];
-    sel.forEach(function (f) { files = files.concat(fileNames(f, slug)); });
+    sel.forEach(function (f) { files = files.concat(fileNames(f, slug, sel)); });
     var ai = sel.filter(function (f) { return f.kind === "print"; });
     var ps = sel.filter(function (f) { return f.kind !== "print"; });
     var bleeds = {};

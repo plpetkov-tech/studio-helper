@@ -206,15 +206,15 @@ Registry rules:
   "files": {"print": ["03_working/..._print_v01.ai"], "psd": null},
   "deliverables": [
     {"format_id": "flyer-a5", "type": "pdf", "panel": null,
-     "expected_stem": "2026-09-25_autumn-sale_flyer-a5_148x210mm_v01"}
+     "expected_stem": "autumn-sale_148x210mm"}
   ]
 }
 ```
 
 **Naming.**
-- Pattern: `{date}_{slug}_{format-id}_{W}x{H}{unit}[_p{n}]_v{NN}.{ext}`.
-- The date is the job creation date. The slug is ASCII kebab-case, max 40 characters, transliterated (she may type Bulgarian Cyrillic, so `Есенна разпродажба` becomes `esenna-razprodazhba`).
-- "Start revision" in the UI increments `version`. New exports get `v02`. Older files are kept. She keeps working in the same Illustrator/Photoshop files; print check/export use the newest set of `.ai` files (highest `_vNN`), never older ones (2026-10-05).
+- Pattern: `{slug}[_{format-id}]_{W}x{H}{unit}[_p{n}].{ext}` (2026-10-22; before that `{date}_{slug}_{format-id}_{W}x{H}{unit}[_p{n}]_v{NN}.{ext}`). The format id is added only when two sizes in one job would share a name.
+- The slug is ASCII kebab-case, max 40 characters, transliterated (she may type Bulgarian Cyrillic, so `Есенна разпродажба` becomes `esenna-razprodazhba`). The job folder keeps the date.
+- "Start revision" in the UI increments `version`. Export names don't change, so the next export replaces the old files. She keeps working in the same Illustrator/Photoshop files; print check/export use the newest set of `.ai` files (highest `_vNN`), never older ones (2026-10-05).
 
 **Folder scaffold.**
 
@@ -370,10 +370,10 @@ The environment is ES3: no `let`/`const`, no arrow functions, no `Array.prototyp
 - Adds one frame per digital deliverable at exact pixel size with a white fill.
 - Arranges them in a grid.
 - Adds a layout grid for the safe zone if `safe_px > 0`.
-- **The frame name is the full export stem** (e.g. `2026-09-25_autumn-sale_led-mall-entrance_384x1920px_v01`). This way Figma's native Export produces correct filenames with zero plugin involvement. This is the primary export path.
+- **The frame name is the full export stem** (e.g. `autumn-sale_384x1920px`). This way Figma's native Export produces correct filenames with zero plugin involvement. This is the primary export path.
 - Idempotent: if the page exists, add only missing frames and never touch existing content.
 
-**"Bump version."** Renames `_vNN` → `_vNN+1` on the frames of the current job page. The UI tells her to click "Start revision" in Studio Helper too.
+**"Bump version."** Renames `_vNN` → `_vNN+1` on the frames of the current job page. Since 2026-10-22 export names carry no version, so it only matters for frames made before that.
 
 **"Export all" (secondary).** `exportAsync({format:"PNG", constraint:{type:"SCALE", value:1}})` for each frame, zipped with `fflate` (bundled) and downloaded from the UI iframe. If download from the iframe proves unreliable in Figma desktop, drop this feature and rely on native export.
 
@@ -623,3 +623,4 @@ Decisions made during implementation that refine or resolve ambiguity in the spe
 - 2026-10-21 — **ChatGPT is set up by the app.** ChatGPT desktop keeps local MCP servers in Codex's `config.toml` (OpenAI's docs: shared by the app, CLI and IDE extension; `CODEX_HOME` moves it). On every start, while assistant access is on, the app writes its own `[mcp_servers.studio-helper]` table (this install's console `python.exe -m studio_helper --mcp`, so an update re-points it) and copies the skill to `skills/studio-helper/SKILL.md`. The file is edited as text: only our table and its comment line change, CRLF is kept, a first backup goes to `config.toml.before-studio-helper`, nothing is written unless the result parses, an unreadable file is left alone, and a launcher she pasted by hand under another name isn't doubled. Like the desktop shortcut, a table she deleted isn't re-added (`chatgpt_mcp_added` in config.json); Settings → ChatGPT adds or removes it, and turning access off takes it out. Not yet seen on her machine: whether her ChatGPT build reads that file (the manual "add it by hand" path stays in Settings).
 - 2026-10-21 — **Copy everywhere** (v1.0.1). Her first real try: she set up one size from her own assets, and every other size stayed empty, with no picture at all. The Preview now has a **Copy everywhere** button: the size she's looking at gives its picture, 2nd picture, motion (it becomes the job's; no size keeps its own), background and brand-piece changes to every size made from a static (`service.copy_everywhere`, `POST /video/copy-everywhere`, MCP `video_copy_everywhere`). A picture she chose goes to every size; a mere exported static only to sizes without a picture, so one size's export never replaces another's proper artwork.
 - 2026-10-21 — **One master, cut to every size** (v1.1, from an approved mockup). Plamen asked for the video juice-box idea for statics: a button makes a master file, she designs on it, marks the important part on a live preview, and a button cuts the master into every size. Decisions: the master lives in Illustrator **or** Photoshop, her choice (Photoshop for realistic work with generative fill, Illustrator for vector); a Photoshop master covers the digital sizes only, because print is never done in Photoshop, and print keeps the normal Illustrator steps; an Illustrator master also covers print, placed linked and clipped into her print file so it stays vector and she can still adjust it before Check & export print. No brand pieces or automatic logos: she puts everything in the master and the app only cuts. Each size shows as much of the master as fits and never cuts the box (unlike video, which zooms in as far as it can); sizes whose shape can't hold the box get blur, brand colour or white. Digital files land in 04_export and are checked like any export; files she exported herself are never replaced without asking. Unverified: every Illustrator/Photoshop step (made with mocked apps, `tests/adobe/check_master_jsx.js`).
+- 2026-10-22 — **Shorter export names.** Management found the names too long. Exports are now `{job name}_{size}` (`black-november_1080x1920px.png`), with no date, no version and no format id. Plamen chose to drop the version too: a revision's export replaces the last file under the same name, and until she re-exports, the old file still counts as delivered. When two sizes in one job would get the same name (IG story and FB story are both 1080x1920px), both carry their format id; a size added later that collides takes the id, and the file already there keeps its name. Jobs made before keep their dated names, so files she already exported still match; Start revision moves such a job to the short names. The job folder (`2026-10-22_black-november`) and the working files keep the date.

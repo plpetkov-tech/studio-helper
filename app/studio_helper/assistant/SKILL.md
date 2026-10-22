@@ -20,7 +20,7 @@ versions through Concat, and packs the finished files for her manager.
 - **Deliverable**: one expected file of a job, with a status: ok, warn,
   fail, missing.
 - **Revision** (v01, v02...): a new round of changes. She keeps working in
-  the same files; exports get the new version.
+  the same files; exports replace the old files (names have no version).
 - **Add sizes**: a finished campaign extended to a new mall. The new sizes
   join the job (no new version). Then `print_setup` / `digital_setup` with
   the batch number adds them to her files, each starting from her closest

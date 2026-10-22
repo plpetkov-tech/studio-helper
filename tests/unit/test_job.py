@@ -1,4 +1,5 @@
 from datetime import UTC, datetime
+from pathlib import Path
 
 import pytest
 from studio_helper.core import job as job_mod
@@ -35,6 +36,8 @@ job_types:
 """
 
 FIXED_NOW = datetime(2026, 9, 25, 15, 2, 11, tzinfo=UTC)
+
+DEFAULTS = Path(__file__).resolve().parents[2] / "defaults" / "registry.yaml"
 
 
 @pytest.fixture()
@@ -92,7 +95,7 @@ def test_create_job_deliverables_for_simple_format(jobs_root, registry):
             "format_id": "flyer-a5",
             "type": "pdf",
             "panel": None,
-            "expected_stem": "2026-09-25_autumn-sale_flyer-a5_148x210mm_v01",
+            "expected_stem": "autumn-sale_148x210mm",
         }
     ]
 
@@ -103,8 +106,8 @@ def test_create_job_deliverables_for_panels(jobs_root, registry):
     )
     stems = [d["expected_stem"] for d in job["deliverables"]]
     assert stems == [
-        "2026-09-25_autumn-sale_elevator-main_900x2100mm_p1_v01",
-        "2026-09-25_autumn-sale_elevator-main_900x2100mm_p2_v01",
+        "autumn-sale_900x2100mm_p1",
+        "autumn-sale_900x2100mm_p2",
     ]
     assert [d["panel"] for d in job["deliverables"]] == [1, 2]
 
@@ -177,7 +180,28 @@ def test_bump_version_increments(jobs_root, registry):
     job = job_mod.create_job(jobs_root, registry, "Autumn Sale", ["flyer-a5"], now=FIXED_NOW)
     bumped = job_mod.bump_version(jobs_root, job["id"])
     assert bumped["version"] == 2
-    assert bumped["deliverables"][0]["expected_stem"].endswith("_v02")
+    assert bumped["deliverables"][0]["expected_stem"] == "autumn-sale_148x210mm"  # no version
+
+
+def test_bump_version_moves_an_old_job_to_short_names(jobs_root, registry):
+    job = job_mod.create_job(jobs_root, registry, "Autumn Sale", ["flyer-a5"], now=FIXED_NOW)
+    old = "2026-09-25_autumn-sale_flyer-a5_148x210mm_v01"
+    job_mod.update_job(jobs_root, job["id"],
+                       lambda j: j["deliverables"][0].update(expected_stem=old))
+    job = job_mod.load_job(jobs_root, job["id"])
+    assert job["deliverables"][0]["expected_stem"] == old  # made before: kept as it is
+    bumped = job_mod.bump_version(jobs_root, job["id"])
+    assert bumped["deliverables"][0]["expected_stem"] == "autumn-sale_148x210mm"
+
+
+def test_two_sizes_with_the_same_name_carry_their_ids(jobs_root):
+    registry = load_registry(DEFAULTS)  # the shipped IG and FB stories
+    job = job_mod.create_job(jobs_root, registry, "Autumn Sale",
+                             ["ig-story", "fb-story", "flyer-a5"], now=FIXED_NOW)
+    stems = {d["format_id"]: d["expected_stem"] for d in job["deliverables"]}
+    assert stems == {"ig-story": "autumn-sale_ig-story_1080x1920px",
+                     "fb-story": "autumn-sale_fb-story_1080x1920px",
+                     "flyer-a5": "autumn-sale_148x210mm"}
 
 
 def test_bump_version_persists(jobs_root, registry):
@@ -262,7 +286,7 @@ def test_print_deliverable_type_follows_exports_then_physical_size(exports, size
         "size": {"w": size[0], "h": size[1], "unit": "mm"},
         "tiff_if_longest_side_mm_over": 1000,
     }
-    deliverables = job_mod._deliverables_for("2026-09-26", "s", fmt, 1)
+    deliverables = job_mod._deliverables_for("s", fmt, False)
     assert [d["type"] for d in deliverables] == expected
 
 

@@ -35,25 +35,20 @@ def test_empty_name_falls_back_to_job():
     assert naming.slugify("!!!") == "job"
 
 
-def test_expected_stem_matches_spec_example():
-    stem = naming.expected_stem(
-        "2026-09-25", "autumn-sale", "flyer-a5", 148, 210, "mm", version=1
-    )
-    assert stem == "2026-09-25_autumn-sale_flyer-a5_148x210mm_v01"
+def test_expected_stem_is_the_name_and_the_size():
+    assert naming.expected_stem("autumn-sale", 148, 210, "mm") == "autumn-sale_148x210mm"
 
 
 def test_expected_stem_with_panel():
-    stem = naming.expected_stem(
-        "2026-09-25", "autumn-sale", "elevator-main", 900, 2100, "mm", version=1, panel=2
-    )
-    assert stem == "2026-09-25_autumn-sale_elevator-main_900x2100mm_p2_v01"
+    stem = naming.expected_stem("autumn-sale", 900, 2100, "mm", panel=2)
+    assert stem == "autumn-sale_900x2100mm_p2"
 
 
-def test_expected_stem_zero_pads_version():
-    stem = naming.expected_stem("2026-09-25", "x", "y", 1, 1, "px", version=12)
-    assert stem.endswith("_v12")
+def test_expected_stem_with_the_format_id_when_sizes_clash():
+    stem = naming.expected_stem("autumn-sale", 1080, 1920, "px", format_id="fb-story")
+    assert stem == "autumn-sale_fb-story_1080x1920px"
 
 
 def test_expected_stem_non_integer_dimension():
-    stem = naming.expected_stem("2026-09-25", "x", "y", 148.5, 210, "mm", version=1)
+    stem = naming.expected_stem("x", 148.5, 210, "mm")
     assert "148.5x210mm" in stem

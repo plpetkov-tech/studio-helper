@@ -453,8 +453,8 @@
 
   function revisionDrawer() {
     UI.openDrawer("Start revision " + vv(job.version + 1) + "?", "",
-      "<p>New exports get " + vv(job.version + 1) + " in their names. Everything already exported stays as it is, for reference.</p>" +
-      "<p class=\"note\">Keep working in the same Illustrator/Photoshop files. Export picks up your changes and names them " + vv(job.version + 1) + ".</p>" +
+      "<p>The job moves to " + vv(job.version + 1) + ". File names don’t carry the version, so the next export replaces the files in 04_export with the new ones.</p>" +
+      "<p class=\"note\">Keep working in the same Illustrator/Photoshop files. Export picks up your changes.</p>" +
       '<div class="acts"><button class="btn primary" id="rev-confirm">Start ' + vv(job.version + 1) + '</button><button class="btn ghost" data-close>Cancel</button></div>');
     document.getElementById("rev-confirm").addEventListener("click", function () {
       SH.post(api("/revision")).then(function (res) {

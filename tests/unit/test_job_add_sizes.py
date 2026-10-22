@@ -2,6 +2,7 @@
 
 import json
 import threading
+from pathlib import Path
 
 import pytest
 from studio_helper.core import job as job_mod
@@ -15,6 +16,8 @@ EXTRA = """\
     size: {w: 1185, h: 1750, unit: mm}
     exports: [tiff]
 """
+
+DEFAULTS = Path(__file__).resolve().parents[2] / "defaults" / "registry.yaml"
 
 
 @pytest.fixture()
@@ -45,9 +48,7 @@ def test_add_sizes_joins_the_current_version_and_records_a_batch(jobs_root, regi
     assert job["version"] == 3  # not a revision
     new = [d for d in job["deliverables"] if d["format_id"] == "mall-x-citylight"]
     assert [d["type"] for d in new] == ["tiff"]
-    # same date and slug as the job's other files, current version
-    assert new[0]["expected_stem"] == (
-        "2026-09-25_black-november_mall-x-citylight_1185x1750mm_v03")
+    assert new[0]["expected_stem"] == "black-november_1185x1750mm"
     assert job["added"][0]["batch"] == 1
     assert job["added"][0]["format_ids"] == ["mall-x-citylight"]
     assert job_mod.load_job(jobs_root, job["id"]) == job  # persisted
@@ -89,7 +90,7 @@ def test_remove_and_restore_a_size(jobs_root, registry):
     job_mod.bump_version(jobs_root, job["id"])  # a revision while it's removed
     job = job_mod.restore_format(jobs_root, job["id"], "ig-post")
     stems = [d["expected_stem"] for d in job["deliverables"] if d["format_id"] == "ig-post"]
-    assert stems == ["2026-09-25_black-november_ig-post_1080x1350px_v02"]
+    assert stems == ["black-november_1080x1350px"]
     assert job["removed"] == []
 
 
@@ -174,3 +175,13 @@ def test_reuse_as_new_job_copies_current_files_and_leaves_the_old_job_alone(jobs
     assert new["video"]["screens"] == {}  # ig-post wasn't kept
     after = {p: p.read_bytes() for p in old_root.rglob("*") if p.is_file()}
     assert after == before  # the old job, byte for byte
+
+
+def test_an_added_size_with_a_taken_name_carries_its_id(jobs_root):
+    registry = load_registry(DEFAULTS)  # the shipped IG and FB stories
+    job = job_mod.create_job(jobs_root, registry, "Black November", ["ig-story"], now=FIXED_NOW)
+    job = job_mod.add_formats(jobs_root, job["id"], registry, ["fb-story"])
+    stems = {d["format_id"]: d["expected_stem"] for d in job["deliverables"]}
+    # what she may have delivered already keeps its name
+    assert stems == {"ig-story": "black-november_1080x1920px",
+                     "fb-story": "black-november_fb-story_1080x1920px"}

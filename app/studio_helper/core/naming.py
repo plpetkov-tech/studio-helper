@@ -2,7 +2,13 @@
 Bulgarian Cyrillic transliteration) and the expected export filename
 stem pattern.
 
-Pattern: {date}_{slug}_{format-id}_{W}x{H}{unit}[_p{n}]_v{NN}
+Pattern: {slug}[_{format-id}]_{W}x{H}{unit}[_p{n}]
+
+Just the job's name and the size (2026-10-22: management found the
+names too long). The format id goes in only when two sizes of one job
+would get the same name (IG story and FB story are both 1080x1920px).
+There is no date and no version: a revision's file replaces the last
+one under the same name. Jobs made before keep their dated names.
 """
 
 from __future__ import annotations
@@ -50,15 +56,14 @@ def _fmt_dim(value: float) -> str:
 
 
 def expected_stem(
-    date: str,
     slug: str,
-    format_id: str,
     w: float,
     h: float,
     unit: str,
-    version: int,
     panel: int | None = None,
+    format_id: str | None = None,
 ) -> str:
     dims = f"{_fmt_dim(w)}x{_fmt_dim(h)}{unit}"
     panel_part = f"_p{panel}" if panel is not None else ""
-    return f"{date}_{slug}_{format_id}_{dims}{panel_part}_v{version:02d}"
+    id_part = f"_{format_id}" if format_id else ""
+    return f"{slug}{id_part}_{dims}{panel_part}"
